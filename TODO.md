@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-10-31 · **Fase actual: 1 (base y mascota) — aprobada, en pausa hasta conectar GitHub**
+Última actualización: 2026-10-31 · **Fase actual: 1 (base y mascota) — implementada, falta la prueba manual de Diego (1.13)**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -18,20 +18,30 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` blo
 
 ## Fase 1 — Base y mascota (en curso)
 
-- [ ] 1.1 Instalar Python 3.12 (aprobado)
-- [ ] 1.2 Crear estructura de carpetas, `.gitignore`, `pyproject.toml`, `requirements.txt`, repo Git
-- [ ] 1.3 Crear `.venv` e instalar PySide6, psutil, pytest (con aprobación)
-- [ ] 1.4 Punto de entrada + bloqueo de instancia única + logging a `logs/`
-- [ ] 1.5 Carga de configuración (`config/default.toml` + configuración de usuario en `%LOCALAPPDATA%`)
-- [ ] 1.6 `PetWindow`: ventana transparente, sin marco, arrastrable, siempre encima opcional
-- [ ] 1.7 Redimensionar la mascota (rueda del ratón / menú) y recordar posición y tamaño
-- [ ] 1.8 `SpriteAnimator` + formato de paquete de personaje + sprites provisionales genéricos
-- [ ] 1.9 Estados visuales: idle, listening, thinking, speaking, happy, surprised, confused, angry, bored
-- [ ] 1.10 `TrayIcon`: mostrar/ocultar, siempre encima, salir
-- [ ] 1.11 Ventana de configuración mínima
-- [ ] 1.12 `scripts/medir_recursos.py` y medición (objetivo: < 200 MB RAM, < 1 % CPU en reposo)
-- [ ] 1.13 Pruebas: unitarias + lista manual (DPI 100/125/150 %, multi-monitor)
-- [ ] 1.14 `docs/LICENCIAS.md`
+- [x] 1.1 Instalar Python 3.12 (3.12.10, junto a 3.14; 3.14 sigue por defecto)
+- [x] 1.2 Crear estructura de carpetas, `.gitignore`, `pyproject.toml`, `requirements.txt`, repo Git
+- [x] 1.3 Crear `.venv` e instalar PySide6-Essentials, psutil, pytest (239 MB)
+- [x] 1.4 Punto de entrada + bloqueo de instancia única + logging (en `%LOCALAPPDATA%\KasaneTetoAI\logs`)
+- [x] 1.5 Carga de configuración (`config/default.toml` + `settings.json` en `%LOCALAPPDATA%`)
+- [x] 1.6 `PetWindow`: ventana transparente, sin marco, arrastrable, siempre encima opcional
+- [x] 1.7 Cambiar tamaño (rueda del ratón / configuración) y recordar posición y tamaño
+- [x] 1.8 `SpriteAnimator` + formato de paquete de personaje + sprites provisionales genéricos
+- [x] 1.9 Estados visuales: idle, listening, thinking, speaking, happy, surprised, confused, angry, bored
+- [x] 1.10 `TrayIcon`: mostrar/ocultar, siempre encima, salir
+- [x] 1.11 Ventana de configuración mínima
+- [x] 1.12 `scripts/medir_recursos.py` y medición (ver abajo)
+- [~] 1.13 Pruebas: 27 unitarias y prueba automática en el escritorio real, a 125 % de DPI, superadas.
+      **Falta la prueba manual de Diego:** arrastrar, rueda, clic derecho, clic en la bandeja, DPI
+      100/150 %, varios monitores y pantalla virtual, mascota con un juego abierto
+- [x] 1.14 `docs/LICENCIAS.md`
+
+Medido en reposo (2026-10-31): RAM ~66 MB, máximo 67,5 MB (objetivo < 200 MB, cumplido). CPU: 0,10 a
+0,33 % con la mascota quieta (objetivo < 1 %, cumplido), con mediana 0 %. En otras dos tomas salió
+0,87 y 1,21 % por ráfagas de 3–7 % de varios segundos. En la única ráfaga rastreada, la ventana se
+estaba arrastrando; la causa de las demás no está confirmada.
+
+Marcadores de posición declarados: los sprites son provisionales y el menú "Probar estado" es la
+única forma de cambiar de estado hasta la Fase 2.
 
 ## Fases siguientes (detalle al aprobar cada una)
 
@@ -65,3 +75,5 @@ Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` blo
   diagnóstico. Sin código de la app, sin instalaciones, sin descargas.
 - **2026-10-31:** diagnóstico ejecutado en el equipo real; propuesta ajustada con los resultados;
   corregida la línea de CUDA del script (nvidia-smi ahora muestra "CUDA UMD Version").
+- **2026-10-31:** repositorio conectado a GitHub (público). Fase 1 implementada: Python 3.12, `.venv`,
+  mascota, bandeja, configuración, pruebas y medición.

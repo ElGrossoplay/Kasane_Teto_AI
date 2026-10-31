@@ -1,0 +1,10 @@
+[project]
+name = "kasane-teto-ai"
+version = "0.1.0"
+description = "Asistente de escritorio local con mascota animada"
+requires-python = ">=3.12,<3.13"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["slow: necesita modelos reales"]

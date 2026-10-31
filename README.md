@@ -5,8 +5,9 @@ que vive en tu escritorio, conversa en español con una IA que corre **en tu pro
 hablar y escucharte, recuerda lo que tú le autorices y realiza acciones sencillas de Windows bajo
 tu control.
 
-> **Estado:** planificación. Todavía no hay código ejecutable. El progreso está en [`TODO.md`](TODO.md)
-> y el diseño en [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
+> **Estado:** Fase 1. Funciona la mascota con sprites provisionales; todavía no hay IA ni voz. El
+> progreso está en [`TODO.md`](TODO.md) y el diseño en
+> [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
 
 ## Principios
 
@@ -22,7 +23,7 @@ tu control.
 
 | Función | Fase | Estado |
 |---|---|---|
-| Mascota transparente, arrastrable, bandeja del sistema | 1 | Pendiente |
+| Mascota transparente, arrastrable, bandeja del sistema | 1 | En pruebas |
 | Chat con IA local y personalidad de Teto | 2 | Pendiente |
 | Voz (TTS) y push-to-talk (STT) | 3 | Pendiente |
 | Memoria persistente con panel de administración | 4 | Pendiente |
@@ -39,16 +40,19 @@ tu control.
 
 ## Instalación para desarrollo
 
-_Se completará en la Fase 1, cuando haya código que instalar._ Resumen previsto:
-
 ```powershell
-git clone <repositorio>
-cd KasaneTetoAI
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python -m kasane_teto
+git clone https://github.com/ElGrossoplay/Kasane_Teto_AI.git
+cd Kasane_Teto_AI
+py -V:3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\pythonw.exe ejecutar.pyw
 ```
+
+Pruebas: `.\.venv\Scripts\python.exe -m pytest`. Medir consumo:
+`.\.venv\Scripts\python.exe scripts\medir_recursos.py --segundos 60`.
+
+Uso de la mascota: arrastrar con el botón izquierdo, rueda del ratón para cambiar el tamaño y clic
+derecho (o el icono de la bandeja) para el menú.
 
 ## Diagnóstico del equipo
 
@@ -78,5 +82,5 @@ se usan solo con licencia o permiso de sus autores; ver `docs/LICENCIAS.md`.
 
 ## Licencia
 
-Por decidir (depende de si la app será pública y de las licencias de los componentes, por ejemplo
-Piper GPL-3.0).
+Sin licencia por ahora: el código es visible, pero todos los derechos quedan reservados. Las
+licencias de los componentes están en [`docs/LICENCIAS.md`](docs/LICENCIAS.md).

@@ -12,6 +12,7 @@ dist/
 
 # Datos locales y pesados
 logs/
+medida*.csv
 models/
 assets/voices/
 *.gguf

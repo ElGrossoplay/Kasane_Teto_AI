@@ -1,0 +1,7 @@
+# Valores por defecto. Los cambios del usuario se guardan en
+# %LOCALAPPDATA%\KasaneTetoAI\settings.json y tienen prioridad.
+
+[pet]
+pack = "provisional"
+scale = 100           # porcentaje, de 25 a 300
+always_on_top = true

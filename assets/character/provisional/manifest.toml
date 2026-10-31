@@ -1,0 +1,39 @@
+name = "Provisional"
+author = "Proyecto Kasane Teto AI Lite"
+license = "Marcador de posición del proyecto; no representa al personaje"
+
+[states.idle]
+frames = ["idle_0.png", "idle_1.png"]
+fps = 1
+
+[states.listening]
+frames = ["listening_0.png", "listening_1.png"]
+fps = 3
+
+[states.thinking]
+frames = ["thinking_0.png", "thinking_1.png"]
+fps = 2
+
+[states.speaking]
+frames = ["speaking_0.png", "speaking_1.png"]
+fps = 5
+
+[states.happy]
+frames = ["happy_0.png", "happy_1.png"]
+fps = 4
+
+[states.surprised]
+frames = ["surprised_0.png", "surprised_1.png"]
+fps = 4
+
+[states.confused]
+frames = ["confused_0.png", "confused_1.png"]
+fps = 2
+
+[states.angry]
+frames = ["angry_0.png", "angry_1.png"]
+fps = 5
+
+[states.bored]
+frames = ["bored_0.png", "bored_1.png"]
+fps = 1
