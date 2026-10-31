@@ -24,7 +24,7 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 |---|---|
 | Lenguaje / UI | Python 3.12 en `.venv`, PySide6. Sin QtWebEngine ni Electron |
 | IA | `llama-server.exe` (llama.cpp, build CUDA 12; plan B Vulkan, plan C CPU) como **subproceso** bajo demanda, HTTP en 127.0.0.1, una sola instancia, se cierra tras inactividad |
-| Modelo | Por decidir en Fase 2 con pruebas. Candidatos: Qwen3.5-4B / 2B Q4_K_M, Qwen3-4B-Instruct-2507. Contexto 4096 por defecto |
+| Modelo | Qwen3.5-4B Q4_K_M en GPU; respaldo en CPU Qwen3.5-2B Q4_K_M (peor calidad, inventa más). Contexto 4096. Elegido con la batería de `scripts/probar_modelos.py` |
 | TTS | Piper como programa externo (licencia GPL-3.0 en la versión activa), voz candidata `es_MX-claude-high` |
 | STT | faster-whisper `base` int8 en CPU (alternativas: `tiny`, Vosk). Push-to-talk |
 | Memoria | SQLite + FTS5, sin embeddings por ahora. Datos en `%LOCALAPPDATA%\KasaneTetoAI\` |

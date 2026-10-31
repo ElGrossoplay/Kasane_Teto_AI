@@ -5,7 +5,7 @@ que vive en tu escritorio, conversa en español con una IA que corre **en tu pro
 hablar y escucharte, recuerda lo que tú le autorices y realiza acciones sencillas de Windows bajo
 tu control.
 
-> **Estado:** Fase 1 completada. Funciona la mascota con sprites provisionales; todavía no hay IA ni voz. El
+> **Estado:** Fase 2 en pruebas. Funcionan la mascota con sprites provisionales y el chat con IA local; todavía no hay voz. El
 > progreso está en [`TODO.md`](TODO.md) y el diseño en
 > [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
 
@@ -24,7 +24,7 @@ tu control.
 | Función | Fase | Estado |
 |---|---|---|
 | Mascota transparente, arrastrable, bandeja del sistema | 1 | Hecho |
-| Chat con IA local y personalidad de Teto | 2 | Pendiente |
+| Chat con IA local y personalidad de Teto | 2 | En pruebas |
 | Voz (TTS) y push-to-talk (STT) | 3 | Pendiente |
 | Memoria persistente con panel de administración | 4 | Pendiente |
 | Acciones de Windows controladas y búsqueda web opcional | 5 | Pendiente |
@@ -48,7 +48,10 @@ py -V:3.12 -m venv .venv
 .\.venv\Scripts\pythonw.exe ejecutar.pyw
 ```
 
-Pruebas: `.\.venv\Scripts\python.exe -m pytest`. Medir consumo:
+Para el chat hacen falta, fuera de git, los binarios de llama.cpp en `models/llama/` y los GGUF
+indicados en `config/default.toml` en `models/gguf/`.
+
+Pruebas: `.\.venv\Scripts\python.exe -m pytest` (con modelos reales, añade `-m slow`). Medir consumo:
 `.\.venv\Scripts\python.exe scripts\medir_recursos.py --segundos 60`.
 
 Uso de la mascota: arrastrar con el botón izquierdo, rueda del ratón para cambiar el tamaño y clic

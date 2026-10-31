@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-10-31 · **Fase 1 completada · Siguiente: Fase 2 (IA local), pendiente de aprobación**
+Última actualización: 2026-10-31 · **Fase actual: 2 (IA local) — implementada, falta la prueba manual de Diego (2.9)**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -42,9 +42,34 @@ estaba arrastrando; la causa de las demás no está confirmada.
 Marcadores de posición declarados: los sprites son provisionales y el menú "Probar estado" es la
 única forma de cambiar de estado hasta la Fase 2.
 
+## Fase 2 — IA local (en pruebas)
+
+- [x] 2.1 Descargar llama.cpp b12024 (CUDA 12.4) y comprobar que detecta la GTX 1650
+- [x] 2.2 Descargar 3 modelos con hash verificado y elegir con la batería → Qwen3.5-4B en GPU
+- [x] 2.3 `LLMProcess`: solo en 127.0.0.1, clave aleatoria, Job Object, limpieza de huérfanos
+- [x] 2.4 `LLMClient`: streaming, cancelación y errores controlados
+- [x] 2.5 Personalidad, gramática y `EmotionParser` (emoción → animación)
+- [x] 2.6 `ResourceManager`: GPU/CPU según VRAM libre, descarga por inactividad y manual
+- [x] 2.7 `ConversationService` en hilo aparte + `ChatWindow`
+- [x] 2.8 Pruebas: 71 automáticas + 1 con modelo real + verificación en el equipo real
+- [ ] 2.9 **Diego:** probar el chat con la app abierta y valorar la personalidad
+
+Medido (2026-10-31), objetivos entre paréntesis: reposo con IA descargada 75 MB y 0,00 % de CPU;
+IA activa 1215 MB de RAM (< ~1,5 GB) y 2933 MiB de VRAM (≤ ~3,5 GB); 42 tokens/s; primera palabra
+0,6–0,8 s con el modelo cargado (< 3 s), ~6 s si hay que cargarlo; VRAM liberada al 100 % al
+descargar (3694 → 3694 MiB libres); interfaz sin congelarse (pausa máxima 187 ms).
+En CPU: 8,4 tokens/s, 1,8 GB de RAM.
+
+Limitaciones conocidas:
+- La carga en frío puede tardar 30–80 s si el modelo no está en la caché de disco de Windows.
+- Qwen3.5-4B usa mucho `[neutral]`, por lo que la mascota varía poco de expresión, y a veces añade
+  frases sin sentido. Puede inventar: es inherente a un modelo de este tamaño.
+- Qwen3.5-2B en CPU inventa bastante más (en la batería dijo que el perro se llama Max). Es solo
+  un respaldo para cuando no hay VRAM.
+- Marcador de posición: la conversación se pierde al cerrar la app hasta la Fase 4 (memoria).
+
 ## Fases siguientes (detalle al aprobar cada una)
 
-- [ ] Fase 2 — IA local: `LLMProcess`, `LLMClient`, personalidad, emociones, carga/descarga, pruebas de modelos
 - [ ] Fase 3 — Voz: Piper, faster-whisper/Vosk, push-to-talk, volumen
 - [ ] Fase 4 — Memoria: SQLite + FTS5, confirmaciones, panel, historial
 - [ ] Fase 5 — Herramientas: lista blanca, confirmaciones, registro, búsqueda web opcional
@@ -62,7 +87,6 @@ Marcadores de posición declarados: los sprites son provisionales y el menú "Pr
 ## Problemas conocidos / pendientes de verificar
 
 - Detalles del equipo y pruebas específicas: `docs/privado/EQUIPO_LOCAL.md` (local, no se sube).
-- Comprobar en la Fase 2 con `--list-devices` que el build CUDA 12 detecta la GPU.
 - La VRAM libre puede bajar con otras apps activas: medirla antes de cargar el modelo.
 - Repositorio público: `https://github.com/ElGrossoplay/Kasane_Teto_AI`. Sin archivo de licencia,
   el código queda con todos los derechos reservados.
@@ -79,3 +103,5 @@ Marcadores de posición declarados: los sprites son provisionales y el menú "Pr
   mascota, bandeja, configuración, pruebas y medición.
 - **2026-10-31:** prueba manual de Diego superada; Fase 1 cerrada. Añadida la regla de no interactuar
   con juegos ni anticheat.
+- **2026-10-31:** Fase 2 implementada: llama.cpp, modelos, batería, chat, emociones y descarga por
+  inactividad. Pendiente la prueba manual.

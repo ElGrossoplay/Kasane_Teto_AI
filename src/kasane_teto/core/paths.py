@@ -20,6 +20,10 @@ def character_root() -> Path:
     return project_root() / "assets" / "character"
 
 
+def models_dir() -> Path:
+    return project_root() / "models"
+
+
 def data_dir() -> Path:
     """Carpeta de datos del usuario; KASANE_TETO_DATA la sustituye en pruebas."""
     override = os.environ.get("KASANE_TETO_DATA")

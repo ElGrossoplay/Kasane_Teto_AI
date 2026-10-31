@@ -18,6 +18,9 @@ class TrayIcon(QObject):
         self._bus = bus
         self._menu = QMenu()
 
+        self._menu.addAction("Hablar con Teto").triggered.connect(
+            lambda: bus.chat_requested.emit()
+        )
         self._menu.addAction("Mostrar u ocultar").triggered.connect(
             lambda: bus.pet_visibility_toggled.emit()
         )
@@ -34,6 +37,9 @@ class TrayIcon(QObject):
             )
 
         self._menu.addSeparator()
+        self._menu.addAction("Liberar memoria de la IA").triggered.connect(
+            lambda: bus.ai_unload_requested.emit()
+        )
         self._menu.addAction("Configuración…").triggered.connect(
             lambda: bus.settings_requested.emit()
         )

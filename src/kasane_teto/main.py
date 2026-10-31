@@ -12,14 +12,17 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from kasane_teto.character.pack import CharacterPack, PackError, list_packs, load_pack
 from kasane_teto.character.states import PetState
+from kasane_teto.core.conversation import ConversationService
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.logging_setup import setup_logging
-from kasane_teto.core.paths import character_root, data_dir, default_config_path
+from kasane_teto.core.paths import character_root, data_dir, default_config_path, models_dir
+from kasane_teto.core.resource_manager import ResourceManager
 from kasane_teto.core.settings import Settings
 from kasane_teto.core.single_instance import SingleInstance
 from kasane_teto.desktop.animator import SpriteAnimator
 from kasane_teto.desktop.pet_window import PetWindow
 from kasane_teto.desktop.tray import TrayIcon
+from kasane_teto.interface.chat_window import ChatWindow
 from kasane_teto.interface.settings_window import SettingsWindow
 
 FALLBACK_PACK = "provisional"
@@ -43,6 +46,11 @@ class TetoApp(QObject):
         self._tray = TrayIcon(
             QIcon(self._animator.current_pixmap()), self._pet.always_on_top, self._bus, self
         )
+        self._resources = ResourceManager(
+            settings, models_dir(), user_dir / "logs" / "llama-server.log", self
+        )
+        self._conversation = ConversationService(self._bus, self._resources, settings, self)
+        self._chat_window = ChatWindow(self._bus)
 
         self._bus.pet_state_requested.connect(self._animator.set_state)
         self._bus.pet_visibility_toggled.connect(self._pet.toggle_visibility)
@@ -50,6 +58,8 @@ class TetoApp(QObject):
         self._bus.scale_requested.connect(self._pet.set_scale)
         self._bus.pack_requested.connect(self._change_pack)
         self._bus.settings_requested.connect(self._open_settings)
+        self._bus.chat_requested.connect(self._chat_window.open)
+        self._bus.ai_unload_requested.connect(self._resources.request_unload)
         self._bus.quit_requested.connect(app.quit)
         app.aboutToQuit.connect(self._shutdown)
 
@@ -102,8 +112,10 @@ class TetoApp(QObject):
         self._settings_window = None
 
     def _shutdown(self) -> None:
+        self._bus.generation_stop_requested.emit()
         self._pet.save_position()
         self._tray.hide()
+        self._resources.shutdown()
 
 
 def main() -> int:
