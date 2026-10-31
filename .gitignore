@@ -1,0 +1,34 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Empaquetado
+build/
+dist/
+*.spec
+
+# Datos locales y pesados
+logs/
+models/
+assets/voices/
+*.gguf
+*.onnx
+
+# Secretos y configuración local
+.env
+.env.*
+docs/privado/
+
+# Arte con permiso: el repositorio es público y el permiso no cubre redistribuirlo
+assets/character/*
+!assets/character/provisional/
+
+# Editores y sistema
+.vscode/
+.idea/
+.claude/
+Thumbs.db
+Desktop.ini
