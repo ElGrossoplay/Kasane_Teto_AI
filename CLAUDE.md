@@ -68,6 +68,9 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 - Nada se guarda en memoria sin confirmación del usuario. Nada sale a Internet sin consentimiento,
   y nunca recuerdos personales en consultas web.
 - La IA no modifica su propio código.
+- Juegos y anticheat: nunca forzar la superposición sobre un juego. Sin inyección, ganchos de teclado
+  o ratón, overlays de GPU, capturas de pantalla del juego, lectura de su memoria ni apertura de su
+  proceso. Atajos solo con `RegisterHotKey`. Si el juego no deja ver la mascota, se acepta.
 - Arte y voz de Kasane Teto: derechos de TWINDRILL (directrices en kasaneteto.jp). Claude no dibuja
   al personaje; el arte lo aporta Diego con permiso del autor. No clonar la voz oficial.
 - Registrar la licencia de cada recurso de terceros en `docs/LICENCIAS.md`.
