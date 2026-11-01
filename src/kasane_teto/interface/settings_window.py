@@ -42,6 +42,8 @@ class SettingsWindow(QDialog):
         data_dir: Path,
         voice: VoiceOptions,
         web_enabled: bool,
+        suggest_memories: bool = True,
+        save_history: bool = False,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Configuración")
@@ -90,6 +92,16 @@ class SettingsWindow(QDialog):
         self._web.setChecked(web_enabled)
         self._web.toggled.connect(bus.web_enabled_requested)
 
+        self._suggest = QCheckBox("Teto pregunta si recordar lo que le cuentas")
+        self._suggest.setToolTip("Nunca guarda nada sin que digas que sí.")
+        self._suggest.setChecked(suggest_memories)
+        self._suggest.toggled.connect(bus.memory_suggestions_requested)
+
+        self._history = QCheckBox("Guardar el historial de conversaciones")
+        self._history.setToolTip("Se guarda solo en este equipo y se borra desde Memoria.")
+        self._history.setChecked(save_history)
+        self._history.toggled.connect(bus.history_enabled_requested)
+
         data_label = QLabel(str(data_dir))
         data_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
@@ -102,6 +114,8 @@ class SettingsWindow(QDialog):
         form.addRow("Volumen", self._volume)
         form.addRow(self._mic)
         form.addRow(self._web)
+        form.addRow(self._suggest)
+        form.addRow(self._history)
         form.addRow("Datos", data_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)

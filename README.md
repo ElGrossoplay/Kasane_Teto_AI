@@ -5,8 +5,8 @@ que vive en tu escritorio, conversa en español con una IA que corre **en tu pro
 hablar y escucharte, recuerda lo que tú le autorices y realiza acciones sencillas de Windows bajo
 tu control.
 
-> **Estado:** Fase 3 completada y búsqueda de música en VocaDB añadida. Funcionan la mascota con sprites
-> provisionales, el chat con IA local y la voz. El progreso está en [`TODO.md`](TODO.md) y el diseño en
+> **Estado:** Fases 1 a 3 y búsqueda de música completadas; memoria en prueba. Funcionan la mascota con
+> sprites provisionales, el chat con IA local, la voz y los recuerdos. El progreso está en [`TODO.md`](TODO.md) y el diseño en
 > [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
 
 ## Principios
@@ -26,7 +26,7 @@ tu control.
 | Mascota transparente, arrastrable, bandeja del sistema | 1 | Hecho |
 | Chat con IA local y personalidad de Teto | 2 | Hecho |
 | Voz (TTS) y push-to-talk (STT) | 3 | Hecho |
-| Memoria persistente con panel de administración | 4 | Pendiente |
+| Memoria persistente con panel de administración | 4 | En prueba |
 | Búsqueda opcional de artistas y canciones en VocaDB | 5 | Hecho |
 | Acciones de Windows controladas | 5 | Pendiente |
 | Modo juego y estados de consumo | 6 | Pendiente |
@@ -62,6 +62,10 @@ derecho (o el icono de la bandeja) para el menú.
 La búsqueda en Internet viene apagada y se activa en Configuración. Consulta
 [VocaDB](https://vocadb.net), envía solo el nombre del artista o la canción y cita la fuente en el
 chat. Sus datos están bajo licencia Creative Commons Attribution.
+
+Memoria: di "recuerda que…" y confirma con los botones o diciendo "sí". Nada se guarda sin tu
+confirmación. En el menú, "Memoria…" permite ver, editar y borrar lo guardado, todo en tu equipo. El
+historial de conversaciones viene apagado y se activa en Configuración.
 
 ## Diagnóstico del equipo
 

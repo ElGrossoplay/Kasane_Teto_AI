@@ -32,3 +32,8 @@ load_timeout_seconds = 120
 
 [web]
 enabled = false       # nada sale a Internet hasta activarlo en Configuración
+
+[memory]
+suggest = true        # Teto pregunta si guardar lo que le cuentas; nunca guarda sin confirmación
+save_history = false  # guardar las conversaciones completas es opcional
+max_results = 3       # recuerdos que llegan al modelo en cada turno

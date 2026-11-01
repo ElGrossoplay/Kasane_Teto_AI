@@ -32,8 +32,10 @@ from kasane_teto.desktop.hotkey import HOTKEY_LABEL, GlobalHotkey
 from kasane_teto.desktop.pet_window import PetWindow
 from kasane_teto.desktop.tray import TrayIcon
 from kasane_teto.interface.chat_window import ChatWindow
+from kasane_teto.interface.memory_window import MemoryWindow
 from kasane_teto.interface.settings_window import SettingsWindow, VoiceOptions
 from kasane_teto.memory.knowledge import KnowledgeBase, KnowledgeError
+from kasane_teto.memory.store import MemoryStore, MemoryStoreError
 from kasane_teto.tools.vocadb import VocaDBClient
 from kasane_teto.tools.web_lookup import MusicLookup
 from kasane_teto.voice.audio import AudioPlayer, AudioRecorder
@@ -67,6 +69,8 @@ class TetoApp(QObject):
             settings, models_dir(), user_dir / "logs" / "llama-server.log", self
         )
         knowledge = self._load_knowledge()
+        self._memory = self._open_memory_store(user_dir)
+        self._memory_window: MemoryWindow | None = None
         self._conversation = ConversationService(
             self._bus,
             self._resources,
@@ -74,6 +78,7 @@ class TetoApp(QObject):
             knowledge,
             MusicLookup(VocaDBClient(user_dir / "vocadb_cache.sqlite3")),
             self,
+            memory=self._memory,
         )
         self._chat_window = ChatWindow(self._bus)
         self._speech = SpeechService(
@@ -107,6 +112,7 @@ class TetoApp(QObject):
         self._bus.scale_requested.connect(self._pet.set_scale)
         self._bus.pack_requested.connect(self._change_pack)
         self._bus.settings_requested.connect(self._open_settings)
+        self._bus.memory_panel_requested.connect(self._open_memory_window)
         self._bus.chat_requested.connect(self._chat_window.open)
         self._bus.ai_unload_requested.connect(self._resources.request_unload)
         self._bus.quit_requested.connect(app.quit)
@@ -133,6 +139,30 @@ class TetoApp(QObject):
             self._hotkey.unregister()
         elif not self._hotkey.register():
             self._bus.voice_status.emit(f"El atajo {HOTKEY_LABEL} no está disponible.")
+
+    @staticmethod
+    def _open_memory_store(user_dir: Path) -> MemoryStore | None:
+        try:
+            return MemoryStore(user_dir / "memory.sqlite3")
+        except MemoryStoreError:
+            log.exception("Memoria no disponible; Teto sigue sin recuerdos")
+            return None
+
+    def _open_memory_window(self) -> None:
+        if self._memory_window is not None:
+            self._memory_window.raise_()
+            self._memory_window.activateWindow()
+            return
+        if self._memory is None:
+            QMessageBox.warning(None, "Memoria", "La memoria no está disponible.")
+            return
+        window = MemoryWindow(self._memory)
+        window.destroyed.connect(self._on_memory_window_closed)
+        self._memory_window = window
+        window.show()
+
+    def _on_memory_window_closed(self) -> None:
+        self._memory_window = None
 
     @staticmethod
     def _load_knowledge() -> KnowledgeBase:
@@ -182,6 +212,8 @@ class TetoApp(QObject):
                 mic_enabled=self._listen.enabled,
             ),
             self._conversation.web_enabled,
+            self._conversation.suggestions_enabled,
+            self._conversation.history_enabled,
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QTextCursor
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -32,6 +33,19 @@ class ChatWindow(QWidget):
         self._talk = QPushButton("Hablar")
         self._talk.setToolTip("Mantén pulsado para hablar")
 
+        self._proposal = QLabel(wordWrap=True)
+        self._remember = QPushButton("Sí, recuérdalo")
+        self._forget = QPushButton("No")
+        self._remember.clicked.connect(lambda: bus.memory_answered.emit(True))
+        self._forget.clicked.connect(lambda: bus.memory_answered.emit(False))
+        self._proposal_bar = QWidget()
+        bar = QHBoxLayout(self._proposal_bar)
+        bar.setContentsMargins(0, 0, 0, 0)
+        bar.addWidget(self._proposal, 1)
+        bar.addWidget(self._remember)
+        bar.addWidget(self._forget)
+        self._proposal_bar.hide()
+
         row = QHBoxLayout()
         row.addWidget(self._input)
         row.addWidget(self._send)
@@ -40,6 +54,7 @@ class ChatWindow(QWidget):
         layout = QVBoxLayout(self)
         layout.addWidget(self._log)
         layout.addWidget(self._status)
+        layout.addWidget(self._proposal_bar)
         layout.addLayout(row)
 
         self._input.returnPressed.connect(self._submit)
@@ -54,6 +69,15 @@ class ChatWindow(QWidget):
         bus.assistant_done.connect(self._on_done)
         bus.assistant_error.connect(self._on_error)
         bus.transcript_ready.connect(self._send_text)
+        bus.memory_proposed.connect(self._show_proposal)
+
+    def _show_proposal(self, content: str) -> None:
+        """Un texto vacío retira la propuesta. Se abre sin quitar el foco a lo que estés haciendo."""
+        self._proposal.setText(f"¿Quieres que recuerde esto? «{content}»")
+        self._proposal_bar.setVisible(bool(content))
+        if content and not self.isVisible():
+            self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
+            self.show()
 
     def open(self) -> None:
         self.show()

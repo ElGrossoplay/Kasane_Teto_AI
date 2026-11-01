@@ -40,6 +40,9 @@ class TrayIcon(QObject):
         self._menu.addAction("Liberar memoria de la IA").triggered.connect(
             lambda: bus.ai_unload_requested.emit()
         )
+        self._menu.addAction("Memoria…").triggered.connect(
+            lambda: bus.memory_panel_requested.emit()
+        )
         self._menu.addAction("Configuración…").triggered.connect(
             lambda: bus.settings_requested.emit()
         )

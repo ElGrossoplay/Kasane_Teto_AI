@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-01 · **Fase 3 completada · Búsqueda en VocaDB completada y aprobada por Diego · Siguiente: Fase 4 (memoria), pendiente de aprobación**
+Última actualización: 2026-11-01 · **Fase 3 y búsqueda en VocaDB completadas · Fase 4 (memoria) hecha, pendiente de la prueba manual de Diego**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -86,7 +86,6 @@ Limitaciones conocidas:
   frases sin sentido. Puede inventar: es inherente a un modelo de este tamaño.
 - Qwen3.5-2B en CPU inventa bastante más (en la batería dijo que el perro se llama Max). Es solo
   un respaldo para cuando no hay VRAM.
-- Marcador de posición: la conversación se pierde al cerrar la app hasta la Fase 4 (memoria).
 
 ## Fase 3 — Voz (completada)
 
@@ -209,9 +208,40 @@ Limitaciones conocidas:
   y enlazar la fuente; miles de consultas al día sin permiso pueden suponer un bloqueo de la IP.
   La licencia dice "Creative Commons Attribution" sin indicar versión
 
+## Fase 4 — Memoria (aprobada por Diego, 2026-11-01)
+
+- [x] 4.1 `memory/store.py`: recuerdos con FTS5 e historial en
+      `%LOCALAPPDATA%\KasaneTetoAI\memory.sqlite3`. Lo borrado no queda legible en el archivo
+- [x] 4.2 `memory/proposals.py`: detecta pedidos ("recuerda que…") y frases claras ("me llamo…", "me
+      gustan…"). Solo propone; contraseñas, tarjetas, correos y números largos nunca se proponen
+- [x] 4.3 Confirmación con botones en el chat o diciendo "sí"/"no". Cualquier otra frase retira la
+      propuesta. Los pedidos expresos se responden sin pasar por el modelo
+- [x] 4.4 Hasta 3 recuerdos relevantes por turno, o los 8 últimos con "¿qué recuerdas de mí?". Solo
+      llegan al modelo local: nunca a VocaDB. No se guardan en la conversación del modelo
+- [x] 4.5 Panel "Memoria…" en el menú: ver, buscar, añadir, editar y borrar recuerdos e historial
+- [x] 4.6 Configuración: propuestas activadas y **historial apagado por defecto**, porque guardar
+      conversaciones también es memoria. Los mensajes con datos sensibles se omiten del historial
+- [ ] 4.7 **Diego:** prueba manual
+
+Medido (2026-11-01): 386 pruebas. `scripts/probar_memoria.py` 39/39 con el modelo real. Recorrido
+real: lo guardado sigue tras reiniciar el servicio, lo rechazado no se guarda y `Cómo te llamas` no
+saca datos del usuario. Reposo 82,3 MB frente a 78,1 MB antes, y 0,00 % de CPU. Interfaz: pausa
+máxima 93 ms durante los turnos. Con 1000 recuerdos, buscar 2 ms, guardar 6 ms y borrar 9 ms en el
+hilo de la interfaz. El panel tarda ~130 ms en abrirse con 1000 recuerdos.
+
+Limitaciones conocidas:
+- El historial se puede consultar en el panel, pero Teto no retoma la conversación anterior al
+  reiniciar: solo conserva los recuerdos
+- La búsqueda es por palabras: "¿Qué bebo por las mañanas?" no encuentra "me gusta el café"
+- Solo detecta frases concretas. Lo demás hay que pedirlo con "recuerda que…" o añadirlo en el panel
+- Olvidar algo se hace desde el panel: decirle "olvida que…" no borra nada
+- El modelo a veces confunde detalles de un recuerdo ("el nombre que te diste a tu perro")
+- La confirmación por voz depende de que "sí" o "no" se transcriban bien
+- Las contraseñas no se guardan en memoria ni historial, pero el modelo sí las ve en esa conversación
+  y puede repetirlas mientras siga abierta
+
 ## Fases siguientes (detalle al aprobar cada una)
 
-- [ ] Fase 4 — Memoria: SQLite + FTS5, confirmaciones, panel, historial
 - [ ] Fase 5 — Herramientas: lista blanca, confirmaciones, registro, búsqueda general opcional
 - [ ] Fase 6 — Optimización: modo juego (sin interactuar con juegos ni anticheat), estados, prueba de
       estabilidad de 8 h
@@ -265,3 +295,5 @@ Limitaciones conocidas:
   limitador en el audio del micrófono. Pendiente grabar sin mejoras de audio.
 - **2026-11-01:** con las mejoras de audio revisadas, `small` llega a 88 % y `base` baja a 59 %.
   Diego aprobó el cambio: la app pasa a `small`. Prueba por voz superada y subido a GitHub.
+- **2026-11-01:** Fase 4 implementada: recuerdos con confirmación, panel e historial opcional.
+  Pendiente la prueba manual.

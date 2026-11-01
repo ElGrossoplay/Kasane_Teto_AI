@@ -16,6 +16,14 @@ from kasane_teto.core.events import EventBus
 from kasane_teto.core.resource_manager import ResourceManager
 from kasane_teto.core.settings import Settings
 from kasane_teto.memory.knowledge import Entry, KnowledgeBase, is_follow_up, wants_opinion
+from kasane_teto.memory.proposals import (
+    Proposal,
+    asks_memories,
+    detect_proposal,
+    has_secret,
+    read_answer,
+)
+from kasane_teto.memory.store import MemoryStore, MemoryStoreError
 from kasane_teto.personality.emotion_parser import RESPONSE_GRAMMAR, EmotionParser
 from kasane_teto.personality.prompt_builder import (
     build_messages,
@@ -40,6 +48,12 @@ TRUNCATED_NOTICE = "…\n(Respuesta cortada por longitud: pídeme que continúe.
 WEB_FAILED_NOTICE = "\n(No pude consultar VocaDB: he respondido sin esos datos.)"
 EMPTY_ANSWER_MESSAGE = "Me he quedado en blanco. ¿Me lo repites?"
 WEB_OFF_NOTICE = "\n(La búsqueda en VocaDB está apagada: actívala en Configuración.)"
+MEMORY_ASK_REPLY = "¿Lo guardo? Dime sí o no, o usa los botones."
+MEMORY_SAVED_REPLY = "Hecho, lo recordaré."
+MEMORY_DECLINED_REPLY = "Vale, no lo guardo."
+MEMORY_FAILED_REPLY = "No he podido guardarlo. Revisa la memoria en el menú."
+RECENT_MEMORIES = 8
+OMITTED_MESSAGE = "(Mensaje omitido: parecía contener un dato sensible.)"
 
 log = logging.getLogger(__name__)
 
@@ -147,6 +161,7 @@ class ConversationService(QObject):
         knowledge: KnowledgeBase,
         web: MusicLookup | None = None,
         parent: QObject | None = None,
+        memory: MemoryStore | None = None,
     ) -> None:
         super().__init__(parent)
         self._bus = bus
@@ -154,6 +169,10 @@ class ConversationService(QObject):
         self._settings = settings
         self._knowledge = knowledge
         self._web = web
+        self._memory = memory
+        self._turn_proposal: Proposal | None = None
+        self._pending_proposal: Proposal | None = None
+        self._conversation_id: int | None = None
         self._last_web = WebResult()
         self._system_prompt = load_system_prompt()
         self._context_size = int(settings.get("ai.context_size", 4096))
@@ -178,6 +197,9 @@ class ConversationService(QObject):
         bus.generation_stop_requested.connect(self._on_stop)
         bus.speech_active.connect(self._on_speech_active)
         bus.web_enabled_requested.connect(self._set_web_enabled)
+        bus.memory_answered.connect(self._on_memory_answered)
+        bus.history_enabled_requested.connect(self._set_history_enabled)
+        bus.memory_suggestions_requested.connect(self._set_suggestions_enabled)
 
     @property
     def is_busy(self) -> bool:
@@ -187,9 +209,24 @@ class ConversationService(QObject):
     def web_enabled(self) -> bool:
         return self._web is not None and bool(self._settings.get("web.enabled", False))
 
+    @property
+    def history_enabled(self) -> bool:
+        return self._memory is not None and bool(self._settings.get("memory.save_history", False))
+
+    @property
+    def suggestions_enabled(self) -> bool:
+        return self._memory is not None and bool(self._settings.get("memory.suggest", True))
+
     def _on_user_message(self, text: str) -> None:
         text = text.strip()
-        if not text or self.is_busy:
+        if not text or self.is_busy or self._answered_proposal(text):
+            return
+        proposal = self._proposal_for(text)
+        if proposal is not None and proposal.explicit:
+            # Sin pasar por el modelo: tiende a confundir de quién es lo que se le pide recordar.
+            self._offer_proposal(proposal)
+            self._bus.assistant_token.emit(MEMORY_ASK_REPLY)
+            self._bus.assistant_done.emit()
             return
         self._rest_timer.stop()
         self._history.append({"role": "user", "content": text})
@@ -198,13 +235,15 @@ class ConversationService(QObject):
         if len(self._history) > MAX_HISTORY_MESSAGES:
             self._history = self._history[-KEPT_HISTORY_MESSAGES:]
         entries = self._relevant_knowledge()
+        memories = self._relevant_memories(text)
+        self._turn_proposal = proposal
         self._cancel = threading.Event()
         self._resources.set_busy(True)
         self._bus.pet_state_requested.emit(PetState.THINKING)
 
         task = _GenerationTask(
             self._resources,
-            partial(self._compose, text, entries),
+            partial(self._compose, text, entries, memories),
             self._params,
             self._cancel,
             self._web_search_for(text),
@@ -218,6 +257,88 @@ class ConversationService(QObject):
         task.signals.failed.connect(self._on_failed)
         self._task_signals = task.signals
         QThreadPool.globalInstance().start(task)
+
+    def _relevant_memories(self, text: str) -> list[str]:
+        """Los recuerdos solo van al modelo local: nunca entran en una consulta web."""
+        if self._memory is None:
+            return []
+        limit = int(self._settings.get("memory.max_results", 3))
+        try:
+            found = (
+                self._memory.recent(RECENT_MEMORIES)
+                if asks_memories(text)
+                else self._memory.search(text, limit)
+            )
+        except MemoryStoreError as exc:
+            log.error("Memoria no disponible: %s", exc)
+            return []
+        return [memory.content for memory in found]
+
+    def _proposal_for(self, text: str) -> Proposal | None:
+        if self._memory is None:
+            return None
+        proposal = detect_proposal(text)
+        if proposal is None or not (proposal.explicit or self.suggestions_enabled):
+            return None
+        try:
+            return None if self._memory.contains(proposal.content) else proposal
+        except MemoryStoreError as exc:
+            log.error("Memoria no disponible: %s", exc)
+            return None
+
+    def _offer_proposal(self, proposal: Proposal | None) -> None:
+        self._pending_proposal = proposal
+        self._bus.memory_proposed.emit(proposal.content if proposal else "")
+
+    def _answered_proposal(self, text: str) -> bool:
+        """Un "sí" o un "no" sueltos responden a la propuesta sin pasar por el modelo."""
+        if self._pending_proposal is None:
+            return False
+        answer = read_answer(text)
+        if answer is None:
+            self._offer_proposal(None)
+            return False
+        reply = self._resolve_proposal(answer)
+        self._bus.assistant_token.emit(reply)
+        self._bus.assistant_done.emit()
+        return True
+
+    def _on_memory_answered(self, accepted: bool) -> None:
+        if self._pending_proposal is not None:
+            self._bus.assistant_notice.emit(f"({self._resolve_proposal(accepted)})\n\n")
+
+    def _resolve_proposal(self, accepted: bool) -> str:
+        proposal = self._pending_proposal
+        self._offer_proposal(None)
+        if not accepted or proposal is None or self._memory is None:
+            return MEMORY_DECLINED_REPLY
+        try:
+            self._memory.add(proposal.kind, proposal.content)
+        except MemoryStoreError as exc:
+            log.error("No se pudo guardar el recuerdo: %s", exc)
+            return MEMORY_FAILED_REPLY
+        return MEMORY_SAVED_REPLY
+
+    def _save_exchange(self, answer: str) -> None:
+        """El historial es opcional: guardar conversaciones enteras exige activarlo antes."""
+        if not self.history_enabled or self._memory is None:
+            return
+        question = next(m["content"] for m in reversed(self._history) if m["role"] == "user")
+        try:
+            if self._conversation_id is None:
+                self._conversation_id = self._memory.start_conversation()
+            for role, content in (("user", question), ("assistant", answer)):
+                safe = OMITTED_MESSAGE if has_secret(content) else content
+                self._memory.add_message(self._conversation_id, role, safe)
+        except MemoryStoreError as exc:
+            log.error("No se pudo guardar el historial: %s", exc)
+
+    def _set_history_enabled(self, enabled: bool) -> None:
+        self._settings.set("memory.save_history", enabled)
+        self._conversation_id = None
+
+    def _set_suggestions_enabled(self, enabled: bool) -> None:
+        self._settings.set("memory.suggest", enabled)
 
     def _relevant_knowledge(self) -> list[Entry]:
         """Un nombre citado manda; el tema anterior solo sigue en preguntas de seguimiento."""
@@ -284,14 +405,14 @@ class ConversationService(QObject):
         return self._web.search(query)
 
     def _compose(
-        self, text: str, entries: list[Entry], web: WebResult
+        self, text: str, entries: list[Entry], memories: list[str], web: WebResult
     ) -> list[dict[str, str]]:
         """Corre en el hilo de la tarea: el historial no cambia mientras el turno está activo."""
         self._last_web = web
         query = parse_query(text)
         if web.sources and query is not None and not self._knows_topic(query.topic):
             entries = []
-        block = knowledge_block(entries, wants_opinion(text), web.facts)
+        block = knowledge_block(entries, wants_opinion(text), web.facts, memories)
         if web.sources and asks_to_search(text):
             block += SEARCH_DONE
         return build_messages(
@@ -311,14 +432,19 @@ class ConversationService(QObject):
             self._cancel.set()
 
     def _on_finished(self, text: str) -> None:
+        proposal, self._turn_proposal = self._turn_proposal, None
         if text:
+            self._save_exchange(text)
             self._history.append({"role": "assistant", "content": text})
         else:
             self._history.pop()
         self._end_turn()
         self._bus.assistant_done.emit()
+        if text and proposal is not None:
+            self._offer_proposal(proposal)
 
     def _on_failed(self, message: str) -> None:
+        self._turn_proposal = None
         self._history.pop()
         self._end_turn()
         self._bus.pet_state_requested.emit(PetState.CONFUSED)

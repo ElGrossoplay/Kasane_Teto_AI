@@ -10,6 +10,7 @@ from kasane_teto.character.states import PetState
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.resource_manager import AiProfile, choose_profiles
 from kasane_teto.memory.knowledge import Entry, KnowledgeBase
+from kasane_teto.memory.store import MemoryStore, MemoryStoreError
 from kasane_teto.tools.web_lookup import WebResult
 
 
@@ -533,6 +534,212 @@ def test_no_results_add_no_block_or_source(web_harness):
     pump(lambda: record["done"] == 1)
     assert "Consulta" not in seen[0][-1]["content"]
     assert record["notices"] == []
+
+
+@pytest.fixture
+def memory_harness(qapp, settings, monkeypatch, tmp_path):
+    services = []
+
+    def make(lookup=None):
+        seen = install_client(monkeypatch, ["[neutral] Hola"])
+        bus = EventBus()
+        record = {"done": 0, "tokens": [], "notices": [], "proposals": []}
+        bus.assistant_done.connect(lambda: record.__setitem__("done", record["done"] + 1))
+        bus.assistant_token.connect(record["tokens"].append)
+        bus.assistant_notice.connect(record["notices"].append)
+        bus.memory_proposed.connect(record["proposals"].append)
+        knowledge = KnowledgeBase([Entry("miku", ("miku",), "Dato de Miku.", "")])
+        store = MemoryStore(tmp_path / "memory.sqlite3")
+        service = conversation.ConversationService(
+            bus, FakeResources(), settings, knowledge, lookup, memory=store
+        )
+        services.append(service)
+        return bus, service, store, seen, record
+
+    return make
+
+
+def test_nothing_is_saved_without_confirmation(memory_harness):
+    bus, _, store, _, record = memory_harness()
+    bus.user_message.emit("Recuerda que mi perro se llama Toby.")
+    pump(lambda: record["proposals"])
+    assert record["proposals"] == ["mi perro se llama Toby"]
+    assert store.all() == []
+
+
+def test_button_confirmation_saves_the_memory(memory_harness):
+    bus, _, store, _, record = memory_harness()
+    bus.user_message.emit("Recuerda que mi perro se llama Toby.")
+    pump(lambda: record["proposals"])
+    bus.memory_answered.emit(True)
+    assert [m.content for m in store.all()] == ["mi perro se llama Toby"]
+    assert record["proposals"][-1] == ""
+    assert conversation.MEMORY_SAVED_REPLY in record["notices"][0]
+
+
+def test_button_refusal_saves_nothing(memory_harness):
+    bus, _, store, _, record = memory_harness()
+    bus.user_message.emit("Recuerda que mi perro se llama Toby.")
+    pump(lambda: record["proposals"])
+    bus.memory_answered.emit(False)
+    assert store.all() == []
+
+
+@pytest.mark.parametrize(
+    ("reply", "saved", "answer"),
+    [
+        ("sí", 1, conversation.MEMORY_SAVED_REPLY),
+        ("no", 0, conversation.MEMORY_DECLINED_REPLY),
+    ],
+)
+def test_spoken_answer_skips_the_model(memory_harness, reply, saved, answer):
+    bus, _, store, seen, record = memory_harness()
+    bus.user_message.emit("Me gustan los gatos")
+    pump(lambda: record["proposals"])
+    bus.user_message.emit(reply)
+    assert record["done"] == 2
+    assert record["tokens"][-1] == answer
+    assert len(store.all()) == saved
+    assert len(seen) == 1
+
+
+def test_other_message_withdraws_the_proposal(memory_harness):
+    bus, _, store, _, record = memory_harness()
+    bus.user_message.emit("Me gustan los gatos")
+    pump(lambda: record["proposals"])
+    bus.user_message.emit("Cuéntame un chiste")
+    pump(lambda: record["done"] == 2)
+    assert record["proposals"][-1] == ""
+    bus.user_message.emit("sí")
+    pump(lambda: record["done"] == 3)
+    assert store.all() == []
+
+
+def test_known_memory_is_not_proposed_again(memory_harness):
+    bus, _, store, _, record = memory_harness()
+    store.add("preferencia", "Me gustan los gatos")
+    bus.user_message.emit("Me gustan los gatos")
+    pump(lambda: record["done"] == 1)
+    assert record["proposals"] == []
+
+
+def test_suggestions_can_be_turned_off_but_requests_still_work(memory_harness):
+    bus, _, _, _, record = memory_harness()
+    bus.memory_suggestions_requested.emit(False)
+    bus.user_message.emit("Me gustan los gatos")
+    pump(lambda: record["done"] == 1)
+    assert record["proposals"] == []
+    bus.user_message.emit("Recuerda que me gustan los perros")
+    pump(lambda: record["proposals"])
+
+
+def test_memory_reaches_the_model_but_stays_out_of_history(memory_harness):
+    bus, _, store, seen, record = memory_harness()
+    store.add("hecho", "mi perro se llama Toby")
+    bus.user_message.emit("¿Cómo se llama mi perro?")
+    pump(lambda: record["done"] == 1)
+    assert "mi perro se llama Toby" in seen[0][-1]["content"]
+    assert seen[0][-1]["content"].endswith("¿Cómo se llama mi perro?")
+    bus.user_message.emit("Otra cosa")
+    pump(lambda: record["done"] == 2)
+    assert seen[1][1]["content"] == "¿Cómo se llama mi perro?"
+
+
+def test_asking_what_she_remembers_lists_recent_memories(memory_harness):
+    bus, _, store, seen, record = memory_harness()
+    store.add("hecho", "mi perro se llama Toby")
+    store.add("preferencia", "me gusta el café")
+    bus.user_message.emit("¿Qué recuerdas de mí?")
+    pump(lambda: record["done"] == 1)
+    assert "Toby" in seen[0][-1]["content"]
+    assert "café" in seen[0][-1]["content"]
+
+
+def test_explicit_request_asks_without_using_the_model(memory_harness):
+    bus, _, _, seen, record = memory_harness()
+    bus.user_message.emit("Recuerda que mi perro se llama Toby.")
+    pump(lambda: record["done"] == 1)
+    assert seen == []
+    assert record["tokens"] == [conversation.MEMORY_ASK_REPLY]
+
+
+def test_memories_never_reach_a_web_query(memory_harness, settings):
+    lookup = FakeLookup(WebResult())
+    bus, _, store, _, record = memory_harness(lookup)
+    settings.set("web.enabled", True)
+    store.add("hecho", "Kikuo es el apodo de mi vecino Pedro Gómez")
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    assert [query.topic for query in lookup.queries] == ["Kikuo"]
+    assert "Pedro" not in repr(lookup.queries)
+
+
+def test_history_is_off_by_default(memory_harness):
+    bus, _, store, _, record = memory_harness()
+    bus.user_message.emit("hola")
+    pump(lambda: record["done"] == 1)
+    assert store.conversations() == []
+
+
+def test_history_saves_both_sides_when_enabled(memory_harness):
+    bus, _, store, _, record = memory_harness()
+    bus.history_enabled_requested.emit(True)
+    bus.user_message.emit("hola")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("adiós")
+    pump(lambda: record["done"] == 2)
+    conversations = store.conversations()
+    assert len(conversations) == 1
+    saved = store.messages(conversations[0].id)
+    assert [(m.role, m.content) for m in saved][:2] == [("user", "hola"), ("assistant", "Hola")]
+    assert len(saved) == 4
+
+
+def test_history_keeps_the_question_without_web_or_memory_blocks(memory_harness):
+    bus, _, store, _, record = memory_harness()
+    store.add("hecho", "mi perro se llama Toby")
+    bus.history_enabled_requested.emit(True)
+    bus.user_message.emit("¿Cómo se llama mi perro?")
+    pump(lambda: record["done"] == 1)
+    saved = store.messages(store.conversations()[0].id)
+    assert saved[0].content == "¿Cómo se llama mi perro?"
+
+
+def test_history_omits_secrets_on_both_sides(memory_harness, monkeypatch, tmp_path):
+    bus, _, store, _, record = memory_harness()
+    install_client(monkeypatch, ["[neutral] Tu contraseña es gato123"])
+    bus.history_enabled_requested.emit(True)
+    bus.user_message.emit("Mi contraseña es gato123")
+    pump(lambda: record["done"] == 1)
+    saved = store.messages(store.conversations()[0].id)
+    assert [m.content for m in saved] == [conversation.OMITTED_MESSAGE] * 2
+    assert b"gato123" not in (tmp_path / "memory.sqlite3").read_bytes()
+
+
+def test_broken_memory_does_not_break_the_conversation(memory_harness, monkeypatch):
+    bus, _, store, _, record = memory_harness()
+
+    def broken(*args, **kwargs):
+        raise MemoryStoreError("roto")
+
+    monkeypatch.setattr(store, "search", broken)
+    monkeypatch.setattr(store, "all", broken)
+    bus.user_message.emit("Me gustan los gatos")
+    pump(lambda: record["done"] == 1)
+    assert "".join(record["tokens"]) == "Hola"
+
+
+def test_failed_save_is_reported(memory_harness, monkeypatch):
+    bus, _, store, _, record = memory_harness()
+    bus.user_message.emit("Me gustan los gatos")
+    pump(lambda: record["proposals"])
+
+    def broken(*args, **kwargs):
+        raise MemoryStoreError("disco lleno")
+
+    monkeypatch.setattr(store, "add", broken)
+    bus.memory_answered.emit(True)
+    assert conversation.MEMORY_FAILED_REPLY in record["notices"][0]
 
 
 GPU = AiProfile("gpu", "g", 99)
