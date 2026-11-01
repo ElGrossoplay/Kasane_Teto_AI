@@ -1,7 +1,7 @@
-"""Ventanas de Windows: solo lee títulos y pide cerrar, como pulsar la X.
+"""Ventanas de Windows: lee títulos y pide cerrar, minimizar o restaurar, como los botones.
 
-No abre ningún proceso. Tampoco toca ventanas a pantalla completa o sin barra de título, que es
-como se presentan los juegos: la regla de anticheat prohíbe interactuar con ellos.
+No abre ningún proceso. Tampoco toca juegos, que la regla de anticheat prohíbe: se omiten las
+ventanas a pantalla completa, sin barra de título o con clase o título de juego.
 """
 
 from __future__ import annotations
@@ -15,6 +15,21 @@ GWL_STYLE = -16
 WS_CAPTION = 0x00C00000
 WM_CLOSE = 0x0010
 MONITOR_DEFAULTTONEAREST = 2
+SW_MAXIMIZE = 3
+SW_MINIMIZE = 6
+SW_RESTORE = 9
+MAX_CLASS_CHARS = 128
+# Clases de ventana de los motores de juegos, para los que se juegan en ventana.
+GAME_CLASSES = frozenset(
+    "UnrealWindow UnityWndClass RiotWindowClass RCLIENT Valve001 SDL_app GLFW30 "
+    "CryENGINE id_app_window".split()
+)
+# Navegadores, Discord y similares: una pestaña sobre un juego no es el juego.
+WEB_CLASSES = frozenset(("Chrome_WidgetWin_1", "MozillaWindowClass"))
+GAME_TITLES = (
+    "valorant", "league of legends", "riot client", "fortnite", "counter-strike", "apex legends",
+    "overwatch", "minecraft", "genshin impact", "roblox",
+)
 
 _user32 = ctypes.WinDLL("user32", use_last_error=True)
 _EnumProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
@@ -27,6 +42,9 @@ _user32.GetWindowRect.argtypes = (wintypes.HWND, ctypes.POINTER(wintypes.RECT))
 _user32.MonitorFromWindow.argtypes = (wintypes.HWND, wintypes.DWORD)
 _user32.MonitorFromWindow.restype = wintypes.HMONITOR
 _user32.PostMessageW.argtypes = (wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+_user32.ShowWindowAsync.argtypes = (wintypes.HWND, ctypes.c_int)
+_user32.GetForegroundWindow.restype = wintypes.HWND
+_user32.GetClassNameW.argtypes = (wintypes.HWND, wintypes.LPWSTR, ctypes.c_int)
 
 
 class _MonitorInfo(ctypes.Structure):
@@ -73,6 +91,19 @@ def _is_fullscreen(hwnd: int) -> bool:
     )
 
 
+def is_game_window(kind: str, title: str) -> bool:
+    """El título debe empezar por el juego: Discord pone el canal "Minecraft" en el suyo."""
+    if kind in GAME_CLASSES:
+        return True
+    return kind not in WEB_CLASSES and title.casefold().startswith(GAME_TITLES)
+
+
+def _class_name(hwnd: int) -> str:
+    buffer = ctypes.create_unicode_buffer(MAX_CLASS_CHARS)
+    _user32.GetClassNameW(hwnd, buffer, MAX_CLASS_CHARS)
+    return buffer.value
+
+
 def list_windows() -> list[Window]:
     """Ventanas normales del escritorio; lo que no parezca una, por prudencia, no se incluye."""
     found: list[Window] = []
@@ -83,7 +114,10 @@ def list_windows() -> list[Window]:
         if not _user32.GetWindowLongPtrW(hwnd, GWL_STYLE) & WS_CAPTION:
             return True
         title = _title(hwnd)
-        if title and not _is_fullscreen(hwnd):
+        if not title or is_game_window(_class_name(hwnd), title):
+            return True
+        # Maximizada, Windows la hace algo mayor que la pantalla: no es pantalla completa.
+        if _user32.IsIconic(hwnd) or _user32.IsZoomed(hwnd) or not _is_fullscreen(hwnd):
             found.append(Window(hwnd, title))
         return True
 
@@ -91,7 +125,18 @@ def list_windows() -> list[Window]:
     return found
 
 
+def foreground_window() -> int:
+    return int(_user32.GetForegroundWindow() or 0)
+
+
 def close_window(handle: int) -> None:
     """Si hay algo sin guardar, es la propia aplicación la que pregunta."""
     if not _user32.PostMessageW(handle, WM_CLOSE, 0, 0):
         raise ctypes.WinError(ctypes.get_last_error())
+
+
+def show_window(handle: int, mode: int) -> None:
+    """Asíncrono: una aplicación colgada no debe bloquear a Teto."""
+    if not _user32.ShowWindowAsync(handle, mode):
+        ctypes.set_last_error(0)
+

@@ -36,13 +36,18 @@ from kasane_teto.tools.commands import (
     INFO_DISK,
     INFO_MEMORY,
     INFO_TIME,
+    MAXIMIZE_APP,
+    MINIMIZE_APP,
     OPEN_APP,
     OPEN_FILE,
     OPEN_FOLDER,
     OPEN_URL,
+    RESTORE_APP,
     SAFE_FILE_TYPES,
+    THIS_WINDOW,
     UNSAFE_FILE_TYPES,
     WEB_SEARCH,
+    WINDOW_KINDS,
     Command,
 )
 
@@ -76,6 +81,20 @@ KNOWN_SITES = {
 BUILTIN_TITLES = {
     "calculadora": ("calculadora", "calculator"),
     "bloc de notas": ("bloc de notas", "notepad"),
+}
+MIN_WINDOW_NAME_CHARS = 3
+# Sin confirmación, una orden tan amplia podría cerrar lo que no querías.
+VAGUE_WINDOW_NAMES = frozenset("todo todas todos cosas algo ventanas programas aplicaciones".split())
+WINDOW_VERBS = {
+    CLOSE_APP: ("cerrar", "Cerrada.", "He cerrado"),
+    MINIMIZE_APP: ("minimizar", "Minimizada.", "He minimizado"),
+    RESTORE_APP: ("restaurar", "Restaurada.", "He restaurado"),
+    MAXIMIZE_APP: ("maximizar", "Maximizada.", "He maximizado"),
+}
+SHOW_MODES = {
+    MINIMIZE_APP: windows_control.SW_MINIMIZE,
+    RESTORE_APP: windows_control.SW_RESTORE,
+    MAXIMIZE_APP: windows_control.SW_MAXIMIZE,
 }
 MAX_FILES_SCANNED = 5000
 MAX_FOLDER_DEPTH = 2
@@ -118,11 +137,15 @@ class SystemRunner(Protocol):
     def open_url(self, url: str) -> None: ...
     def list_windows(self) -> list[windows_control.Window]: ...
     def close_window(self, handle: int) -> None: ...
+    def show_window(self, handle: int, mode: int) -> None: ...
+    def foreground_window(self) -> int: ...
 
 
 class WindowsRunner:
     list_windows = staticmethod(windows_control.list_windows)
     close_window = staticmethod(windows_control.close_window)
+    show_window = staticmethod(windows_control.show_window)
+    foreground_window = staticmethod(windows_control.foreground_window)
 
     def start_program(self, path: Path) -> None:
         subprocess.Popen(
@@ -235,8 +258,8 @@ class ToolRegistry:
         """Valida la orden. Lo que no esté permitido lanza `ActionRejected`."""
         if command.kind == OPEN_APP:
             return self._prepare_open(command)
-        if command.kind == CLOSE_APP:
-            return self._prepare_close(command)
+        if command.kind in WINDOW_KINDS:
+            return self._prepare_window(command)
         if command.kind == OPEN_FOLDER:
             path = self._folder(command.target)
             if not path.is_dir():
@@ -288,18 +311,24 @@ class ToolRegistry:
             f"{command.target} no está en mi lista de aplicaciones. Añádelo en Configuración."
         )
 
-    def _prepare_close(self, command: Command) -> Action:
+    def _prepare_window(self, command: Command) -> Action:
+        verb = WINDOW_VERBS[command.kind][0]
         target = command.target.casefold()
+        if target == THIS_WINDOW:
+            return Action(command, f"Voy a {verb} esta ventana")
+        if len(target) < MIN_WINDOW_NAME_CHARS or target in VAGUE_WINDOW_NAMES:
+            raise ActionRejected(f"Dime qué ventana quieres {verb}.")
         if target in BROWSER_WORDS or target in KNOWN_SITES:
-            return Action(command, f"Voy a cerrar {command.target}")
-        name = self._catalog_name(target)
-        if name is None:
-            raise ActionRejected(f"{command.target} no está en mi lista de aplicaciones.")
-        return Action(command, f"Voy a cerrar {name}", name)
+            return Action(command, f"Voy a {verb} {command.target}")
+        name = self._catalog_name(target) or target
+        return Action(command, f"Voy a {verb} {name}", name)
 
-    def _windows_to_close(self, action: Action) -> list[windows_control.Window]:
+    def _windows_for(self, action: Action) -> list[windows_control.Window]:
         target = action.command.target.casefold()
         windows = self._runner.list_windows()
+        if target == THIS_WINDOW:
+            current = self._runner.foreground_window()
+            return [w for w in windows if w.handle == current]
         if target in BROWSER_WORDS:
             return [w for w in windows if _is_browser_window(w.title)]
         if target in KNOWN_SITES:
@@ -311,13 +340,18 @@ class ToolRegistry:
             if not _is_browser_window(w.title) and any(_has_word(w.title, word) for word in words)
         ]
 
-    def _close(self, action: Action) -> str:
-        windows = self._windows_to_close(action)
+    def _act_on_windows(self, action: Action) -> str:
+        kind = action.command.kind
+        windows = self._windows_for(action)
         if not windows:
-            return f"No veo ninguna ventana de {action.command.target} abierta."
+            return f"No veo ninguna ventana de {action.command.target}."
         for window in windows:
-            self._runner.close_window(window.handle)
-        return "Cerrada." if len(windows) == 1 else f"He cerrado {len(windows)} ventanas."
+            if kind == CLOSE_APP:
+                self._runner.close_window(window.handle)
+            else:
+                self._runner.show_window(window.handle, SHOW_MODES[kind])
+        _, single, plural = WINDOW_VERBS[kind]
+        return single if len(windows) == 1 else f"{plural} {len(windows)} ventanas."
 
     def _find_app(self, name: str) -> tuple[str, Path]:
         best_name = name
@@ -369,8 +403,8 @@ class ToolRegistry:
         """Vuelve a validar: entre la confirmación y este momento algo pudo cambiar."""
         checked = self.prepare(action.command)
         command = checked.command
-        if command.kind == CLOSE_APP:
-            return self._close(checked)
+        if command.kind in WINDOW_KINDS:
+            return self._act_on_windows(checked)
         if command.kind == OPEN_APP:
             self._runner.start_program(Path(checked.resolved))
         elif command.kind in (OPEN_FOLDER, OPEN_FILE):

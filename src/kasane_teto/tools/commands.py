@@ -13,6 +13,11 @@ OPEN_FOLDER = "folder"
 OPEN_FILE = "file"
 OPEN_URL = "url"
 CLOSE_APP = "close"
+MINIMIZE_APP = "minimize"
+RESTORE_APP = "restore"
+MAXIMIZE_APP = "maximize"
+WINDOW_KINDS = frozenset((CLOSE_APP, MINIMIZE_APP, RESTORE_APP, MAXIMIZE_APP))
+THIS_WINDOW = "esta ventana"
 WEB_SEARCH = "search"
 INFO = "info"
 
@@ -55,9 +60,20 @@ _OPEN = re.compile(
     r"\W+(?P<target>.+)$",
     re.IGNORECASE | re.DOTALL,
 )
-_CLOSE = re.compile(
-    _PREFIX + r"(?:[cs]i[eé]rra(?:me)?|[cs]errar|[cs]ierres|apaga)\W+(?P<target>.+)$",
-    re.IGNORECASE | re.DOTALL,
+_WINDOW_ORDERS = (
+    (CLOSE_APP, r"[cs]i[eé]rra(?:me)?|[cs]errar|[cs]ierres|apaga"),
+    (MINIMIZE_APP, r"minimi[zs]a(?:me|r)?|minimices|esconde|oculta"),
+    (RESTORE_APP, r"restaura(?:r|me)?|recupera(?:r|me)?|muestra(?:me)?"),
+    (MAXIMIZE_APP, r"maximi[zs]a(?:me|r)?|maximices"),
+)
+_WINDOW = tuple(
+    (kind, re.compile(_PREFIX + rf"(?:{verbs})(?:\W+(?P<target>.+))?$", re.IGNORECASE | re.DOTALL))
+    for kind, verbs in _WINDOW_ORDERS
+)
+_THIS_WINDOW = re.compile(
+    r"^(?:(?:est[ae]|es[ae]|la|el)\s+)?(?:ventana|programa|aplicaci[oó]n|app)?(?:\s+actual)?$"
+    r"|^esto$|^eso$",
+    re.IGNORECASE,
 )
 _SEARCH = re.compile(
     _PREFIX + r"b[uú]sca(?:r|me)?\s+(?!en\b)(?P<target>.+?)"
@@ -183,10 +199,14 @@ def parse_command(text: str) -> Command | None:
     opened = _OPEN.match(text.strip())
     if opened is not None:
         return _classify_open(opened.group("target"))
-    closed = _CLOSE.match(text.strip())
-    if closed is not None:
-        target = _LEADING.sub("", _clean_target(closed.group("target")))
-        return Command(CLOSE_APP, target) if target else None
+    for kind, pattern in _WINDOW:
+        order = pattern.match(text.strip())
+        if order is None:
+            continue
+        target = _clean_target(order.group("target") or "")
+        if _THIS_WINDOW.match(target):
+            return Command(kind, THIS_WINDOW)
+        return Command(kind, _LEADING.sub("", target))
     for name, pattern in _INFO:
         if pattern.search(text):
             return Command(INFO, name)

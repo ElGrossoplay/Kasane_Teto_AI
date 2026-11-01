@@ -282,6 +282,10 @@ la confirmación queda como opción en Configuración.
 - [x] 5.11 Abrir "el navegador" y sitios conocidos ("abre YouTube"). Más formas de decir sí y no, y
       deformaciones de voz como "Sierra Discord" o "carpeta de escargas"
 - [x] 5.12 **Diego:** prueba manual superada con turbo y acciones por voz; aprobó subirlo (2026-11-01)
+- [x] 5.13 Minimizar, restaurar y maximizar. Cerrar y minimizar valen para cualquier ventana normal
+      por su nombre, no solo del catálogo, y para "esta ventana". Se excluyen juegos por clase de
+      ventana y título, además de lo que esté a pantalla completa o sin barra de título
+- [ ] 5.14 **Diego:** prueba manual de minimizar y de cerrar ventanas fuera del catálogo
 
 Medido (2026-11-01): 558 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
 consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En el equipo real: encontró
@@ -293,8 +297,13 @@ Limitaciones conocidas:
 - Cerrar equivale a pulsar la X: Discord se oculta en la bandeja y sigue en marcha, y si hay algo
   sin guardar, la aplicación pregunta
 - "Cierra YouTube" cierra la ventana entera del navegador, no solo esa pestaña
-- Solo cierra apps del catálogo. Una ventana a pantalla completa no se cierra, a propósito
-- Las ventanas se reconocen por su título: una app que no ponga su nombre no se encuentra
+- Una ventana a pantalla completa no se toca, a propósito, aunque sea de YouTube o Chrome
+- Las ventanas se reconocen por su título: una app que no ponga su nombre no se encuentra. Para esas
+  queda "esta ventana", que actúa sobre la que tenga el foco
+- La lista de juegos protegidos no es completa: un juego en ventana con motor o título desconocidos
+  no se reconocería, y se podría cerrar o minimizar si se pide por su nombre
+- Una palabra común puede coincidir con varias ventanas: "cierra notas" cerraría todas las que
+  tengan esa palabra en el título. Si hay algo sin guardar, pregunta la aplicación
 - Sin confirmación, un error de voz puede abrir o cerrar lo que no pediste
 - La calculadora y el bloc de notas están siempre disponibles: no se pueden quitar del catálogo
 - "Abre X" con una X desconocida responde que no está en la lista, aunque fuera una frase normal

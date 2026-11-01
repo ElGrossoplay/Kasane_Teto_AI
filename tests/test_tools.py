@@ -17,10 +17,14 @@ from kasane_teto.tools import windows_control
 from kasane_teto.tools.commands import (
     CLOSE_APP,
     INFO,
+    MAXIMIZE_APP,
+    MINIMIZE_APP,
     OPEN_APP,
     OPEN_FILE,
     OPEN_FOLDER,
     OPEN_URL,
+    RESTORE_APP,
+    THIS_WINDOW,
     WEB_SEARCH,
     Command,
     parse_command,
@@ -50,6 +54,13 @@ SOURCE = Path(conversation.__file__).parents[1]
         ("Cierra Discord", CLOSE_APP, "Discord"),
         ("Sierra el navegador", CLOSE_APP, "navegador"),
         ("Por favor, cierra la ventana de Discord", CLOSE_APP, "Discord"),
+        ("Minimiza Discord", MINIMIZE_APP, "Discord"),
+        ("Minimisa el navegador", MINIMIZE_APP, "navegador"),
+        ("Restaura Discord", RESTORE_APP, "Discord"),
+        ("Maximiza la calculadora", MAXIMIZE_APP, "calculadora"),
+        ("Cierra esta ventana", CLOSE_APP, THIS_WINDOW),
+        ("Minimiza esto", MINIMIZE_APP, THIS_WINDOW),
+        ("Minimiza la ventana actual", MINIMIZE_APP, THIS_WINDOW),
         ("Ábreme Spotify", OPEN_APP, "Spotify"),
         ("Abre la carpeta de descargas", OPEN_FOLDER, "descargas"),
         ("Abre mis documentos", OPEN_FOLDER, "documentos"),
@@ -109,6 +120,14 @@ class FakeRunner:
         self.error = error
         self.windows = []
         self.closed = []
+        self.shown = []
+        self.foreground = 0
+
+    def show_window(self, handle, mode):
+        self.shown.append((handle, mode))
+
+    def foreground_window(self):
+        return self.foreground
 
     def list_windows(self):
         return self.windows
@@ -489,14 +508,83 @@ def test_close_builtin_uses_its_window_name(tools):
 def test_close_says_when_nothing_is_open(tools, settings, fake_app):
     settings.set("tools.apps", {"discord": str(fake_app)})
     reply = tools.run(tools.prepare(Command(CLOSE_APP, "discord")))
-    assert reply == "No veo ninguna ventana de discord abierta."
+    assert reply == "No veo ninguna ventana de discord."
 
 
-def test_close_outside_the_catalog_is_rejected(tools):
-    tools._runner.windows = [Window(1, "VALORANT")]
-    with pytest.raises(ActionRejected):
-        tools.prepare(Command(CLOSE_APP, "valorant"))
+def test_any_normal_window_can_be_closed_by_name(tools):
+    tools._runner.windows = [Window(1, "Documento1 - Word"), Window(2, "Amigos - Discord")]
+    tools.run(tools.prepare(Command(CLOSE_APP, "Word")))
+    assert tools._runner.closed == [1]
+
+
+@pytest.mark.parametrize(
+    ("kind", "mode", "reply"),
+    [
+        (MINIMIZE_APP, windows_control.SW_MINIMIZE, "Minimizada."),
+        (RESTORE_APP, windows_control.SW_RESTORE, "Restaurada."),
+        (MAXIMIZE_APP, windows_control.SW_MAXIMIZE, "Maximizada."),
+    ],
+)
+def test_window_can_be_minimized_restored_and_maximized(tools, kind, mode, reply):
+    tools._runner.windows = [Window(1, "Amigos - Discord"), Window(2, "Otra")]
+    assert tools.run(tools.prepare(Command(kind, "Discord"))) == reply
+    assert tools._runner.shown == [(1, mode)]
     assert tools._runner.closed == []
+
+
+def test_minimize_browser_reports_several_windows(tools):
+    tools._runner.windows = [Window(1, "A - Google Chrome"), Window(2, "B - Google Chrome")]
+    reply = tools.run(tools.prepare(Command(MINIMIZE_APP, "navegador")))
+    assert reply == "He minimizado 2 ventanas."
+
+
+def test_this_window_uses_the_foreground_one(tools):
+    tools._runner.windows = [Window(1, "Uno"), Window(2, "Dos")]
+    tools._runner.foreground = 2
+    tools.run(tools.prepare(Command(CLOSE_APP, THIS_WINDOW)))
+    assert tools._runner.closed == [2]
+
+
+def test_this_window_ignores_what_is_not_a_normal_window(tools):
+    tools._runner.windows = [Window(1, "Uno")]
+    tools._runner.foreground = 99
+    tools.run(tools.prepare(Command(CLOSE_APP, THIS_WINDOW)))
+    assert tools._runner.closed == []
+
+
+@pytest.mark.parametrize("target", ["todo", "todas", "", "ab"])
+def test_vague_window_orders_are_refused(tools, target):
+    with pytest.raises(ActionRejected, match="Dime qué ventana"):
+        tools.prepare(Command(CLOSE_APP, target))
+
+
+@pytest.mark.parametrize(
+    ("kind", "title"),
+    [
+        ("UnrealWindow", "VALORANT  "),
+        ("RiotWindowClass", "League of Legends (TM) Client"),
+        ("RCLIENT", "League of Legends"),
+        ("UnityWndClass", "Cualquier juego"),
+        ("GLFW30", "Minecraft 1.21"),
+        ("Valve001", "Counter-Strike 2"),
+        ("Otra", "VALORANT"),
+    ],
+)
+def test_game_windows_are_recognised(kind, title):
+    assert windows_control.is_game_window(kind, title)
+
+
+@pytest.mark.parametrize(
+    ("kind", "title"),
+    [
+        ("Chrome_WidgetWin_1", "Ñ | Minecraft - Discord"),
+        ("Chrome_WidgetWin_1", "Valorant wiki - Google Chrome"),
+        ("Notepad", "notas de minecraft.txt - Bloc de notas"),
+        ("ApplicationFrameWindow", "Calculadora"),
+    ],
+)
+def test_normal_windows_are_not_taken_for_games(kind, title):
+    assert not windows_control.is_game_window(kind, title)
 
 
 def test_real_window_list_skips_games_and_has_no_process_access():

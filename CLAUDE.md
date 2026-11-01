@@ -72,8 +72,8 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 - Juegos y anticheat: nunca forzar la superposición sobre un juego. Sin inyección, ganchos de teclado
   o ratón, overlays de GPU, capturas de pantalla del juego, lectura de su memoria ni apertura de su
   proceso. Tampoco se listan procesos (`process_iter`): recorrerlos abre también los del juego; lo
-  vigila `tests/test_tools.py`. Cerrar ventanas solo por título, nunca a pantalla completa o sin barra
-  de título. Atajos solo con `RegisterHotKey`. Si el juego no deja ver la mascota,
+  vigila `tests/test_tools.py`. Manejar ventanas solo por título, nunca a pantalla completa, sin barra
+  de título o con clase o título de juego. Atajos solo con `RegisterHotKey`. Si el juego no deja ver la mascota,
   se acepta.
 - Arte y voz de Kasane Teto: derechos de TWINDRILL (directrices en kasaneteto.jp). Claude no dibuja
   al personaje; el arte lo aporta Diego con permiso del autor. No clonar la voz oficial.

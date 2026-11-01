@@ -68,9 +68,10 @@ confirmación. En el menú, "Memoria…" permite ver, editar y borrar lo guardad
 historial de conversaciones viene apagado y se activa en Configuración.
 
 Control de Windows: viene apagado y se activa en Configuración, donde también eliges las aplicaciones
-permitidas. Di "abre Discord", "cierra el navegador", "abre la carpeta de descargas", "abre YouTube",
-"busca recetas en Internet" o "¿qué hora es?". Nada que no esté en la lista se ejecuta. Si prefieres
-que pregunte antes de actuar, actívalo en Configuración. Lo que hace queda en `logs/actions.log`.
+permitidas. Di "abre Discord", "minimiza Discord", "cierra el navegador", "maximiza esta ventana",
+"abre la carpeta de descargas", "abre YouTube", "busca recetas en Internet" o "¿qué hora es?". Solo se
+abre lo que esté en la lista, y nunca se tocan juegos. Si prefieres que pregunte antes de actuar,
+actívalo en Configuración. Lo que hace queda en `logs/actions.log`.
 
 ## Diagnóstico del equipo
 
