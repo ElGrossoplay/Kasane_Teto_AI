@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-10-31 · **Fase actual: 3 (voz) — implementada, falta la prueba manual de Diego (3.8)**
+Última actualización: 2026-10-31 · **Fase 3 completada · Siguiente: por decidir, Fase 4 (memoria) o búsqueda web de la Fase 5**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -88,7 +88,7 @@ Limitaciones conocidas:
   un respaldo para cuando no hay VRAM.
 - Marcador de posición: la conversación se pierde al cerrar la app hasta la Fase 4 (memoria).
 
-## Fase 3 — Voz (en pruebas)
+## Fase 3 — Voz (completada)
 
 - [x] 3.1 Piper 1.8.0 en `models/piper/venv` y 3 voces con hash verificado
 - [x] 3.2 faster-whisper 1.2.1 en `models/whisper/venv` y modelo `base` con hash verificado
@@ -98,8 +98,8 @@ Limitaciones conocidas:
 - [x] 3.6 Atajo global `Ctrl+Alt+T` con `RegisterHotKey` (pulsar para empezar y para terminar) y
       botón "Hablar" en el chat (mantener pulsado)
 - [x] 3.7 Configuración: voz, volumen, micrófono (apagado por defecto)
-- [~] 3.8 **Diego:** eligió la voz Daniela. Primera prueba: había que hablar por sílabas y la
-      personalidad resultaba forzada; corregido en parte
+- [x] 3.8 **Diego:** eligió la voz Daniela. Primera prueba: había que hablar por sílabas y la
+      personalidad resultaba forzada; corregido, y cierre de la fase aprobado (2026-11-01)
 - [x] 3.9 **Diego:** medición con su voz: 50 % al principio, 55 % con ajustes de software y 79 % tras
       revisar la configuración de sonido de Windows (8 frases). El reparto de frecuencias apenas
       cambió, así que "faltan agudos" queda sin confirmar; el indicio es que dejó de haber un fondo
@@ -167,4 +167,5 @@ Limitaciones conocidas:
 - **2026-10-31:** Fase 3 implementada: Piper, faster-whisper, atajo global y botón de hablar.
   Pendiente la prueba con micrófono real y la elección de voz.
 - **2026-11-01:** tras la prueba de Diego, corregida la captura del micrófono y la personalidad
-  forzada. `probar_conocimiento.py` amplió a 30 preguntas (87/90 respuestas correctas).
+  forzada. `probar_conocimiento.py` amplió a 30 preguntas (87/90 respuestas correctas). Fase 3
+  cerrada y subida a GitHub.
