@@ -30,7 +30,7 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 | Memoria | SQLite + FTS5, sin embeddings por ahora. Datos en `%LOCALAPPDATA%\KasaneTetoAI\` |
 | Conocimiento | Fichas TOML verificadas en `assets/knowledge/`; solo las relevantes llegan al modelo. Sin datos sin contrastar |
 | Mascota | Sprites PNG por estado con "paquetes de personaje"; Live2D solo como mejora futura |
-| Herramientas | Lista blanca + validación. Abrir, cerrar y consultar actúan directamente (decisión de Diego); confirmar es opcional. Órdenes con reglas fijas: el modelo nunca decide acciones. Control de Windows **desactivado por defecto** |
+| Herramientas | Lista blanca + validación. Abre las apps del menú Inicio y del catálogo, salvo consolas, herramientas del sistema, desinstaladores y Cheat Engine. Abrir, cerrar y consultar actúan directamente (decisión de Diego); confirmar es opcional. Órdenes con reglas fijas: el modelo nunca decide acciones. Control de Windows **desactivado por defecto** |
 | Web | Opcional y desactivada por defecto. Música: API pública de VocaDB (`tools/`), con caché y citando la fuente. Fandom solo con su permiso escrito. Búsqueda general (Wikipedia API, DuckDuckGo vía `ddgs`) por decidir |
 | Empaquetado | PyInstaller `--onedir`; modelos y llama.cpp fuera del ejecutable |
 | Distribución | App de uso personal; código en repositorio **público** de GitHub. Nunca subir datos del equipo, recuerdos, configuración de usuario ni arte de terceros. Distribuir la app exigiría revisar las licencias |

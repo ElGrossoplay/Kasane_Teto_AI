@@ -26,7 +26,7 @@ from PySide6.QtCore import QStandardPaths
 from kasane_teto.core.settings import Settings
 from kasane_teto.memory.knowledge import MIN_NAME_SIMILARITY, name_key, name_similarity
 from kasane_teto.memory.proposals import has_secret
-from kasane_teto.tools import windows_control
+from kasane_teto.tools import installed_apps, windows_control
 from kasane_teto.tools.commands import (
     CLOSE_APP,
     INFO,
@@ -59,6 +59,9 @@ FORBIDDEN_PROGRAMS = frozenset(
     "certutil bitsadmin".split()
 )
 BROWSER_WORDS = frozenset("navegador browser internet chrome edge firefox brave opera".split())
+GENERIC_BROWSER_WORDS = frozenset("navegador browser internet".split())
+INSTALLED_APPS_SECONDS = 1800.0
+INSTALLED_REFRESH_SECONDS = 60.0
 # Las ventanas de navegador se reconocen por el final de su título.
 BROWSER_TITLES = ("google chrome", "microsoft edge", "mozilla firefox", "brave", "opera", "vivaldi")
 START_PAGE = "https://duckduckgo.com"
@@ -133,6 +136,8 @@ class ActionRejected(Exception):
 
 class SystemRunner(Protocol):
     def start_program(self, path: Path) -> None: ...
+    def start_app(self, app_id: str) -> None: ...
+    def list_start_apps(self) -> list[tuple[str, str]]: ...
     def open_path(self, path: Path) -> None: ...
     def open_url(self, url: str) -> None: ...
     def list_windows(self) -> list[windows_control.Window]: ...
@@ -146,6 +151,16 @@ class WindowsRunner:
     close_window = staticmethod(windows_control.close_window)
     show_window = staticmethod(windows_control.show_window)
     foreground_window = staticmethod(windows_control.foreground_window)
+    list_start_apps = staticmethod(installed_apps.read_start_apps)
+
+    def start_app(self, app_id: str) -> None:
+        """Por el Explorador, como un clic en el menú Inicio: la app no es hija de Teto."""
+        subprocess.Popen(
+            ["explorer.exe", f"shell:AppsFolder\\{app_id}"],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     def start_program(self, path: Path) -> None:
         subprocess.Popen(
@@ -170,14 +185,15 @@ class Action:
     command: Command
     summary: str
     resolved: str = ""
+    app_id: str = ""
 
 
 def validate_program(path: Path) -> None:
     """También se usa al añadir al catálogo: lo que no pase aquí nunca se ejecuta."""
     if path.suffix.casefold() != ".exe":
         raise ActionRejected("Solo puedo abrir programas .exe.")
-    if path.stem.casefold() in FORBIDDEN_PROGRAMS:
-        raise ActionRejected(f"{path.name} no se puede usar: permitiría ejecutar cualquier comando.")
+    if path.stem.casefold() in FORBIDDEN_PROGRAMS or installed_apps.is_blocked_name(path.stem):
+        raise ActionRejected(f"{path.name} no se puede usar por seguridad.")
     if not path.is_file():
         raise ActionRejected(f"No encuentro {path.name}.")
 
@@ -244,6 +260,8 @@ class ToolRegistry:
         self._log_path = log_path
         self._runner = runner or WindowsRunner()
         self._folders = folders
+        self._installed: dict[str, str] = {}
+        self._installed_at = float("-inf")
 
     def _folder(self, name: str) -> Path:
         return self._folders[name] if self._folders is not None else known_folder(name)
@@ -292,24 +310,59 @@ class ToolRegistry:
                 best_name, best = name, score
         return best_name if best >= MIN_NAME_SIMILARITY else None
 
+    def _installed_apps(self, refresh: bool = False) -> dict[str, str]:
+        age = time.monotonic() - self._installed_at
+        limit = INSTALLED_REFRESH_SECONDS if refresh else INSTALLED_APPS_SECONDS
+        if age > limit:
+            self._installed = installed_apps.filter_apps(self._runner.list_start_apps())
+            self._installed_at = time.monotonic()
+        return self._installed
+
+    def _exact_installed(self, target: str, refresh: bool = False) -> str | None:
+        key = name_key(target)
+        return next((n for n in self._installed_apps(refresh) if name_key(n) == key), None)
+
+    def _containing_installed(self, target: str) -> str | None:
+        """"Teams" es "Microsoft Teams"; si hay varias, la de nombre más corto."""
+        names = [name for name in self._installed_apps() if _has_word(name, target)]
+        return min(names, key=len) if names else None
+
+    def _similar_installed(self, target: str) -> str | None:
+        """Lo último: "Teams" se parece a "Steam", y aquí no hay confirmación que lo corrija."""
+        key = name_key(target)
+        best_name, best = None, 0.0
+        for name in self._installed_apps():
+            score = name_similarity(key, name_key(name))
+            if score > best:
+                best_name, best = name, score
+        return best_name if best >= MIN_NAME_SIMILARITY else None
+
     def _prepare_open(self, command: Command) -> Action:
         target = command.target.casefold()
         name = self._catalog_name(target)
         if name is not None:
             found, path = self._find_app(name)
             return Action(command, f"Voy a abrir {found}", str(path))
-        if name_key(target) in FORBIDDEN_PROGRAMS:
-            raise ActionRejected(
-                f"{command.target} no lo abro por seguridad: permitiría ejecutar cualquier comando."
-            )
+        if name_key(target) in FORBIDDEN_PROGRAMS or installed_apps.is_blocked_name(target):
+            raise ActionRejected(f"{command.target} no lo abro por seguridad.")
+        installed = None if target in GENERIC_BROWSER_WORDS else self._exact_installed(target)
+        if installed is None and target not in GENERIC_BROWSER_WORDS | set(KNOWN_SITES):
+            installed = self._containing_installed(target) or self._similar_installed(target)
+        if installed is not None:
+            return self._installed_action(command, installed)
         if target in BROWSER_WORDS:
             return Action(Command(OPEN_URL, START_PAGE), "Voy a abrir el navegador", START_PAGE)
         if target in KNOWN_SITES:
             url = KNOWN_SITES[target]
             return Action(Command(OPEN_URL, url), f"Voy a abrir {command.target}", url)
-        raise ActionRejected(
-            f"{command.target} no está en mi lista de aplicaciones. Añádelo en Configuración."
-        )
+        # Quizá se instaló hace poco: la lista guardada puede estar anticuada.
+        installed = self._exact_installed(target, refresh=True)
+        if installed is not None:
+            return self._installed_action(command, installed)
+        raise ActionRejected(f"No encuentro {command.target} entre tus aplicaciones.")
+
+    def _installed_action(self, command: Command, name: str) -> Action:
+        return Action(command, f"Voy a abrir {name}", name, self._installed_apps()[name])
 
     def _prepare_window(self, command: Command) -> Action:
         verb = WINDOW_VERBS[command.kind][0]
@@ -405,7 +458,9 @@ class ToolRegistry:
         command = checked.command
         if command.kind in WINDOW_KINDS:
             return self._act_on_windows(checked)
-        if command.kind == OPEN_APP:
+        if checked.app_id:
+            self._runner.start_app(checked.app_id)
+        elif command.kind == OPEN_APP:
             self._runner.start_program(Path(checked.resolved))
         elif command.kind in (OPEN_FOLDER, OPEN_FILE):
             self._runner.open_path(Path(checked.resolved))

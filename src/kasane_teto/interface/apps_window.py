@@ -1,4 +1,4 @@
-"""Catálogo de aplicaciones que Teto puede abrir. Solo se ejecuta lo que esté en esta lista."""
+"""Aplicaciones añadidas a mano, para las que no aparecen en el menú Inicio."""
 
 from __future__ import annotations
 
@@ -38,7 +38,9 @@ class AppsWindow(QDialog):
         buttons.addWidget(add)
         buttons.addWidget(remove)
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("Di «abre» y el nombre. La calculadora y el bloc de notas ya están."))
+        layout.addWidget(
+            QLabel("Teto ya encuentra las apps del menú Inicio. Añade aquí solo las que no salgan.")
+        )
         layout.addWidget(self._list)
         layout.addLayout(buttons)
         self._refresh()

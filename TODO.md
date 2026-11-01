@@ -285,7 +285,12 @@ la confirmación queda como opción en Configuración.
 - [x] 5.13 Minimizar, restaurar y maximizar. Cerrar y minimizar valen para cualquier ventana normal
       por su nombre, no solo del catálogo, y para "esta ventana". Se excluyen juegos por clase de
       ventana y título, además de lo que esté a pantalla completa o sin barra de título
-- [ ] 5.14 **Diego:** prueba manual de minimizar y de cerrar ventanas fuera del catálogo
+- [x] 5.14 **Diego:** al probarlo, pidió que Teto detecte las aplicaciones instaladas sin añadirlas
+- [x] 5.15 `tools/installed_apps.py` lee la lista del menú Inicio, incluidas apps de la Store y juegos
+      de Steam, y las abre por el Explorador. El catálogo queda para lo que no aparezca ahí
+- [x] 5.16 Se excluyen consolas, herramientas del sistema, desinstaladores, manuales y Cheat Engine,
+      que tampoco se puede añadir a mano. En el equipo de Diego: 198 entradas, 138 admitidas
+- [ ] 5.17 **Diego:** prueba manual de abrir aplicaciones instaladas y de minimizar
 
 Medido (2026-11-01): 558 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
 consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En el equipo real: encontró
@@ -297,6 +302,11 @@ Limitaciones conocidas:
 - Cerrar equivale a pulsar la X: Discord se oculta en la bandeja y sigue en marcha, y si hay algo
   sin guardar, la aplicación pregunta
 - "Cierra YouTube" cierra la ventana entera del navegador, no solo esa pestaña
+- Solo detecta lo que esté en el menú Inicio. Lo demás se añade a mano en el catálogo
+- Teto puede lanzar juegos del menú Inicio, igual que un clic, pero nunca interactuar con ellos.
+  Lanzar juegos de Steam (`steam://`) por esta vía no se ha probado de verdad
+- La lista se guarda 30 minutos: una app recién instalada aparece al pedirla, en la siguiente
+  consulta. La primera consulta tarda ~1 s
 - Una ventana a pantalla completa no se toca, a propósito, aunque sea de YouTube o Chrome
 - Las ventanas se reconocen por su título: una app que no ponga su nombre no se encuentra. Para esas
   queda "esta ventana", que actúa sobre la que tenga el foco
