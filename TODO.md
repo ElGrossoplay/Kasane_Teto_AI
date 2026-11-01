@@ -181,6 +181,10 @@ Limitaciones conocidas:
   aún está algo alto
 - Sigue sin resolver "Cuéntame un chiste" ("chit de corto") ni "Mitchie M" ("mi tiem"), y "pesado"
   sale "besó"
+- Modelos mayores comparados con las mismas 12 grabaciones y la IA cargada: `small` 88 % (2,7 s por
+  frase, 625 MB), `medium` 91 % (9,2 s, 1456 MB), `large-v3-turbo` 79 % (10,9 s, 1307 MB). Con
+  beam 1, `medium` baja a 84 % y sigue en 7,5 s. Más hilos no acelera. Se queda `small`: tres puntos
+  no compensan 9 s de espera por frase. El siguiente salto sería mejor micrófono, sin probar aún
 - Python puede liberar objetos Qt desde un hilo que no es el principal. En las pruebas causó cierres
   (7 de 25 ejecuciones, 0 de 20 al limpiar la memoria en el hilo principal). No se ha visto en la app,
   cuyos objetos Qt viven toda la sesión, pero queda vigilar si se cierra sola mientras Teto habla
