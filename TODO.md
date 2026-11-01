@@ -150,6 +150,9 @@ Limitaciones conocidas:
       ("Katsune Miku"): sube a 80 % con esas 12 grabaciones
 - [x] W.14 Con la búsqueda apagada, el chat avisa cuando buscar habría ayudado
 - [ ] W.15 **Diego:** repetir la prueba por voz con la búsqueda activada
+- [x] W.16 Modelo `small` descargado con hash verificado y comparado: no mejora a `base`
+- [ ] W.17 **Diego:** desactivar las mejoras de audio del micrófono y volver a grabar las 12 frases;
+      `scripts/probar_microfono.py` compara solo los dos modelos instalados
 
 Comparativa de ajustes del reconocedor con las 12 grabaciones (modelo `base`): sin vocabulario 54 %,
 sin refuerzo de agudos 59 %, ajuste actual 69 %, ejemplos genéricos en el prompt 69–74 %, y actual
@@ -165,9 +168,13 @@ caché ~2,4 s. La primera corrección de un nombre tarda ~8 s por las listas pop
 quedan en caché.
 
 Limitaciones conocidas:
-- El modelo `base` llega a su límite con este micrófono: algunas frases no se arreglan ni con
-  corrección ("Cuentemente corto", "Hoy tu en día, beso en el tráfico", "nici-m"). El modelo `small`
-  (461 MB) sigue sin probar
+- El reconocimiento parece limitado por el audio que llega, no por el modelo. Con las 12 grabaciones,
+  `base` da 80 % (0,8 s por frase, 362 MB) y `small` 78 % (2,2 s, 636 MB), y fallan en las mismas
+  frases ("chiste corto", "día bastante pesado"). `small` acierta Kikuo y mejora otras, pero no
+  compensa: sigue `base`, y `small` queda en disco hasta repetir la medición
+- Indicios en esas grabaciones: todas paran en el mismo pico exacto (0,994), lo que apunta a un
+  limitador antes de la app, y solo 0,03–0,27 % de la energía está entre 4 y 8 kHz. Sin una grabación
+  de referencia no se puede afirmar la causa: hay que comprobarlo desactivando esas mejoras
 - Python puede liberar objetos Qt desde un hilo que no es el principal. En las pruebas causó cierres
   (7 de 25 ejecuciones, 0 de 20 al limpiar la memoria en el hilo principal). No se ha visto en la app,
   cuyos objetos Qt viven toda la sesión, pero queda vigilar si se cierra sola mientras Teto habla
@@ -247,3 +254,5 @@ Limitaciones conocidas:
   nombres deformados, "búscalo" y la respuesta vacía. Pendiente repetir la prueba manual.
 - **2026-11-01:** con las 12 grabaciones de Diego, corrección de texto tras el reconocimiento (de 69
   a 80 %) y aviso cuando la búsqueda está apagada. Corregido un cierre intermitente de las pruebas.
+- **2026-11-01:** modelo `small` descargado y comparado: no mejora a `base`. Detectado un posible
+  limitador en el audio del micrófono. Pendiente grabar sin mejoras de audio.
