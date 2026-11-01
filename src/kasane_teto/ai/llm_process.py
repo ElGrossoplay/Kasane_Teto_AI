@@ -92,6 +92,10 @@ class LLMProcess:
             "--no-webui",
             # Sin mapear el archivo: con el modelo en GPU baja la RAM de ~3,2 GB a ~1,1 GB.
             "--load-mode", "none",
+            # Por defecto la caché de prompts puede crecer hasta 8 GB de RAM. Sin checkpoints
+            # reprocesaría todo en cada turno (7-10 s); con 2 se reutiliza la conversación.
+            "--cache-ram", "0",
+            "--ctx-checkpoints", "2",
         ]
 
     def start(self) -> None:

@@ -13,10 +13,16 @@ from kasane_teto.character.states import PetState
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.resource_manager import ResourceManager
 from kasane_teto.core.settings import Settings
+from kasane_teto.memory.knowledge import Entry, KnowledgeBase
 from kasane_teto.personality.emotion_parser import RESPONSE_GRAMMAR, EmotionParser
-from kasane_teto.personality.prompt_builder import build_messages, load_system_prompt
+from kasane_teto.personality.prompt_builder import (
+    build_messages,
+    knowledge_block,
+    load_system_prompt,
+)
 
-MAX_HISTORY_MESSAGES = 20
+MAX_HISTORY_MESSAGES = 30
+KEPT_HISTORY_MESSAGES = 11
 EMOTION_HOLD_MS = 4000
 TRUNCATED_NOTICE = "…\n(Respuesta cortada por longitud: pídeme que continúe.)"
 
@@ -91,11 +97,13 @@ class ConversationService(QObject):
         bus: EventBus,
         resources: ResourceManager,
         settings: Settings,
+        knowledge: KnowledgeBase,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._bus = bus
         self._resources = resources
+        self._knowledge = knowledge
         self._system_prompt = load_system_prompt()
         self._context_size = int(settings.get("ai.context_size", 4096))
         self._params = GenerationParams(
@@ -127,9 +135,16 @@ class ConversationService(QObject):
             return
         self._rest_timer.stop()
         self._history.append({"role": "user", "content": text})
-        self._history = self._history[-MAX_HISTORY_MESSAGES:]
+        # Se recorta de golpe: quitar un turno cada vez cambiaría el inicio de la conversación
+        # y el servidor tendría que reprocesarla entera en todos los turnos siguientes.
+        if len(self._history) > MAX_HISTORY_MESSAGES:
+            self._history = self._history[-KEPT_HISTORY_MESSAGES:]
         messages = build_messages(
-            self._system_prompt, self._history, self._context_size, self._params.max_tokens
+            self._system_prompt,
+            self._history,
+            self._context_size,
+            self._params.max_tokens,
+            knowledge_block(self._relevant_knowledge()),
         )
         self._cancel = threading.Event()
         self._resources.set_busy(True)
@@ -143,6 +158,15 @@ class ConversationService(QObject):
         task.signals.failed.connect(self._on_failed)
         self._task_signals = task.signals
         QThreadPool.globalInstance().start(task)
+
+    def _relevant_knowledge(self) -> list[Entry]:
+        """Un nombre citado manda; si no, sigue el tema anterior ("¿y cuándo salió?")."""
+        user_messages = [m["content"] for m in self._history if m["role"] == "user"]
+        for text in reversed(user_messages[-2:]):
+            entries = self._knowledge.by_name(text)
+            if entries:
+                return entries
+        return self._knowledge.by_keywords(user_messages[-1])
 
     def _on_stop(self) -> None:
         if self._cancel is not None:

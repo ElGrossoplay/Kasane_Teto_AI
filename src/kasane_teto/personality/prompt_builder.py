@@ -4,12 +4,27 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from kasane_teto.memory.knowledge import Entry
+
 CHARS_PER_TOKEN = 3
 
 
 def load_system_prompt() -> str:
     path = Path(__file__).resolve().parent / "prompts" / "teto.txt"
     return path.read_text(encoding="utf-8")
+
+
+def knowledge_block(entries: list[Entry]) -> str:
+    """Texto de las fichas relevantes para anteponer al mensaje del usuario."""
+    if not entries:
+        return ""
+    lines = ["Consulta (el usuario no la ve; el tema de su mensaje está aquí):"]
+    for entry in entries:
+        line = f"- {entry.names[0]}. Hechos: {entry.facts}"
+        if entry.reaction:
+            line += f" Lo que sientes tú: {entry.reaction}"
+        lines.append(line)
+    return "\n".join(lines) + "\n\nMensaje del usuario: "
 
 
 def estimate_tokens(text: str) -> int:
@@ -22,9 +37,14 @@ def build_messages(
     history: list[dict[str, str]],
     context_size: int,
     reserved_tokens: int,
+    knowledge: str = "",
 ) -> list[dict[str, str]]:
-    """Conserva los turnos más recientes que quepan; el último siempre se incluye."""
-    budget = context_size - reserved_tokens - estimate_tokens(system_prompt)
+    """Conserva los turnos más recientes que quepan; el último siempre se incluye.
+
+    El conocimiento va en el último mensaje y no se guarda en el historial: así el
+    inicio de la conversación no cambia y el servidor reutiliza lo ya procesado.
+    """
+    budget = context_size - reserved_tokens - estimate_tokens(system_prompt + knowledge)
     kept: list[dict[str, str]] = []
     for message in reversed(history):
         cost = estimate_tokens(message["content"])
@@ -35,4 +55,6 @@ def build_messages(
     kept.reverse()
     while kept and kept[0]["role"] != "user":
         kept.pop(0)
+    if knowledge and kept:
+        kept[-1] = {**kept[-1], "content": knowledge + kept[-1]["content"]}
     return [{"role": "system", "content": system_prompt}, *kept]

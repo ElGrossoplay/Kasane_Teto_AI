@@ -28,6 +28,7 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 | TTS | Piper como programa externo (licencia GPL-3.0 en la versión activa), voz candidata `es_MX-claude-high` |
 | STT | faster-whisper `base` int8 en CPU (alternativas: `tiny`, Vosk). Push-to-talk |
 | Memoria | SQLite + FTS5, sin embeddings por ahora. Datos en `%LOCALAPPDATA%\KasaneTetoAI\` |
+| Conocimiento | Fichas TOML verificadas en `assets/knowledge/`; solo las relevantes llegan al modelo. Sin datos sin contrastar |
 | Mascota | Sprites PNG por estado con "paquetes de personaje"; Live2D solo como mejora futura |
 | Herramientas | Lista blanca + validación + confirmación. Control de Windows **desactivado por defecto** |
 | Web | Opcional y desactivada por defecto (Wikipedia API, DuckDuckGo vía `ddgs`) |

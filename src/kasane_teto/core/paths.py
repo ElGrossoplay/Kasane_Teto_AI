@@ -20,6 +20,10 @@ def character_root() -> Path:
     return project_root() / "assets" / "character"
 
 
+def knowledge_root() -> Path:
+    return project_root() / "assets" / "knowledge"
+
+
 def models_dir() -> Path:
     return project_root() / "models"
 

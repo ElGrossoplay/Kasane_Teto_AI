@@ -40,6 +40,7 @@ def test_args_bind_to_loopback_without_shell_string(tmp_path):
     assert args[args.index("--host") + 1] == "127.0.0.1"
     assert args[args.index("--api-key") + 1] == "clave"
     assert "--no-webui" in args
+    assert args[args.index("--cache-ram") + 1] == "0"
     assert all(isinstance(arg, str) for arg in args)
 
 

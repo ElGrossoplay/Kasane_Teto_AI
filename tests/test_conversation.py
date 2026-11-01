@@ -9,6 +9,7 @@ from kasane_teto.ai.llm_process import LLMStartError
 from kasane_teto.character.states import PetState
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.resource_manager import AiProfile, choose_profiles
+from kasane_teto.memory.knowledge import Entry, KnowledgeBase
 
 
 class FakeProcess:
@@ -73,7 +74,8 @@ def harness(qapp, settings):
         bus.assistant_error.connect(record["errors"].append)
         bus.assistant_done.connect(lambda: record.__setitem__("done", record["done"] + 1))
         resources = resources or FakeResources()
-        service = conversation.ConversationService(bus, resources, settings)
+        knowledge = KnowledgeBase([Entry("miku", ("miku",), "Dato de Miku.", "")])
+        service = conversation.ConversationService(bus, resources, settings, knowledge)
         services.append(service)
         return bus, service, resources, record
 
@@ -108,6 +110,78 @@ def test_complete_answer_has_no_notice(harness, monkeypatch):
     bus.user_message.emit("uno")
     pump(lambda: record["done"] == 1)
     assert record["tokens"] == ["Hola"]
+
+
+def test_history_is_trimmed_in_one_step_and_keeps_a_stable_start(harness, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] ok"])
+    bus, service, _, record = harness()
+    first_kept = []
+    for turn in range(conversation.MAX_HISTORY_MESSAGES // 2 + 3):
+        bus.user_message.emit(f"mensaje {turn}")
+        pump(lambda current=turn: record["done"] == current + 1)
+        first_kept.append(seen[-1][1]["content"])
+    assert first_kept[:15] == ["mensaje 0"] * 15
+    assert len(set(first_kept)) == 2
+    assert seen[-1][1]["role"] == "user"
+
+
+def test_relevant_knowledge_reaches_the_model(harness, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    bus, _, _, record = harness()
+    bus.user_message.emit("¿Conoces a Miku?")
+    pump(lambda: record["done"] == 1)
+    assert "Dato de Miku." in seen[0][-1]["content"]
+    assert seen[0][-1]["content"].endswith("¿Conoces a Miku?")
+    assert "Dato de Miku." not in seen[0][0]["content"]
+
+
+def test_knowledge_stays_out_of_history(harness, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    bus, _, _, record = harness()
+    bus.user_message.emit("Háblame de Miku")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("¿Qué tiempo hace?")
+    pump(lambda: record["done"] == 2)
+    assert seen[1][1]["content"] == "Háblame de Miku"
+
+
+def test_follow_up_keeps_previous_topic(harness, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    bus, _, _, record = harness()
+    bus.user_message.emit("Háblame de Miku")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("¿Y qué sientes?")
+    pump(lambda: record["done"] == 2)
+    assert "Dato de Miku." in seen[1][-1]["content"]
+
+
+def test_follow_up_wins_over_keyword_of_other_entry(qapp, settings, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    bus = EventBus()
+    done = []
+    bus.assistant_done.connect(lambda: done.append(True))
+    knowledge = KnowledgeBase(
+        [
+            Entry("miku", ("miku",), "Dato de Miku.", ""),
+            Entry("programa", ("programa",), "Este programa salió ayer.", ""),
+        ]
+    )
+    service = conversation.ConversationService(bus, FakeResources(), settings, knowledge)
+    bus.user_message.emit("Háblame de Miku")
+    pump(lambda: len(done) == 1)
+    bus.user_message.emit("¿Y cuándo salió?")
+    pump(lambda: len(done) == 2)
+    assert "Dato de Miku." in seen[1][-1]["content"]
+    assert "salió ayer" not in seen[1][-1]["content"]
+    assert service is not None
+
+
+def test_unrelated_message_adds_no_knowledge(harness, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    bus, _, _, record = harness()
+    bus.user_message.emit("¿Qué tiempo hace?")
+    pump(lambda: record["done"] == 1)
+    assert "Consulta" not in seen[0][-1]["content"]
 
 
 def test_history_is_sent_on_next_turn(harness, monkeypatch):

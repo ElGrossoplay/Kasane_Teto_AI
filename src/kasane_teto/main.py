@@ -15,7 +15,13 @@ from kasane_teto.character.states import PetState
 from kasane_teto.core.conversation import ConversationService
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.logging_setup import setup_logging
-from kasane_teto.core.paths import character_root, data_dir, default_config_path, models_dir
+from kasane_teto.core.paths import (
+    character_root,
+    data_dir,
+    default_config_path,
+    knowledge_root,
+    models_dir,
+)
 from kasane_teto.core.resource_manager import ResourceManager
 from kasane_teto.core.settings import Settings
 from kasane_teto.core.single_instance import SingleInstance
@@ -24,6 +30,7 @@ from kasane_teto.desktop.pet_window import PetWindow
 from kasane_teto.desktop.tray import TrayIcon
 from kasane_teto.interface.chat_window import ChatWindow
 from kasane_teto.interface.settings_window import SettingsWindow
+from kasane_teto.memory.knowledge import KnowledgeBase, KnowledgeError
 
 FALLBACK_PACK = "provisional"
 
@@ -49,7 +56,9 @@ class TetoApp(QObject):
         self._resources = ResourceManager(
             settings, models_dir(), user_dir / "logs" / "llama-server.log", self
         )
-        self._conversation = ConversationService(self._bus, self._resources, settings, self)
+        self._conversation = ConversationService(
+            self._bus, self._resources, settings, self._load_knowledge(), self
+        )
         self._chat_window = ChatWindow(self._bus)
 
         self._bus.pet_state_requested.connect(self._animator.set_state)
@@ -70,6 +79,14 @@ class TetoApp(QObject):
     def show_pet(self) -> None:
         self._pet.show()
         self._pet.raise_()
+
+    @staticmethod
+    def _load_knowledge() -> KnowledgeBase:
+        try:
+            return KnowledgeBase.load(knowledge_root())
+        except KnowledgeError:
+            log.exception("Conocimiento no válido; Teto sigue sin fichas")
+            return KnowledgeBase([])
 
     def _load_configured_pack(self) -> CharacterPack:
         pack_id = str(self._settings.get("pet.pack", FALLBACK_PACK))

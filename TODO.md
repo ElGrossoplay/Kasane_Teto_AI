@@ -51,25 +51,36 @@ Marcadores de posición declarados: los sprites son provisionales y el menú "Pr
 - [x] 2.5 Personalidad, gramática y `EmotionParser` (emoción → animación)
 - [x] 2.6 `ResourceManager`: GPU/CPU según VRAM libre, descarga por inactividad y manual
 - [x] 2.7 `ConversationService` en hilo aparte + `ChatWindow`
-- [x] 2.8 Pruebas: 74 automáticas + 1 con modelo real + verificación en el equipo real
+- [x] 2.8 Pruebas: 108 automáticas + 1 con modelo real + verificación en el equipo real
 - [~] 2.9 **Diego:** primera prueba hecha: listas cortadas y canciones inventadas. Corregido;
       falta que Diego lo repita
+- [x] 2.10 Base de conocimiento local: fichas en `assets/knowledge/`, búsqueda por nombre y FTS5 en
+      `memory/knowledge.py`, con reacciones propias de Teto (pedido por Diego)
 
-Medido (2026-10-31), objetivos entre paréntesis: reposo con IA descargada 75 MB y 0,00 % de CPU;
-IA activa 1215 MB de RAM (< ~1,5 GB) y 2933 MiB de VRAM (≤ ~3,5 GB); 42 tokens/s; primera palabra
-0,6–0,8 s con el modelo cargado (< 3 s), ~6 s si hay que cargarlo; VRAM liberada al 100 % al
-descargar (3694 → 3694 MiB libres); interfaz sin congelarse (pausa máxima 187 ms).
-En CPU: 8,4 tokens/s, 1,8 GB de RAM.
+Medido (2026-10-31) con conocimiento activo, objetivos entre paréntesis: reposo con IA descargada
+77 MB y 0,01 % de CPU; IA activa 1246 MB de RAM, estable en 30 turnos (< ~1,5 GB), y 2933 MiB de
+VRAM (≤ ~3,5 GB); 42 tokens/s; primera palabra ~2 s (< 3 s); VRAM liberada al 100 % al descargar;
+interfaz sin congelarse (pausa máxima 32 ms). El primer mensaje tarda ~10 s, y uno de cada 10–15
+turnos 8–9 s, al recortar el historial. En CPU: 8,4 tokens/s, 1,8 GB de RAM.
+
+`scripts/probar_conocimiento.py`: 58/60 respuestas con el dato clave correcto. Solo comprueba ese
+dato: algunas respuestas deforman detalles (llamó "gratuito" a UTAU, que es shareware).
+
+Ajustes del servidor medidos: `--load-mode none` baja la RAM de 3,2 a 1,1 GB; `--cache-ram 0` evita
+una caché de hasta 8 GB; con `--ctx-checkpoints 0` la primera palabra sube a 7–10 s, por eso son 2.
 
 Ajustes tras la prueba de Diego: máximo 400 tokens con aviso si se corta, temperatura 0,3,
 penalización de repetición 1,05 y ficha con datos verificados de Teto en el prompt (fuente:
 Wikipedia, "Kasane Teto"). Batería ampliada a 33 preguntas con preguntas trampa.
 
 Limitaciones conocidas:
-- **Inventa títulos fuera de la ficha:** canciones de Miku, películas de Ghibli. Ni el prompt ni la
-  temperatura lo eliminan; la vía real es la búsqueda web de la Fase 5. Lo que importe de Teto
-  debe añadirse a la ficha `personality/prompts/teto.txt` con datos verificados.
-- A veces deforma datos de la ficha o cuenta mal (dijo "diez" canciones siendo seis).
+- **Inventa fuera de las fichas:** por ejemplo, películas de Ghibli. Ni el prompt ni la temperatura
+  lo eliminan; la vía real es la búsqueda web de la Fase 5. Lo que importe debe añadirse como ficha
+  en `assets/knowledge/` con datos verificados.
+- A veces deforma datos de las fichas, mezcla identidades o cuenta mal (dijo "diez" canciones
+  siendo seis, o "yo no puedo cantar porque soy UTAU").
+- Las reacciones de las fichas son personalidad inventada, no hechos ni opiniones oficiales.
+- Solo cubre lo que hay en las fichas: el resto del mundo Vocaloid sigue siendo desconocido para ella.
 - La carga en frío puede tardar 30–80 s si el modelo no está en la caché de disco de Windows.
 - Qwen3.5-4B usa mucho `[neutral]`, por lo que la mascota varía poco de expresión, y a veces añade
   frases sin sentido. Puede inventar: es inherente a un modelo de este tamaño.
@@ -114,3 +125,5 @@ Limitaciones conocidas:
   con juegos ni anticheat.
 - **2026-10-31:** Fase 2 implementada: llama.cpp, modelos, batería, chat, emociones y descarga por
   inactividad. Pendiente la prueba manual.
+- **2026-10-31:** corregidas listas cortadas y canciones inventadas tras la prueba de Diego. Añadida
+  la base de conocimiento de Vocaloid y música virtual.

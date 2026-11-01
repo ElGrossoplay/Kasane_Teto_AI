@@ -22,6 +22,10 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 - `assets/character/provisional/`: formas genéricas creadas por el proyecto con
   `scripts/generar_sprites_provisionales.py`. No representan al personaje.
 
+- `assets/knowledge/`: fichas redactadas por el proyecto con datos contrastados, sobre todo en los
+  artículos de Wikipedia de cada tema. Contienen hechos, no letras ni textos copiados. Las
+  reacciones son invención del proyecto.
+
 ## Personaje
 
 Kasane Teto pertenece a TWINDRILL. El repositorio no incluye arte, voz ni modelos del personaje.
