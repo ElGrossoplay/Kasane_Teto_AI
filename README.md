@@ -5,8 +5,8 @@ que vive en tu escritorio, conversa en español con una IA que corre **en tu pro
 hablar y escucharte, recuerda lo que tú le autorices y realiza acciones sencillas de Windows bajo
 tu control.
 
-> **Estado:** Fases 1 a 3 y búsqueda de música completadas; memoria en prueba. Funcionan la mascota con
-> sprites provisionales, el chat con IA local, la voz y los recuerdos. El progreso está en [`TODO.md`](TODO.md) y el diseño en
+> **Estado:** Fases 1 a 4 y búsqueda de música completadas. Funcionan la mascota con sprites
+> provisionales, el chat con IA local, la voz y los recuerdos. El progreso está en [`TODO.md`](TODO.md) y el diseño en
 > [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
 
 ## Principios
@@ -26,7 +26,7 @@ tu control.
 | Mascota transparente, arrastrable, bandeja del sistema | 1 | Hecho |
 | Chat con IA local y personalidad de Teto | 2 | Hecho |
 | Voz (TTS) y push-to-talk (STT) | 3 | Hecho |
-| Memoria persistente con panel de administración | 4 | En prueba |
+| Memoria persistente con panel de administración | 4 | Hecho |
 | Búsqueda opcional de artistas y canciones en VocaDB | 5 | Hecho |
 | Acciones de Windows controladas | 5 | Pendiente |
 | Modo juego y estados de consumo | 6 | Pendiente |

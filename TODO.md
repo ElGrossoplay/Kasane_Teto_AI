@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-01 · **Fase 3 y búsqueda en VocaDB completadas · Fase 4 (memoria) hecha, pendiente de la prueba manual de Diego**
+Última actualización: 2026-11-01 · **Fases 1 a 4 y búsqueda en VocaDB completadas · Siguiente: resto de la Fase 5 (herramientas), pendiente de aprobación**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -221,7 +221,7 @@ Limitaciones conocidas:
 - [x] 4.5 Panel "Memoria…" en el menú: ver, buscar, añadir, editar y borrar recuerdos e historial
 - [x] 4.6 Configuración: propuestas activadas y **historial apagado por defecto**, porque guardar
       conversaciones también es memoria. Los mensajes con datos sensibles se omiten del historial
-- [ ] 4.7 **Diego:** prueba manual
+- [x] 4.7 **Diego:** prueba manual superada; aprobó subirlo (2026-11-01)
 
 Medido (2026-11-01): 386 pruebas. `scripts/probar_memoria.py` 39/39 con el modelo real. Recorrido
 real: lo guardado sigue tras reiniciar el servicio, lo rechazado no se guarda y `Cómo te llamas` no
@@ -296,4 +296,4 @@ Limitaciones conocidas:
 - **2026-11-01:** con las mejoras de audio revisadas, `small` llega a 88 % y `base` baja a 59 %.
   Diego aprobó el cambio: la app pasa a `small`. Prueba por voz superada y subido a GitHub.
 - **2026-11-01:** Fase 4 implementada: recuerdos con confirmación, panel e historial opcional.
-  Pendiente la prueba manual.
+  Prueba manual de Diego superada y subida a GitHub.
