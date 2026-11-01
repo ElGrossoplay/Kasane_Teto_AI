@@ -12,7 +12,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
-import psutil
 
 from kasane_teto.ai.windows_job import KillOnCloseJob
 
@@ -34,22 +33,6 @@ class LLMConfig:
     gpu_layers: int
     threads: int
     load_timeout_seconds: float
-
-
-def kill_orphans(server_path: Path) -> int:
-    """Cierra servidores de esta instalación que hayan quedado de otra ejecución."""
-    killed = 0
-    target = str(server_path.resolve()).casefold()
-    for process in psutil.process_iter(["name", "exe"]):
-        exe = process.info["exe"]
-        if not exe or exe.casefold() != target:
-            continue
-        try:
-            process.kill()
-            killed += 1
-        except psutil.Error:
-            log.warning("No se pudo cerrar el proceso huérfano %s", process.pid)
-    return killed
 
 
 def _free_port() -> int:
@@ -107,9 +90,6 @@ class LLMProcess:
                 raise LLMStartError(f"No se encuentra {config.server_path.name}")
             if not config.model_path.is_file():
                 raise LLMStartError(f"No se encuentra el modelo {config.model_path.name}")
-            orphans = kill_orphans(config.server_path)
-            if orphans:
-                log.warning("Cerrados %d servidores huérfanos", orphans)
 
             self.port = _free_port()
             self.api_key = secrets.token_urlsafe(32)
@@ -138,13 +118,15 @@ class LLMProcess:
             self._terminate()
 
     def _attach_to_job(self) -> None:
+        """El Job Object cierra el servidor si la app muere. Nunca se buscan procesos sueltos:
+        recorrerlos abriría también los de un juego, y eso lo prohíbe la regla de anticheat."""
         assert self._process is not None
         try:
             if self._job is None:
                 self._job = KillOnCloseJob()
             self._job.assign(int(self._process._handle))
         except OSError:
-            log.exception("No se pudo crear el Job Object; se limpiará al iniciar")
+            log.exception("No se pudo crear el Job Object; el servidor podría sobrevivir a la app")
 
     def _wait_ready(self) -> None:
         assert self._process is not None
