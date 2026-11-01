@@ -5,7 +5,7 @@ que vive en tu escritorio, conversa en español con una IA que corre **en tu pro
 hablar y escucharte, recuerda lo que tú le autorices y realiza acciones sencillas de Windows bajo
 tu control.
 
-> **Estado:** Fase 2 en pruebas. Funcionan la mascota con sprites provisionales y el chat con IA local; todavía no hay voz. El
+> **Estado:** Fase 2 completada. Funcionan la mascota con sprites provisionales y el chat con IA local; todavía no hay voz. El
 > progreso está en [`TODO.md`](TODO.md) y el diseño en
 > [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
 
@@ -24,7 +24,7 @@ tu control.
 | Función | Fase | Estado |
 |---|---|---|
 | Mascota transparente, arrastrable, bandeja del sistema | 1 | Hecho |
-| Chat con IA local y personalidad de Teto | 2 | En pruebas |
+| Chat con IA local y personalidad de Teto | 2 | Hecho |
 | Voz (TTS) y push-to-talk (STT) | 3 | Pendiente |
 | Memoria persistente con panel de administración | 4 | Pendiente |
 | Acciones de Windows controladas y búsqueda web opcional | 5 | Pendiente |

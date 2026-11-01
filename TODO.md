@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-10-31 · **Fase actual: 2 (IA local) — implementada, falta la prueba manual de Diego (2.9)**
+Última actualización: 2026-10-31 · **Fase 2 completada · Siguiente: Fase 3 (voz), pendiente de aprobación**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -42,7 +42,7 @@ estaba arrastrando; la causa de las demás no está confirmada.
 Marcadores de posición declarados: los sprites son provisionales y el menú "Probar estado" es la
 única forma de cambiar de estado hasta la Fase 2.
 
-## Fase 2 — IA local (en pruebas)
+## Fase 2 — IA local (completada)
 
 - [x] 2.1 Descargar llama.cpp b12024 (CUDA 12.4) y comprobar que detecta la GTX 1650
 - [x] 2.2 Descargar 3 modelos con hash verificado y elegir con la batería → Qwen3.5-4B en GPU
@@ -52,8 +52,8 @@ Marcadores de posición declarados: los sprites son provisionales y el menú "Pr
 - [x] 2.6 `ResourceManager`: GPU/CPU según VRAM libre, descarga por inactividad y manual
 - [x] 2.7 `ConversationService` en hilo aparte + `ChatWindow`
 - [x] 2.8 Pruebas: 108 automáticas + 1 con modelo real + verificación en el equipo real
-- [~] 2.9 **Diego:** primera prueba hecha: listas cortadas y canciones inventadas. Corregido;
-      falta que Diego lo repita
+- [x] 2.9 **Diego:** prueba manual: listas cortadas y canciones inventadas, corregidas. Cierre de la
+      fase aprobado por Diego (2026-10-31)
 - [x] 2.10 Base de conocimiento local: fichas en `assets/knowledge/`, búsqueda por nombre y FTS5 en
       `memory/knowledge.py`, con reacciones propias de Teto (pedido por Diego)
 
@@ -126,4 +126,4 @@ Limitaciones conocidas:
 - **2026-10-31:** Fase 2 implementada: llama.cpp, modelos, batería, chat, emociones y descarga por
   inactividad. Pendiente la prueba manual.
 - **2026-10-31:** corregidas listas cortadas y canciones inventadas tras la prueba de Diego. Añadida
-  la base de conocimiento de Vocaloid y música virtual.
+  la base de conocimiento de Vocaloid y música virtual. Fase 2 cerrada y subida a GitHub.
