@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import difflib
+import re
 import sys
 import time
 import wave
@@ -58,8 +59,8 @@ def load(path: Path) -> Recording:
 
 
 def similarity(expected: str, heard: str) -> float:
-    words = normalize(expected).replace("¿", "").split()
-    other = normalize(heard).replace("¿", "").split()
+    words = re.findall(r"\w+", normalize(expected))
+    other = re.findall(r"\w+", normalize(heard))
     return difflib.SequenceMatcher(None, words, other).ratio()
 
 

@@ -101,9 +101,9 @@ Limitaciones conocidas:
 - [~] 3.8 **Diego:** eligió la voz Daniela. Primera prueba: había que hablar por sílabas y la
       personalidad resultaba forzada; corregido en parte
 - [~] 3.9 **Diego:** primera medición con su voz: 50 %. Solo el 1,8 % de la energía llega por encima
-      de 1 kHz, posible filtrado de Windows/Realtek. El refuerzo de agudos subió a 64 % (8 frases).
-      Falta revisar las mejoras de audio del micrófono, repetir la prueba y decidir si hace falta
-      el modelo `small` (461 MB)
+      de 1 kHz, posible filtrado de Windows/Realtek. Con el refuerzo de agudos, 53 %: ajustar el
+      software casi no cambia el resultado. Falta revisar las mejoras de audio del micrófono,
+      repetir la prueba y decidir si hace falta el modelo `small` (461 MB)
 - [x] 3.10 Captura por WASAPI a calidad nativa (48 kHz) con conversión correcta, normalización,
       filtro de silencio y vocabulario como `hotwords`
 - [x] 3.11 Personalidad menos forzada: datos de Teto en una ficha que solo se usa si preguntan por
