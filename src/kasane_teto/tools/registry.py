@@ -46,10 +46,14 @@ from kasane_teto.tools.commands import (
     SAFE_FILE_TYPES,
     THIS_WINDOW,
     UNSAFE_FILE_TYPES,
+    USUAL_CHANNEL,
+    VOICE_JOIN,
+    VOICE_LEAVE,
     WEB_SEARCH,
     WINDOW_KINDS,
     Command,
 )
+from kasane_teto.tools.discord_rpc import DiscordError, DiscordVoice, VoiceChannel
 
 BUILTIN_APPS = {"calculadora": "calc.exe", "bloc de notas": "notepad.exe"}
 # Permitir estas sería permitir cualquier comando, aunque el usuario las añada al catálogo.
@@ -261,7 +265,9 @@ class ToolRegistry:
         log_path: Path,
         runner: SystemRunner | None = None,
         folders: Mapping[str, Path] | None = None,
+        discord: DiscordVoice | None = None,
     ) -> None:
+        self._discord = discord
         self._settings = settings
         self._log_path = log_path
         self._runner = runner or WindowsRunner()
@@ -317,7 +323,39 @@ class ToolRegistry:
             return self._prepare_search(command)
         if command.kind == INFO:
             return Action(command, INFO_SUMMARIES[command.target])
+        if command.kind == VOICE_JOIN:
+            return self._prepare_voice(command)
+        if command.kind == VOICE_LEAVE:
+            return Action(command, "Voy a salir del canal de voz")
         raise ActionRejected("Eso no lo puedo hacer.")
+
+    def _discord_channel(self, command: Command) -> VoiceChannel:
+        if self._discord is None or not self._discord.is_configured:
+            raise ActionRejected("Primero conecta Discord en Configuración.")
+        try:
+            if command.target == USUAL_CHANNEL:
+                return self._discord.favorite()
+            return self._discord.find(command.target)
+        except DiscordError as exc:
+            raise ActionRejected(str(exc)) from exc
+
+    def _prepare_voice(self, command: Command) -> Action:
+        channel = self._discord_channel(command)
+        summary = f"Voy a entrar a {channel.name}, en {channel.guild}, con tu micrófono"
+        return Action(command, summary, channel.name)
+
+    def _run_voice(self, command: Command) -> str:
+        if self._discord is None or not self._discord.is_configured:
+            raise ActionRejected("Primero conecta Discord en Configuración.")
+        try:
+            if command.kind == VOICE_LEAVE:
+                self._discord.leave()
+                return "He salido del canal."
+            channel = self._discord_channel(command)
+            self._discord.join(channel)
+        except DiscordError as exc:
+            raise ActionRejected(str(exc)) from exc
+        return f"Dentro de {channel.name}."
 
     def _prepare_search(self, command: Command) -> Action:
         if has_secret(command.target) or len(command.target) > MAX_SEARCH_CHARS:
@@ -482,6 +520,8 @@ class ToolRegistry:
         command = checked.command
         if command.kind in WINDOW_KINDS:
             return self._act_on_windows(checked)
+        if command.kind in (VOICE_JOIN, VOICE_LEAVE):
+            return self._run_voice(command)
         if checked.app_id:
             self._runner.start_app(checked.app_id)
         elif command.kind == OPEN_APP:

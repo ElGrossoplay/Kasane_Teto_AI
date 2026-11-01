@@ -22,6 +22,8 @@ from kasane_teto.core.events import EventBus
 from kasane_teto.desktop.hotkey import HOTKEY_LABEL
 from kasane_teto.desktop.pet_window import MAX_SCALE, MIN_SCALE, SCALE_STEP
 from kasane_teto.interface.apps_window import AppsWindow
+from kasane_teto.interface.discord_window import DiscordWindow
+from kasane_teto.tools.discord_rpc import DiscordVoice
 
 
 MIN_COMMENT_MINUTES = 1
@@ -55,8 +57,10 @@ class SettingsWindow(QDialog):
         tools_confirm: bool = False,
         comments_enabled: bool = False,
         comments_minutes: int = 10,
+        discord: DiscordVoice | None = None,
     ) -> None:
         super().__init__()
+        self._discord = discord
         self._bus = bus
         self._allowed_apps = dict(allowed_apps or {})
         self.setWindowTitle("Configuración")
@@ -136,6 +140,10 @@ class SettingsWindow(QDialog):
         self._comment_minutes.setValue(comments_minutes)
         self._comment_minutes.valueChanged.connect(bus.comments_minutes_requested)
 
+        self._discord_button = QPushButton("Conectar Discord…")
+        self._discord_button.setEnabled(discord is not None)
+        self._discord_button.clicked.connect(self._open_discord)
+
         data_label = QLabel(str(data_dir))
         data_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
@@ -155,6 +163,7 @@ class SettingsWindow(QDialog):
         form.addRow(self._apps_button)
         form.addRow(self._comments)
         form.addRow("Tiempo sin hablar", self._comment_minutes)
+        form.addRow(self._discord_button)
         form.addRow("Datos", data_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
@@ -173,3 +182,7 @@ class SettingsWindow(QDialog):
 
     def _open_apps(self) -> None:
         AppsWindow(self._bus, self._allowed_apps, self).exec()
+
+    def _open_discord(self) -> None:
+        if self._discord is not None:
+            DiscordWindow(self._discord, self).exec()

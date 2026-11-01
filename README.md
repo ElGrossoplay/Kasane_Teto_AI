@@ -79,6 +79,10 @@ no se guarda ni sale del equipo), "¿qué tengo abierto?", "escribe un poema en 
 "crea una presentación sobre gatos". Los archivos se crean en `Documentos\Teto`. Los comentarios por
 su cuenta se activan aparte en Configuración.
 
+Discord: con "Conectar Discord…" en Configuración y una aplicación propia del portal de Discord,
+puedes decir "entra al canal General de Minecraft" o "sal del canal". Usa su sistema oficial, las claves
+quedan cifradas en tu equipo y entrar a un canal siempre pide confirmación.
+
 ## Diagnóstico del equipo
 
 Script de solo lectura que muestra CPU, RAM, GPU/VRAM, Python y disco sin modificar nada:

@@ -308,7 +308,13 @@ y crear archivos en lugar de simular teclado.
       título de la ventana, una vez por ventana y solo si hay actividad en el equipo. En juegos, frases
       preparadas, sin cargar la IA
 - [x] P.5 Regla de "no puedes" sustituida con el control activo por otra corta (conocimiento 87/90)
-- [ ] P.6 **Diego:** prueba manual
+- [x] P.6 **Diego:** prueba manual: abre, cierra y minimiza Discord
+- [x] P.7 Discord por su vía oficial (RPC local con OAuth2): entrar y salir de canales de voz por
+      nombre, con el "de siempre". Claves cifradas con DPAPI en `discord.bin`. Entrar siempre pide
+      confirmación, porque abre el micrófono. Nunca se simulan clics ni se usa el token de sesión:
+      Discord lo prohíbe y puede cerrar la cuenta
+- [ ] P.8 **Diego:** crear la aplicación en el portal de Discord y conectarla. Sin eso no se ha probado
+      contra el Discord real: solo con un cliente simulado según la documentación
 
 Medido (2026-11-01): 676 pruebas más 6 reales. Con la visión en GPU quedan 34 MiB libres y tarda 24 s;
 en CPU quedan 874 MiB y tarda 14 s, y por eso va en CPU. Mirar tarda ~25 s la primera vez, al recargar
@@ -323,6 +329,9 @@ Limitaciones conocidas:
 - Mirar solo captura la pantalla donde esté el ratón
 - El modelo puede inventar en documentos sobre temas sin ficha: conviene revisar lo que escribe
 - Crea archivos, no edita los que ya tienes ni escribe en un programa abierto
+- Discord exige estar en la lista de testers de la aplicación mientras no esté aprobada. Parte de su
+  documentación de RPC aparece como obsoleta: puede dejar de funcionar sin aviso
+- Si la vía oficial falla, el plan B son enlaces a canales, con el último clic del usuario
 
 Medido (2026-11-01): 558 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
 consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En el equipo real: encontró

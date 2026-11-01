@@ -20,6 +20,9 @@ WINDOW_KINDS = frozenset((CLOSE_APP, MINIMIZE_APP, RESTORE_APP, MAXIMIZE_APP))
 THIS_WINDOW = "esta ventana"
 LOOK_AT_SCREEN = "look"
 WRITE_DOCUMENT = "write"
+VOICE_JOIN = "voice_join"
+VOICE_LEAVE = "voice_leave"
+USUAL_CHANNEL = "el de siempre"
 WEB_SEARCH = "search"
 INFO = "info"
 
@@ -72,6 +75,21 @@ _WINDOW = tuple(
     (kind, re.compile(_PREFIX + rf"(?:{verbs})(?:\W+(?P<target>.+))?$", re.IGNORECASE | re.DOTALL))
     for kind, verbs in _WINDOW_ORDERS
 )
+_VOICE_JOIN = re.compile(
+    _PREFIX + r"(?:[uú]n(?:e|ete)|con[eé]cta(?:te|me)?|m[eé]te(?:te|me)?|entra(?:r)?|ponme)\s+"
+    r"(?:(?:a|al|en|en\s+el|en\s+la|a\s+la)\s+)(?:(?:mi|mis|el|la)\s+)?"
+    r"(?P<word>canal(?:\s+de\s+voz)?(?:\s+de)?(?:\s+|$)|servidor(?:\s+de)?\s+|discord\s+(?:al?\s+)?)?"
+    r"(?P<target>.*)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_VOICE_NAMED = re.compile(r"^(?:[uú]n|con[eé]c|m[eé]t)", re.IGNORECASE)
+_PREFIX_SKIP = re.compile(_PREFIX, re.IGNORECASE)
+_VOICE_LEAVE = re.compile(
+    _PREFIX + r"(?:s[aá]l(?:te|ir|irme|ate)?\s+(?:de|del)\s+(?:(?:el|la)\s+)?"
+    r"(?:canal|discord|llamada|voz)\b|descon[eé]cta(?:te|me)?(?:\s+de\w*\s+\w+)?\W*$|cuelga\W*$)",
+    re.IGNORECASE,
+)
+_USUAL = re.compile(r"\b(?:de\s+siempre|habitual|usual|favorito)\b", re.IGNORECASE)
 _LOOK = re.compile(
     r"\b(?:mira|m[ií]rame|ve|observa|analiza|revisa|describe|lee)\s+(?:a\s+)?(?:mi|la|esta)\s+pantalla\b"
     r"|\bqu[eé]\s+(?:ves|hay|sale|aparece)\s+en\s+(?:mi|la|esta)\s+pantalla\b"
@@ -251,10 +269,30 @@ def _document_command(text: str) -> Command | None:
     return None
 
 
+def _voice_command(text: str) -> Command | None:
+    stripped = text.strip()
+    if _VOICE_LEAVE.match(stripped):
+        return Command(VOICE_LEAVE)
+    join = _VOICE_JOIN.match(stripped)
+    if join is None:
+        return None
+    # "Entra en detalle" no es una orden: "entra" exige decir canal, servidor o Discord.
+    verb = _PREFIX_SKIP.sub("", stripped)
+    if not join.group("word") and not _VOICE_NAMED.match(verb):
+        return None
+    target = _clean_target(join.group("target"))
+    if _USUAL.search(stripped) or (join.group("word") and not target):
+        return Command(VOICE_JOIN, USUAL_CHANNEL)
+    return Command(VOICE_JOIN, target) if target else None
+
+
 def parse_command(text: str) -> Command | None:
     """Convierte una orden clara en un comando. Cualquier otra frase es conversación."""
     if _LOOK.search(text):
         return Command(LOOK_AT_SCREEN)
+    voice = _voice_command(text)
+    if voice is not None:
+        return voice
     document = _document_command(text)
     if document is not None:
         return document

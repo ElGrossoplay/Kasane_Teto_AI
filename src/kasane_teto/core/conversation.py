@@ -43,6 +43,7 @@ from kasane_teto.personality.prompt_builder import (
 from kasane_teto.tools.documents import strip_preamble
 from kasane_teto.tools.commands import (
     LOOK_AT_SCREEN,
+    VOICE_JOIN,
     WRITE_DOCUMENT,
     Command,
     asks_open_things,
@@ -457,7 +458,8 @@ class ConversationService(QObject):
         if command.kind == WRITE_DOCUMENT:
             self._start_turn(text, document=command)
             return True
-        ask_first = bool(self._settings.get("tools.confirm", False))
+        # Entrar a un canal abre el micrófono ante otras personas: siempre se confirma.
+        ask_first = command.kind == VOICE_JOIN or bool(self._settings.get("tools.confirm", False))
         self._start_action_task(command, ask_first, by_button=False)
         return True
 

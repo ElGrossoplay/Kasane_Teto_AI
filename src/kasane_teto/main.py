@@ -40,7 +40,9 @@ from kasane_teto.interface.memory_window import MemoryWindow
 from kasane_teto.interface.settings_window import SettingsWindow, VoiceOptions
 from kasane_teto.memory.knowledge import KnowledgeBase, KnowledgeError
 from kasane_teto.memory.store import MemoryStore, MemoryStoreError
+from kasane_teto.tools.discord_rpc import DiscordVoice
 from kasane_teto.tools.registry import ToolRegistry
+from kasane_teto.tools.secure_store import SecureStore
 from kasane_teto.tools.vocadb import VocaDBClient
 from kasane_teto.tools.web_lookup import MusicLookup
 from kasane_teto.voice.audio import AudioPlayer, AudioRecorder
@@ -76,7 +78,10 @@ class TetoApp(QObject):
         knowledge = self._load_knowledge()
         self._memory = self._open_memory_store(user_dir)
         self._memory_window: MemoryWindow | None = None
-        tools = ToolRegistry(settings, user_dir / "logs" / "actions.log")
+        self._discord = DiscordVoice(SecureStore(user_dir / "discord.bin"))
+        tools = ToolRegistry(
+            settings, user_dir / "logs" / "actions.log", discord=self._discord
+        )
         self._conversation = ConversationService(
             self._bus,
             self._resources,
@@ -229,6 +234,7 @@ class TetoApp(QObject):
             bool(self._settings.get("tools.confirm", False)),
             self._comments.enabled,
             int(self._settings.get("comments.minutes", 10)),
+            self._discord,
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window

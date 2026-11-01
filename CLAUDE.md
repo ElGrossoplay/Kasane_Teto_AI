@@ -34,6 +34,7 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 | Web | Opcional y desactivada por defecto. Música: API pública de VocaDB (`tools/`), con caché y citando la fuente. Fandom solo con su permiso escrito. Búsqueda general (Wikipedia API, DuckDuckGo vía `ddgs`) por decidir |
 | Pantalla y comentarios | Títulos de ventana para el contexto. Captura solo si Diego lo pide, en memoria, nunca con un juego abierto. Comentarios opcionales: en juegos, frases preparadas sin IA |
 | Documentos | Teto solo crea archivos nuevos en `Documentos\Teto`. Sin simular teclado |
+| Discord | Solo RPC oficial con OAuth2 y la aplicación de Diego. Nunca simular la interfaz ni usar el token de sesión. Entrar a voz siempre pide confirmación |
 | Empaquetado | PyInstaller `--onedir`; modelos y llama.cpp fuera del ejecutable |
 | Distribución | App de uso personal; código en repositorio **público** de GitHub. Nunca subir datos del equipo, recuerdos, configuración de usuario ni arte de terceros. Distribuir la app exigiría revisar las licencias |
 
