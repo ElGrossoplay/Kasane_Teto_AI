@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+from functools import partial
 from pathlib import Path
 
 from PySide6.QtCore import QObject
@@ -39,6 +40,7 @@ from kasane_teto.voice.audio import AudioPlayer, AudioRecorder
 from kasane_teto.voice.engines import STTEngine, TTSEngine
 from kasane_teto.voice.listening import ListenService
 from kasane_teto.voice.speech import SpeechService
+from kasane_teto.voice.transcript import fix_transcript
 
 FALLBACK_PACK = "provisional"
 
@@ -84,7 +86,14 @@ class TetoApp(QObject):
             knowledge.vocabulary(),
             str(settings.get("voice.stt_model", "base")),
         )
-        self._listen = ListenService(self._bus, settings, stt, AudioRecorder(), self)
+        self._listen = ListenService(
+            self._bus,
+            settings,
+            stt,
+            AudioRecorder(),
+            self,
+            partial(fix_transcript, correct_names=knowledge.correct_names),
+        )
         self._hotkey = GlobalHotkey(lambda: self._bus.listen_toggled.emit())
         if self._listen.enabled:
             self._hotkey.register()

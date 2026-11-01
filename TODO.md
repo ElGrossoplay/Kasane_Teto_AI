@@ -144,18 +144,33 @@ Limitaciones conocidas:
 - [x] W.10 Si no hay resultados, se le avisa al modelo sin estropear la cultura general
 - [x] W.11 La gramática exige texto: ya no puede responder solo con la emoción. Si llegara vacía, se
       avisa. No se pudo reproducir el caso original en 8 intentos
-- [ ] W.12 **Diego:** repetir la prueba manual y grabar las 4 frases nuevas de
-      `scripts/probar_microfono.py`
+- [x] W.12 **Diego:** grabó las 12 frases: 69 % con voz real, con "Kienes" en vez de "¿Quién es?".
+      En esa prueba la búsqueda estaba apagada en sus ajustes, por eso no conocía a varios artistas
+- [x] W.13 `voice/transcript.py` corrige "Kienes", "Quienes" y "Gen es", y nombres casi exactos
+      ("Katsune Miku"): sube a 80 % con esas 12 grabaciones
+- [x] W.14 Con la búsqueda apagada, el chat avisa cuando buscar habría ayudado
+- [ ] W.15 **Diego:** repetir la prueba por voz con la búsqueda activada
 
-Medido (2026-11-01): 267 pruebas más 4 reales contra VocaDB. Búsqueda 59/60, con las transcripciones
-reales de Diego. Conocimiento 87/90, igual que antes, con la gramática nueva. Micrófono 79 % con
-las 8 grabaciones de Diego, sin cambios: aún no hay grabaciones de nombres como Kikuo. Reposo
+Comparativa de ajustes del reconocedor con las 12 grabaciones (modelo `base`): sin vocabulario 54 %,
+sin refuerzo de agudos 59 %, ajuste actual 69 %, ejemplos genéricos en el prompt 69–74 %, y actual
+con corrección posterior 80 %. Se descartan los ejemplos en el prompt: el reconocedor los repite como
+si se hubieran dicho ("¿Quién es? ¿Quién es?") y deforman otras frases. Las mismas 12 frases sirvieron
+para elegir y para medir, así que el 80 % puede ser algo optimista.
+
+Medido (2026-11-01): 296 pruebas más 4 reales contra VocaDB. Búsqueda 58/60, con las transcripciones
+reales de Diego. Conocimiento 87/90, igual que antes, con la gramática nueva. Reposo
 78,1 MB frente a 77,9 MB de la versión anterior, y 0,01 % de CPU. Interfaz: pausa máxima 32 ms.
 Consulta sin caché 1–2 s; con caché, 0,02 s. Primera palabra con búsqueda sin caché ~4,5 s, con
 caché ~2,4 s. La primera corrección de un nombre tarda ~8 s por las listas populares, que luego
 quedan en caché.
 
 Limitaciones conocidas:
+- El modelo `base` llega a su límite con este micrófono: algunas frases no se arreglan ni con
+  corrección ("Cuentemente corto", "Hoy tu en día, beso en el tráfico", "nici-m"). El modelo `small`
+  (461 MB) sigue sin probar
+- Python puede liberar objetos Qt desde un hilo que no es el principal. En las pruebas causó cierres
+  (7 de 25 ejecuciones, 0 de 20 al limpiar la memoria en el hilo principal). No se ha visto en la app,
+  cuyos objetos Qt viven toda la sesión, pero queda vigilar si se cierra sola mientras Teto habla
 - La primera lista de una voz con muchas versiones es lenta: la de Kasane Teto tardó 17,6 s una vez
   y ~6 s otra. Después queda en caché. Si una consulta supera 10 s, Teto avisa y responde sin datos
 - **Modelo de respaldo:** con menos de 3100 MiB libres, la app usa el modelo en CPU sin avisar. Con
@@ -230,3 +245,5 @@ Limitaciones conocidas:
   implementada y medida, con `scripts/probar_busqueda.py`. Pendiente la prueba manual.
 - **2026-11-01:** primera prueba de Diego con voz: corregidas las preguntas mal transcritas, los
   nombres deformados, "búscalo" y la respuesta vacía. Pendiente repetir la prueba manual.
+- **2026-11-01:** con las 12 grabaciones de Diego, corrección de texto tras el reconocimiento (de 69
+  a 80 %) y aviso cuando la búsqueda está apagada. Corregido un cierre intermitente de las pruebas.

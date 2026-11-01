@@ -318,6 +318,20 @@ def test_disabled_web_sends_nothing(web_harness):
     pump(lambda: record["done"] == 1)
     assert lookup.queries == []
     assert "Kikuo." not in seen[0][-1]["content"].split("Mensaje")[0]
+
+
+def test_disabled_web_is_mentioned_when_it_would_help(web_harness):
+    bus, _, _, _, record = web_harness(enabled=False)
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    assert record["notices"] == [conversation.WEB_OFF_NOTICE]
+
+
+@pytest.mark.parametrize("text", ["Hola, ¿qué tal?", "¿Quién es Miku?"])
+def test_disabled_web_is_not_mentioned_when_useless(web_harness, text):
+    bus, _, _, _, record = web_harness(enabled=False)
+    bus.user_message.emit(text)
+    pump(lambda: record["done"] == 1)
     assert record["notices"] == []
 
 

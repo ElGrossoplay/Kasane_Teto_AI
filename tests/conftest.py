@@ -1,3 +1,4 @@
+import gc
 import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -10,6 +11,13 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 def qapp():
     app = QApplication.instance() or QApplication([])
     yield app
+
+
+@pytest.fixture(autouse=True)
+def collect_qt_garbage_on_main_thread():
+    """Sin esto, el hilo de voz puede liberar objetos Qt de otras pruebas y cerrar Python."""
+    yield
+    gc.collect()
 
 
 @pytest.fixture

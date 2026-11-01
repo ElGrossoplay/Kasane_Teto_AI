@@ -16,6 +16,11 @@ MIN_TERM_LENGTH = 4
 # Medido con transcripciones reales: "Sembo Sakura" da 0,78; "Tanuki-P" o "trabajo" no pasan de 0,67.
 MIN_NAME_SIMILARITY = 0.78
 MIN_SIMILAR_KEY_LENGTH = 4
+# Corregir dentro de una frase es más arriesgado que buscar un nombre ya aislado.
+MIN_TEXT_NAME_SIMILARITY = 0.85
+MIN_TEXT_NAME_LENGTH = 6
+MAX_NAME_WORDS = 3
+_WORD_EDGES = re.compile(r"^(\W*)(.*?)(\W*)$", re.DOTALL)
 PRIORITY_VOCABULARY = ("Kasane Teto", "VocaDB", "Senbonzakura", "Mesmerizer", "Kikuo")
 
 # Palabras demasiado comunes en este tema: buscarlas activaría fichas sin relación.
@@ -183,6 +188,39 @@ class KnowledgeBase:
             default=("", 0.0),
         )
         return [self._entries[entry_id]] if best >= MIN_NAME_SIMILARITY else []
+
+    def correct_names(self, text: str) -> str:
+        """Arregla nombres casi exactos dentro de una frase: "Katsune Miku" → "Hatsune Miku"."""
+        words = text.split()
+        fixed: list[str] = []
+        index = 0
+        while index < len(words):
+            # De menos a más palabras: "Kagamine Rin y" no debe tragarse la "y" de "Rin y Len".
+            for size in range(1, MAX_NAME_WORDS + 1):
+                chunk = " ".join(words[index:index + size])
+                lead, body, tail = _WORD_EDGES.match(chunk).groups()  # type: ignore[union-attr]
+                name = self._closest_text_name(body) if index + size <= len(words) else None
+                if name is not None:
+                    fixed.append(f"{lead}{name}{tail}")
+                    index += size
+                    break
+            else:
+                fixed.append(words[index])
+                index += 1
+        return " ".join(fixed)
+
+    def _closest_text_name(self, text: str) -> str | None:
+        key = name_key(text)
+        best_name, best = None, 0.0
+        for entry in self._entries.values():
+            for name in entry.names:
+                other = name_key(name)
+                if len(other) < MIN_TEXT_NAME_LENGTH or abs(len(other) - len(key)) > 1:
+                    continue
+                score = name_similarity(key, other)
+                if score > best:
+                    best_name, best = name, score
+        return best_name if best >= MIN_TEXT_NAME_SIMILARITY else None
 
     def by_keywords(self, text: str, limit: int = MAX_RESULTS) -> list[Entry]:
         query = normalize(text)

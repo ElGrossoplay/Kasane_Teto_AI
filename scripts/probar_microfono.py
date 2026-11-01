@@ -21,6 +21,7 @@ from kasane_teto.core.paths import knowledge_root, models_dir, workers_dir  # no
 from kasane_teto.memory.knowledge import KnowledgeBase, normalize  # noqa: E402
 from kasane_teto.voice.audio import AudioRecorder, Recording  # noqa: E402
 from kasane_teto.voice.engines import STTEngine  # noqa: E402
+from kasane_teto.voice.transcript import fix_transcript  # noqa: E402
 
 FOLDER = models_dir() / "pruebas" / "microfono"
 PHRASES = [
@@ -77,7 +78,8 @@ def main() -> int:
     if not args.sin_grabar:
         record_all(args.carpeta)
 
-    vocabulary = KnowledgeBase.load(knowledge_root()).vocabulary()
+    knowledge = KnowledgeBase.load(knowledge_root())
+    vocabulary = knowledge.vocabulary()
     installed = [p.name for p in sorted((models_dir() / "whisper").iterdir()) if (p / "model.bin").is_file()]
     for model in installed:
         engine = STTEngine(models_dir(), workers_dir(), args.hilos, vocabulary, model)
@@ -92,7 +94,7 @@ def main() -> int:
                 continue
             recording = load(path)
             started = time.monotonic()
-            heard = engine.transcribe(recording)
+            heard = fix_transcript(engine.transcribe(recording), knowledge.correct_names)
             elapsed = time.monotonic() - started
             score = similarity(phrase, heard)
             scores.append(score)

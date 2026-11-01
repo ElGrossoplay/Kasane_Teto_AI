@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from typing import Protocol
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
@@ -57,12 +58,14 @@ class ListenService(QObject):
         engine: Recognizer,
         recorder: Recorder,
         parent: QObject | None = None,
+        fix_text: Callable[[str], str] = str,
     ) -> None:
         super().__init__(parent)
         self._bus = bus
         self._settings = settings
         self._engine = engine
         self._recorder = recorder
+        self._fix_text = fix_text
         self._recording = False
         self._task_signals: _Signals | None = None
 
@@ -144,7 +147,7 @@ class ListenService(QObject):
         self._task_signals = None
         if text:
             self._bus.voice_status.emit("")
-            self._bus.transcript_ready.emit(text)
+            self._bus.transcript_ready.emit(self._fix_text(text))
             self._idle_timer.start()
         else:
             self._finish("No te he entendido.")

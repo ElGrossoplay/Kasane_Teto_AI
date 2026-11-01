@@ -39,6 +39,7 @@ EMOTION_HOLD_MS = 4000
 TRUNCATED_NOTICE = "…\n(Respuesta cortada por longitud: pídeme que continúe.)"
 WEB_FAILED_NOTICE = "\n(No pude consultar VocaDB: he respondido sin esos datos.)"
 EMPTY_ANSWER_MESSAGE = "Me he quedado en blanco. ¿Me lo repites?"
+WEB_OFF_NOTICE = "\n(La búsqueda en VocaDB está apagada: actívala en Configuración.)"
 
 log = logging.getLogger(__name__)
 
@@ -60,8 +61,10 @@ class _GenerationTask(QRunnable):
         params: GenerationParams,
         cancel: threading.Event,
         web_search: Callable[[], WebResult] | None = None,
+        extra_notice: str = "",
     ) -> None:
         super().__init__()
+        self._extra_notice = extra_notice
         self.signals = _TaskSignals()
         self._resources = resources
         self._compose = compose
@@ -89,6 +92,8 @@ class _GenerationTask(QRunnable):
                 return
             if text:
                 self._announce_sources(web)
+                if self._extra_notice:
+                    self.signals.notice.emit(self._extra_notice)
             self.signals.finished.emit(text)
         except LLMStartError as exc:
             log.error("La IA no pudo arrancar: %s", exc)
@@ -203,6 +208,7 @@ class ConversationService(QObject):
             self._params,
             self._cancel,
             self._web_search_for(text),
+            WEB_OFF_NOTICE if self._search_would_help(text) else "",
         )
         task.signals.status.connect(self._bus.assistant_status)
         task.signals.state.connect(self._bus.pet_state_requested)
@@ -261,6 +267,13 @@ class ConversationService(QObject):
         if not (query.wants_songs or query.explicit) and self._knows_topic(query.topic):
             return None
         return partial(self._search_web, query)
+
+    def _search_would_help(self, text: str) -> bool:
+        """Sin este aviso, con la búsqueda apagada parece que Teto no conoce a nadie."""
+        if self._web is None or self.web_enabled:
+            return False
+        query = parse_query(text)
+        return query is not None and (query.wants_songs or not self._knows_topic(query.topic))
 
     def _knows_topic(self, topic: str) -> bool:
         """Decide el nombre preguntado: "Kikuo, el de Vocaloid" no va sobre Vocaloid."""
