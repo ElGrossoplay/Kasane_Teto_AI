@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from collections.abc import Callable
 from functools import partial
 
@@ -31,6 +32,8 @@ from kasane_teto.personality.prompt_builder import (
     knowledge_block,
     load_system_prompt,
 )
+from kasane_teto.tools.commands import parse_command
+from kasane_teto.tools.registry import Action, ActionRejected, ToolRegistry
 from kasane_teto.tools.web_lookup import (
     MusicLookup,
     WebQuery,
@@ -54,6 +57,12 @@ MEMORY_DECLINED_REPLY = "Vale, no lo guardo."
 MEMORY_FAILED_REPLY = "No he podido guardarlo. Revisa la memoria en el menú."
 RECENT_MEMORIES = 8
 OMITTED_MESSAGE = "(Mensaje omitido: parecía contener un dato sensible.)"
+TOOLS_OFF_NOTICE = "\n(El control de Windows está apagado: actívalo en Configuración.)"
+ACTION_CONFIRM_REPLY = "{summary}. ¿De acuerdo? Dime sí o no, o usa los botones."
+ACTION_CANCELLED_REPLY = "Vale, no hago nada."
+ACTION_EXPIRED_REPLY = "Ha pasado demasiado tiempo. Pídemelo otra vez."
+ACTION_FAILED_REPLY = "No he podido hacerlo."
+ACTION_TIMEOUT_SECONDS = 60.0
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +74,32 @@ class _TaskSignals(QObject):
     notice = Signal(str)
     finished = Signal(str)
     failed = Signal(str)
+
+
+class _ActionSignals(QObject):
+    finished = Signal(str, str)
+
+
+class _ActionTask(QRunnable):
+    """Lanzar un programa o medir la CPU puede tardar: no debe congelar la interfaz."""
+
+    def __init__(self, tools: ToolRegistry, action: Action) -> None:
+        super().__init__()
+        self.signals = _ActionSignals()
+        self._tools = tools
+        self._action = action
+
+    def run(self) -> None:
+        command = self._action.command
+        try:
+            reply, result = self._tools.run(self._action), "hecho"
+        except ActionRejected as exc:
+            reply, result = str(exc), "rechazado"
+        except OSError as exc:
+            log.error("La acción falló: %s", exc)
+            reply, result = ACTION_FAILED_REPLY, "error"
+        self._tools.record(command.kind, command.target, result)
+        self.signals.finished.emit(reply, result)
 
 
 class _GenerationTask(QRunnable):
@@ -162,8 +197,14 @@ class ConversationService(QObject):
         web: MusicLookup | None = None,
         parent: QObject | None = None,
         memory: MemoryStore | None = None,
+        tools: ToolRegistry | None = None,
     ) -> None:
         super().__init__(parent)
+        self._tools = tools
+        self._pending_action: Action | None = None
+        self._action_deadline = 0.0
+        self._action_by_button = False
+        self._action_signals: _ActionSignals | None = None
         self._bus = bus
         self._resources = resources
         self._settings = settings
@@ -200,10 +241,17 @@ class ConversationService(QObject):
         bus.memory_answered.connect(self._on_memory_answered)
         bus.history_enabled_requested.connect(self._set_history_enabled)
         bus.memory_suggestions_requested.connect(self._set_suggestions_enabled)
+        bus.action_answered.connect(self._on_action_answered)
+        bus.tools_enabled_requested.connect(self._set_tools_enabled)
+        bus.allowed_apps_requested.connect(self._set_allowed_apps)
 
     @property
     def is_busy(self) -> bool:
-        return self._cancel is not None
+        return self._cancel is not None or self._action_signals is not None
+
+    @property
+    def tools_enabled(self) -> bool:
+        return self._tools is not None and bool(self._settings.get("tools.enabled", False))
 
     @property
     def web_enabled(self) -> bool:
@@ -220,6 +268,8 @@ class ConversationService(QObject):
     def _on_user_message(self, text: str) -> None:
         text = text.strip()
         if not text or self.is_busy or self._answered_proposal(text):
+            return
+        if self._answered_action(text) or self._started_action(text):
             return
         proposal = self._proposal_for(text)
         if proposal is not None and proposal.explicit:
@@ -247,7 +297,7 @@ class ConversationService(QObject):
             self._params,
             self._cancel,
             self._web_search_for(text),
-            WEB_OFF_NOTICE if self._search_would_help(text) else "",
+            self._turn_notice(text),
         )
         task.signals.status.connect(self._bus.assistant_status)
         task.signals.state.connect(self._bus.pet_state_requested)
@@ -257,6 +307,90 @@ class ConversationService(QObject):
         task.signals.failed.connect(self._on_failed)
         self._task_signals = task.signals
         QThreadPool.globalInstance().start(task)
+
+    def _turn_notice(self, text: str) -> str:
+        if self._tools is not None and not self.tools_enabled and parse_command(text) is not None:
+            return TOOLS_OFF_NOTICE
+        return WEB_OFF_NOTICE if self._search_would_help(text) else ""
+
+    def _reply_directly(self, reply: str) -> None:
+        self._bus.assistant_token.emit(reply)
+        self._bus.assistant_done.emit()
+
+    def _started_action(self, text: str) -> bool:
+        """Solo el mensaje del usuario llega aquí: lo que escribe el modelo nunca se ejecuta."""
+        if not self.tools_enabled or self._tools is None:
+            return False
+        command = parse_command(text)
+        if command is None:
+            return False
+        try:
+            action = self._tools.prepare(command)
+        except ActionRejected as exc:
+            self._tools.record(command.kind, command.target, "rechazado")
+            self._reply_directly(str(exc))
+            return True
+        self._set_pending_action(action)
+        self._reply_directly(ACTION_CONFIRM_REPLY.format(summary=action.summary))
+        return True
+
+    def _set_pending_action(self, action: Action | None) -> None:
+        self._pending_action = action
+        self._action_deadline = time.monotonic() + ACTION_TIMEOUT_SECONDS
+        self._bus.action_proposed.emit(action.summary if action else "")
+
+    def _cancel_pending_action(self) -> None:
+        action = self._pending_action
+        if action is not None and self._tools is not None:
+            self._tools.record(action.command.kind, action.command.target, "cancelado")
+        self._set_pending_action(None)
+
+    def _answered_action(self, text: str) -> bool:
+        if self._pending_action is None:
+            return False
+        answer = read_answer(text)
+        if answer is None:
+            self._cancel_pending_action()
+            return False
+        self._resolve_action(answer, by_button=False)
+        return True
+
+    def _on_action_answered(self, accepted: bool) -> None:
+        if self._pending_action is not None and not self.is_busy:
+            self._resolve_action(accepted, by_button=True)
+
+    def _resolve_action(self, accepted: bool, by_button: bool) -> None:
+        action = self._pending_action
+        expired = time.monotonic() > self._action_deadline
+        if action is None or not accepted or expired or self._tools is None:
+            self._cancel_pending_action()
+            reply = ACTION_EXPIRED_REPLY if accepted and expired else ACTION_CANCELLED_REPLY
+            self._finish_action(reply, by_button)
+            return
+        self._set_pending_action(None)
+        self._action_by_button = by_button
+        task = _ActionTask(self._tools, action)
+        task.signals.finished.connect(self._on_action_finished)
+        self._action_signals = task.signals
+        QThreadPool.globalInstance().start(task)
+
+    def _on_action_finished(self, reply: str, _result: str) -> None:
+        self._action_signals = None
+        self._finish_action(reply, self._action_by_button)
+
+    def _finish_action(self, reply: str, by_button: bool) -> None:
+        if by_button:
+            self._bus.assistant_notice.emit(f"({reply})\n\n")
+        else:
+            self._reply_directly(reply)
+
+    def _set_tools_enabled(self, enabled: bool) -> None:
+        self._settings.set("tools.enabled", enabled)
+        if not enabled:
+            self._cancel_pending_action()
+
+    def _set_allowed_apps(self, apps: dict[str, str]) -> None:
+        self._settings.set("tools.apps", apps)
 
     def _relevant_memories(self, text: str) -> list[str]:
         """Los recuerdos solo van al modelo local: nunca entran en una consulta web."""
@@ -428,6 +562,8 @@ class ConversationService(QObject):
         self._last_web = WebResult()
 
     def _on_stop(self) -> None:
+        if self._pending_action is not None:
+            self._cancel_pending_action()
         if self._cancel is not None:
             self._cancel.set()
 

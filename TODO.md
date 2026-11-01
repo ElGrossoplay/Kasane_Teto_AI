@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-01 · **Fases 1 a 4 y búsqueda en VocaDB completadas · Siguiente: resto de la Fase 5 (herramientas), pendiente de aprobación**
+Última actualización: 2026-11-01 · **Fases 1 a 4 y búsqueda en VocaDB completadas · Fase 5 (herramientas) hecha, pendiente de la prueba manual de Diego**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -240,9 +240,44 @@ Limitaciones conocidas:
 - Las contraseñas no se guardan en memoria ni historial, pero el modelo sí las ve en esa conversación
   y puede repetirlas mientras siga abierta
 
+## Fase 5 — Herramientas de Windows (aprobada por Diego, 2026-11-01)
+
+Elegido por Diego: abrir apps de un catálogo, carpetas conocidas, webs, documentos e imágenes, e
+información del equipo, con confirmación **siempre**, incluida la información.
+
+- [x] 5.1 `tools/commands.py`: órdenes reconocidas con reglas fijas, solo desde el mensaje del
+      usuario. Lo que escribe el modelo nunca activa una acción
+- [x] 5.2 `tools/registry.py`: lista blanca, validación antes de confirmar y otra vez antes de
+      ejecutar, y registro en `logs/actions.log`
+- [x] 5.3 Apps sin argumentos y sin consola. Se rechazan consolas e intérpretes aunque estén en el
+      catálogo (cmd, PowerShell, regedit, msiexec, python…)
+- [x] 5.4 Archivos solo por nombre, en las carpetas conocidas (sin subcarpetas) y con tipos seguros.
+      Webs solo https con dominio normal. Búsquedas en DuckDuckGo, sin datos sensibles
+- [x] 5.5 Confirmación con botones o "sí"/"no", caduca a los 60 s. Cualquier otra frase, "Detener" o
+      apagar el interruptor la cancelan
+- [x] 5.6 Configuración: control de Windows apagado por defecto y catálogo de aplicaciones. Con el
+      control apagado, el chat avisa si una orden lo habría necesitado
+- [x] 5.7 **Corregido fallo de anticheat de la Fase 2:** `kill_orphans` recorría todos los procesos al
+      cargar la IA, incluidos los de un juego abierto. Eliminado: el Job Object ya cierra el servidor
+      (matando la app a la fuerza, el servidor cayó en 2,2 s). Una prueba impide que vuelva
+- [ ] 5.8 **Diego:** prueba manual
+
+Medido (2026-11-01): 529 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
+consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En esas pruebas el sistema está
+simulado; solo el lanzamiento de un programa se probó de verdad, con `hostname.exe`. Abrir carpetas,
+archivos y el navegador queda para la prueba manual. Reposo 80,1 MB y 0,01 % de CPU.
+
+Limitaciones conocidas:
+- Solo reconoce frases concretas, y las órdenes por voz dependen de la transcripción
+- Los nombres de archivo son difíciles de dictar, y solo busca en el primer nivel de cada carpeta
+- La calculadora y el bloc de notas están siempre disponibles: no se pueden quitar del catálogo
+- "Abre X" con una X desconocida responde que no está en la lista, aunque fuera una frase normal
+- La pregunta de la hora también pide confirmación, por decisión de Diego
+- Sin Job Object (si Windows no lo crea), el servidor podría sobrevivir a un cierre forzado de la app
+
 ## Fases siguientes (detalle al aprobar cada una)
 
-- [ ] Fase 5 — Herramientas: lista blanca, confirmaciones, registro, búsqueda general opcional
+- [ ] Búsqueda de conocimiento general (Fase 5): fuente por decidir
 - [ ] Fase 6 — Optimización: modo juego (sin interactuar con juegos ni anticheat), estados, prueba de
       estabilidad de 8 h
 - [ ] Fase 7 — Final: corrección de errores, PyInstaller, instalador
@@ -297,3 +332,5 @@ Limitaciones conocidas:
   Diego aprobó el cambio: la app pasa a `small`. Prueba por voz superada y subido a GitHub.
 - **2026-11-01:** Fase 4 implementada: recuerdos con confirmación, panel e historial opcional.
   Prueba manual de Diego superada y subida a GitHub.
+- **2026-11-01:** Fase 5 implementada: acciones de Windows con confirmación siempre. Eliminado el
+  recorrido de procesos que incumplía la regla de anticheat. Pendiente la prueba manual.

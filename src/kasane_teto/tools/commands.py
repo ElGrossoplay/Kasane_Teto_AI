@@ -1,0 +1,149 @@
+"""Reconoce órdenes del usuario con reglas fijas. El texto del modelo nunca pasa por aquí."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass
+from pathlib import PurePath
+
+OPEN_APP = "app"
+OPEN_FOLDER = "folder"
+OPEN_FILE = "file"
+OPEN_URL = "url"
+WEB_SEARCH = "search"
+INFO = "info"
+
+INFO_TIME = "hora"
+INFO_DATE = "fecha"
+INFO_MEMORY = "memoria"
+INFO_CPU = "cpu"
+INFO_DISK = "disco"
+INFO_BATTERY = "bateria"
+
+SAFE_FILE_TYPES = frozenset(
+    ".txt .md .pdf .png .jpg .jpeg .gif .webp .bmp .mp3 .wav".split()
+)
+# Tipos que ejecutan algo: se reconocen para poder rechazarlos, nunca para abrirlos.
+UNSAFE_FILE_TYPES = frozenset(
+    ".exe .bat .cmd .msi .ps1 .psm1 .vbs .vbe .js .jse .wsf .wsh .lnk .url .scr .pif .hta "
+    ".reg .cpl .jar .py .pyw .dll .sys .docm .xlsm .pptm".split()
+)
+FOLDER_NAMES = {
+    "documentos": "documentos",
+    "descargas": "descargas",
+    "imagenes": "imagenes",
+    "imágenes": "imagenes",
+    "fotos": "imagenes",
+    "musica": "musica",
+    "música": "musica",
+    "videos": "videos",
+    "vídeos": "videos",
+    "escritorio": "escritorio",
+}
+
+_PREFIX = (
+    r"^\W*(?:oye\W+)?(?:teto\W+)?(?:por\s+favor\W+)?"
+    r"(?:puedes\s+|podr[ií]as\s+|quiero\s+que\s+|me\s+puedes\s+)?"
+)
+_OPEN = re.compile(
+    _PREFIX + r"(?:[aá]bre(?:me)?|abrir|abras|inicia|iniciar|lanza|lanzar|ejecuta|ejecutar)"
+    r"\s+(?P<target>.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_SEARCH = re.compile(
+    _PREFIX + r"b[uú]sca(?:r|me)?\s+(?!en\b)(?P<target>.+?)"
+    r"\s+en\s+(?:internet|google|el\s+navegador|la\s+web)\W*$",
+    re.IGNORECASE | re.DOTALL,
+)
+_INFO = (
+    (INFO_TIME, re.compile(r"\bqu[eé]\s+hora\s+es\b", re.IGNORECASE)),
+    (INFO_DATE, re.compile(r"\bqu[eé]\s+(?:d[ií]a|fecha)\s+es(?:\s+hoy)?\b", re.IGNORECASE)),
+    (
+        INFO_MEMORY,
+        re.compile(
+            r"\bcu[aá]nta\s+(?:ram|memoria)\b|\buso\s+de\s+(?:la\s+)?(?:ram|memoria)\b"
+            r"|\bc[oó]mo\s+va\s+la\s+(?:ram|memoria)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        INFO_CPU,
+        re.compile(
+            r"\buso\s+de\s+(?:la\s+|el\s+)?(?:cpu|procesador)\b"
+            r"|\bc[oó]mo\s+va\s+(?:la\s+|el\s+)(?:cpu|procesador)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        INFO_DISK,
+        re.compile(
+            r"\bcu[aá]nto\s+(?:espacio|disco)\b|\bespacio\s+(?:libre|en\s+(?:el\s+)?disco)\b",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        INFO_BATTERY,
+        re.compile(
+            r"\bcu[aá]nta\s+bater[ií]a\b|\bnivel\s+de\s+(?:la\s+)?bater[ií]a\b"
+            r"|\bqu[eé]\s+tal\s+(?:va\s+)?la\s+bater[ií]a\b",
+            re.IGNORECASE,
+        ),
+    ),
+)
+_FILE_WORDS = re.compile(
+    r"^(?:(?:el|la|mi)\s+)?(?:archivo|fichero|documento|foto|imagen|pdf)\s+(?P<name>.+)$",
+    re.IGNORECASE,
+)
+_FOLDER = re.compile(
+    r"^(?:(?:la|mi|mis)\s+)?(?:carpeta\s+)?(?:(?:de|del|mis)\s+)?(?:(?:el|la|las|los)\s+)?"
+    r"(?P<name>\w+)$",
+    re.IGNORECASE,
+)
+_LEADING = re.compile(r"^(?:(?:el|la|los|las|mi|mis|un|una)\s+)+", re.IGNORECASE)
+_TRAILING = re.compile(r"\s*,?\s*(?:por\s+favor|porfa)$", re.IGNORECASE)
+_SPOKEN_DOT = re.compile(r"\s+punto\s+", re.IGNORECASE)
+_URL = re.compile(r"^(?:https?://)?[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}(?:[/?#]\S*)?$", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class Command:
+    kind: str
+    target: str = ""
+
+
+def _clean_target(raw: str) -> str:
+    target = raw.strip().rstrip(".,;:!?¡¿ ").strip("\"'“”«»")
+    return _TRAILING.sub("", target).strip()
+
+
+def _classify_open(raw: str) -> Command | None:
+    target = _clean_target(raw)
+    if not target:
+        return None
+    named_file = _FILE_WORDS.match(target)
+    if named_file is not None:
+        return Command(OPEN_FILE, _clean_target(named_file.group("name")))
+    if PurePath(target).suffix.casefold() in SAFE_FILE_TYPES | UNSAFE_FILE_TYPES:
+        return Command(OPEN_FILE, target)
+    spoken = _SPOKEN_DOT.sub(".", target)
+    if _URL.match(spoken):
+        return Command(OPEN_URL, spoken)
+    folder = _FOLDER.match(target)
+    if folder is not None and folder.group("name").casefold() in FOLDER_NAMES:
+        return Command(OPEN_FOLDER, FOLDER_NAMES[folder.group("name").casefold()])
+    return Command(OPEN_APP, _LEADING.sub("", target))
+
+
+def parse_command(text: str) -> Command | None:
+    """Convierte una orden clara en un comando. Cualquier otra frase es conversación."""
+    search = _SEARCH.match(text)
+    if search is not None:
+        target = _clean_target(search.group("target"))
+        return Command(WEB_SEARCH, target) if target else None
+    opened = _OPEN.match(text.strip())
+    if opened is not None:
+        return _classify_open(opened.group("target"))
+    for name, pattern in _INFO:
+        if pattern.search(text):
+            return Command(INFO, name)
+    return None

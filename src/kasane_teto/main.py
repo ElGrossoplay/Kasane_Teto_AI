@@ -36,6 +36,7 @@ from kasane_teto.interface.memory_window import MemoryWindow
 from kasane_teto.interface.settings_window import SettingsWindow, VoiceOptions
 from kasane_teto.memory.knowledge import KnowledgeBase, KnowledgeError
 from kasane_teto.memory.store import MemoryStore, MemoryStoreError
+from kasane_teto.tools.registry import ToolRegistry
 from kasane_teto.tools.vocadb import VocaDBClient
 from kasane_teto.tools.web_lookup import MusicLookup
 from kasane_teto.voice.audio import AudioPlayer, AudioRecorder
@@ -79,6 +80,7 @@ class TetoApp(QObject):
             MusicLookup(VocaDBClient(user_dir / "vocadb_cache.sqlite3")),
             self,
             memory=self._memory,
+            tools=ToolRegistry(settings, user_dir / "logs" / "actions.log"),
         )
         self._chat_window = ChatWindow(self._bus)
         self._speech = SpeechService(
@@ -214,6 +216,8 @@ class TetoApp(QObject):
             self._conversation.web_enabled,
             self._conversation.suggestions_enabled,
             self._conversation.history_enabled,
+            self._conversation.tools_enabled,
+            dict(self._settings.get("tools.apps", {})),
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window

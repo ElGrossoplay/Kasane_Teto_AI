@@ -38,13 +38,14 @@ class ChatWindow(QWidget):
         self._forget = QPushButton("No")
         self._remember.clicked.connect(lambda: bus.memory_answered.emit(True))
         self._forget.clicked.connect(lambda: bus.memory_answered.emit(False))
-        self._proposal_bar = QWidget()
-        bar = QHBoxLayout(self._proposal_bar)
-        bar.setContentsMargins(0, 0, 0, 0)
-        bar.addWidget(self._proposal, 1)
-        bar.addWidget(self._remember)
-        bar.addWidget(self._forget)
-        self._proposal_bar.hide()
+        self._proposal_bar = self._confirm_bar(self._proposal, self._remember, self._forget)
+
+        self._action = QLabel(wordWrap=True)
+        self._allow = QPushButton("Sí, hazlo")
+        self._deny = QPushButton("No")
+        self._allow.clicked.connect(lambda: bus.action_answered.emit(True))
+        self._deny.clicked.connect(lambda: bus.action_answered.emit(False))
+        self._action_bar = self._confirm_bar(self._action, self._allow, self._deny)
 
         row = QHBoxLayout()
         row.addWidget(self._input)
@@ -55,6 +56,7 @@ class ChatWindow(QWidget):
         layout.addWidget(self._log)
         layout.addWidget(self._status)
         layout.addWidget(self._proposal_bar)
+        layout.addWidget(self._action_bar)
         layout.addLayout(row)
 
         self._input.returnPressed.connect(self._submit)
@@ -70,12 +72,36 @@ class ChatWindow(QWidget):
         bus.assistant_error.connect(self._on_error)
         bus.transcript_ready.connect(self._send_text)
         bus.memory_proposed.connect(self._show_proposal)
+        bus.action_proposed.connect(self._show_action)
+
+    @staticmethod
+    def _confirm_bar(label: QLabel, yes: QPushButton, no: QPushButton) -> QWidget:
+        widget = QWidget()
+        bar = QHBoxLayout(widget)
+        bar.setContentsMargins(0, 0, 0, 0)
+        bar.addWidget(label, 1)
+        bar.addWidget(yes)
+        bar.addWidget(no)
+        widget.hide()
+        return widget
 
     def _show_proposal(self, content: str) -> None:
-        """Un texto vacío retira la propuesta. Se abre sin quitar el foco a lo que estés haciendo."""
+        """Un texto vacío retira la propuesta."""
         self._proposal.setText(f"¿Quieres que recuerde esto? «{content}»")
         self._proposal_bar.setVisible(bool(content))
-        if content and not self.isVisible():
+        if content:
+            self._show_without_focus()
+
+    def _show_action(self, summary: str) -> None:
+        """Un texto vacío retira la pregunta."""
+        self._action.setText(f"{summary}. ¿De acuerdo?")
+        self._action_bar.setVisible(bool(summary))
+        if summary:
+            self._show_without_focus()
+
+    def _show_without_focus(self) -> None:
+        """Se abre sin quitar el foco a lo que estés haciendo."""
+        if not self.isVisible():
             self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
             self.show()
 

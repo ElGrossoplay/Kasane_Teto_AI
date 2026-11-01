@@ -28,7 +28,7 @@ tu control.
 | Voz (TTS) y push-to-talk (STT) | 3 | Hecho |
 | Memoria persistente con panel de administración | 4 | Hecho |
 | Búsqueda opcional de artistas y canciones en VocaDB | 5 | Hecho |
-| Acciones de Windows controladas | 5 | Pendiente |
+| Acciones de Windows controladas | 5 | En prueba |
 | Modo juego y estados de consumo | 6 | Pendiente |
 | Instalador para Windows | 7 | Pendiente |
 
@@ -66,6 +66,11 @@ chat. Sus datos están bajo licencia Creative Commons Attribution.
 Memoria: di "recuerda que…" y confirma con los botones o diciendo "sí". Nada se guarda sin tu
 confirmación. En el menú, "Memoria…" permite ver, editar y borrar lo guardado, todo en tu equipo. El
 historial de conversaciones viene apagado y se activa en Configuración.
+
+Control de Windows: viene apagado y se activa en Configuración, donde también eliges las aplicaciones
+permitidas. Di "abre Discord", "abre la carpeta de descargas", "abre youtube.com", "busca recetas en
+Internet" o "¿qué hora es?". Teto siempre pide confirmación, y nada que no esté en la lista se ejecuta.
+Lo que hace queda en `logs/actions.log`.
 
 ## Diagnóstico del equipo
 

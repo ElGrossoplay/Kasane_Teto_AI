@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QLabel,
+    QPushButton,
     QSpinBox,
     QVBoxLayout,
 )
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import (
 from kasane_teto.core.events import EventBus
 from kasane_teto.desktop.hotkey import HOTKEY_LABEL
 from kasane_teto.desktop.pet_window import MAX_SCALE, MIN_SCALE, SCALE_STEP
+from kasane_teto.interface.apps_window import AppsWindow
 
 
 @dataclass(frozen=True)
@@ -44,8 +46,12 @@ class SettingsWindow(QDialog):
         web_enabled: bool,
         suggest_memories: bool = True,
         save_history: bool = False,
+        tools_enabled: bool = False,
+        allowed_apps: dict[str, str] | None = None,
     ) -> None:
         super().__init__()
+        self._bus = bus
+        self._allowed_apps = dict(allowed_apps or {})
         self.setWindowTitle("Configuración")
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
 
@@ -102,6 +108,14 @@ class SettingsWindow(QDialog):
         self._history.setChecked(save_history)
         self._history.toggled.connect(bus.history_enabled_requested)
 
+        self._tools = QCheckBox("Permitir que Teto controle Windows")
+        self._tools.setToolTip("Siempre te pide confirmación antes de cada acción.")
+        self._tools.setChecked(tools_enabled)
+        self._tools.toggled.connect(bus.tools_enabled_requested)
+        self._apps_button = QPushButton("Aplicaciones permitidas…")
+        self._apps_button.clicked.connect(self._open_apps)
+        bus.allowed_apps_requested.connect(self._remember_apps)
+
         data_label = QLabel(str(data_dir))
         data_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
@@ -116,6 +130,8 @@ class SettingsWindow(QDialog):
         form.addRow(self._web)
         form.addRow(self._suggest)
         form.addRow(self._history)
+        form.addRow(self._tools)
+        form.addRow(self._apps_button)
         form.addRow("Datos", data_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
@@ -128,3 +144,9 @@ class SettingsWindow(QDialog):
 
         bus.always_on_top_changed.connect(self._always_on_top.setChecked)
         bus.scale_changed.connect(self._scale.setValue)
+
+    def _remember_apps(self, apps: dict[str, str]) -> None:
+        self._allowed_apps = dict(apps)
+
+    def _open_apps(self) -> None:
+        AppsWindow(self._bus, self._allowed_apps, self).exec()
