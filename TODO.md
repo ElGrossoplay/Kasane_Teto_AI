@@ -151,8 +151,9 @@ Limitaciones conocidas:
 - [x] W.14 Con la búsqueda apagada, el chat avisa cuando buscar habría ayudado
 - [ ] W.15 **Diego:** repetir la prueba por voz con la búsqueda activada
 - [x] W.16 Modelo `small` descargado con hash verificado y comparado: no mejora a `base`
-- [ ] W.17 **Diego:** desactivar las mejoras de audio del micrófono y volver a grabar las 12 frases;
-      `scripts/probar_microfono.py` compara solo los dos modelos instalados
+- [x] W.17 **Diego:** volvió a grabar las 12 frases con las mejoras de audio revisadas: `small` 88 %,
+      `base` 59 %, en las mismas tomas. Con 6 hilos `small` da lo mismo y no va más rápido: siguen 4
+- [ ] W.18 **Diego:** aprobar el cambio de `base` a `small` (decisión vigente de CLAUDE.md)
 
 Comparativa de ajustes del reconocedor con las 12 grabaciones (modelo `base`): sin vocabulario 54 %,
 sin refuerzo de agudos 59 %, ajuste actual 69 %, ejemplos genéricos en el prompt 69–74 %, y actual
@@ -168,13 +169,16 @@ caché ~2,4 s. La primera corrección de un nombre tarda ~8 s por las listas pop
 quedan en caché.
 
 Limitaciones conocidas:
-- El reconocimiento parece limitado por el audio que llega, no por el modelo. Con las 12 grabaciones,
-  `base` da 80 % (0,8 s por frase, 362 MB) y `small` 78 % (2,2 s, 636 MB), y fallan en las mismas
-  frases ("chiste corto", "día bastante pesado"). `small` acierta Kikuo y mejora otras, pero no
-  compensa: sigue `base`, y `small` queda en disco hasta repetir la medición
-- Indicios en esas grabaciones: todas paran en el mismo pico exacto (0,994), lo que apunta a un
-  limitador antes de la app, y solo 0,03–0,27 % de la energía está entre 4 y 8 kHz. Sin una grabación
-  de referencia no se puede afirmar la causa: hay que comprobarlo desactivando esas mejoras
+- El audio pesa tanto como el modelo. Con mejoras de audio activas y 12 frases: `base` 80 % (0,8 s
+  por frase, 362 MB) y `small` 78 % (2,2 s, 636 MB). Tras revisarlas y grabar de nuevo: `small` 88 % y
+  `base` 59 %. Es una sola toma de cada caso, y la caída de `base` no está explicada
+- Antes, las 12 grabaciones paraban en el pico exacto 0,994 (limitador previo a la app). En las
+  nuevas el pico varía, así que ese limitador ya no actúa. La energía de 4 a 8 kHz sigue en
+  0,01–0,38 %: la falta de agudos no era la causa, y esa hipótesis queda descartada
+- En 4 de las 12 grabaciones nuevas el pico llega a 1,000 con algo de recorte: el volumen de entrada
+  aún está algo alto
+- Sigue sin resolver "Cuéntame un chiste" ("chit de corto") ni "Mitchie M" ("mi tiem"), y "pesado"
+  sale "besó"
 - Python puede liberar objetos Qt desde un hilo que no es el principal. En las pruebas causó cierres
   (7 de 25 ejecuciones, 0 de 20 al limpiar la memoria en el hilo principal). No se ha visto en la app,
   cuyos objetos Qt viven toda la sesión, pero queda vigilar si se cierra sola mientras Teto habla
@@ -256,3 +260,5 @@ Limitaciones conocidas:
   a 80 %) y aviso cuando la búsqueda está apagada. Corregido un cierre intermitente de las pruebas.
 - **2026-11-01:** modelo `small` descargado y comparado: no mejora a `base`. Detectado un posible
   limitador en el audio del micrófono. Pendiente grabar sin mejoras de audio.
+- **2026-11-01:** con las mejoras de audio revisadas, `small` llega a 88 % y `base` baja a 59 %.
+  Pendiente que Diego apruebe el cambio de modelo.
