@@ -10,6 +10,7 @@ from kasane_teto.character.states import PetState
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.resource_manager import AiProfile, choose_profiles
 from kasane_teto.memory.knowledge import Entry, KnowledgeBase
+from kasane_teto.tools.web_lookup import WebResult
 
 
 class FakeProcess:
@@ -269,6 +270,180 @@ def test_failed_turn_is_removed_from_history(harness, monkeypatch):
     bus.user_message.emit("otra vez")
     pump(lambda: record["done"] == 1)
     assert [m["content"] for m in seen[0][1:]] == ["otra vez"]
+
+
+class FakeLookup:
+    def __init__(self, result):
+        self.result = result
+        self.queries = []
+
+    def search(self, query):
+        self.queries.append(query)
+        return self.result
+
+
+WEB_RESULT = WebResult(("VocaDB, artista: Kikuo.",), ("https://vocadb.net/Ar/470",))
+
+
+@pytest.fixture
+def web_harness(qapp, settings, monkeypatch):
+    services = []
+
+    def make(result=WEB_RESULT, enabled=True):
+        seen = install_client(monkeypatch, ["[neutral] Hola"])
+        settings.set("web.enabled", enabled)
+        bus = EventBus()
+        record = {"done": 0, "notices": [], "status": []}
+        bus.assistant_done.connect(lambda: record.__setitem__("done", record["done"] + 1))
+        bus.assistant_notice.connect(record["notices"].append)
+        bus.assistant_status.connect(record["status"].append)
+        knowledge = KnowledgeBase([Entry("miku", ("miku",), "Dato de Miku.", "")])
+        lookup = FakeLookup(result)
+        service = conversation.ConversationService(
+            bus, FakeResources(), settings, knowledge, lookup
+        )
+        services.append(service)
+        return bus, service, lookup, seen, record
+
+    return make
+
+
+def test_web_is_off_by_default(harness, monkeypatch, settings):
+    assert settings.get("web.enabled") is False
+
+
+def test_disabled_web_sends_nothing(web_harness):
+    bus, _, lookup, seen, record = web_harness(enabled=False)
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    assert lookup.queries == []
+    assert "Kikuo." not in seen[0][-1]["content"].split("Mensaje")[0]
+    assert record["notices"] == []
+
+
+def test_web_facts_reach_the_model_and_source_is_cited(web_harness):
+    bus, _, lookup, seen, record = web_harness()
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    assert [query.topic for query in lookup.queries] == ["Kikuo"]
+    assert "VocaDB, artista: Kikuo." in seen[0][-1]["content"]
+    assert seen[0][-1]["content"].endswith("¿Quién es Kikuo?")
+    assert "https://vocadb.net/Ar/470" in record["notices"][0]
+    assert "Buscando en VocaDB…" in record["status"]
+
+
+def test_web_facts_stay_out_of_history(web_harness):
+    bus, _, _, seen, record = web_harness()
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("Otra cosa")
+    pump(lambda: record["done"] == 2)
+    assert seen[1][1]["content"] == "¿Quién es Kikuo?"
+
+
+def test_local_entry_avoids_the_network(web_harness):
+    bus, _, lookup, seen, record = web_harness()
+    bus.user_message.emit("¿Quién es Miku?")
+    pump(lambda: record["done"] == 1)
+    assert lookup.queries == []
+    assert "Dato de Miku." in seen[0][-1]["content"]
+
+
+def test_song_list_searches_even_with_local_entry(web_harness):
+    bus, _, lookup, seen, record = web_harness()
+    bus.user_message.emit("Dime canciones de Miku")
+    pump(lambda: record["done"] == 1)
+    assert lookup.queries[0].wants_songs
+    assert "Dato de Miku." in seen[0][-1]["content"]
+    assert "VocaDB, artista" in seen[0][-1]["content"]
+
+
+def test_unrelated_message_never_leaves_the_app(web_harness):
+    bus, _, lookup, _, record = web_harness()
+    bus.user_message.emit("Hoy tuve un día horrible en el trabajo")
+    pump(lambda: record["done"] == 1)
+    assert lookup.queries == []
+
+
+def test_follow_up_reuses_web_data_without_new_request(web_harness):
+    bus, _, lookup, seen, record = web_harness()
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("¿Y cuándo empezó su carrera?")
+    pump(lambda: record["done"] == 2)
+    assert len(lookup.queries) == 1
+    assert "VocaDB, artista: Kikuo." in seen[1][-1]["content"]
+    assert len(record["notices"]) == 2
+
+
+def test_follow_up_does_not_activate_entries_by_a_loose_word(qapp, settings, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    settings.set("web.enabled", True)
+    bus = EventBus()
+    done = []
+    bus.assistant_done.connect(lambda: done.append(True))
+    knowledge = KnowledgeBase([Entry("kaito", ("kaito",), "Empezó su carrera en 2006.", "")])
+    service = conversation.ConversationService(
+        bus, FakeResources(), settings, knowledge, FakeLookup(WEB_RESULT)
+    )
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: len(done) == 1)
+    bus.user_message.emit("¿Y cuándo empezó su carrera?")
+    pump(lambda: len(done) == 2)
+    assert "2006" not in seen[1][-1]["content"]
+    assert "VocaDB, artista: Kikuo." in seen[1][-1]["content"]
+    assert service is not None
+
+
+def test_web_data_only_lasts_one_step(web_harness):
+    bus, _, _, seen, record = web_harness()
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("Cuéntame un chiste")
+    pump(lambda: record["done"] == 2)
+    bus.user_message.emit("¿Y cuándo salió?")
+    pump(lambda: record["done"] == 3)
+    assert "VocaDB" not in seen[2][-1]["content"]
+
+
+def test_turning_web_off_forgets_previous_data(web_harness):
+    bus, service, _, seen, record = web_harness()
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    bus.web_enabled_requested.emit(False)
+    bus.user_message.emit("¿Y cuándo salió?")
+    pump(lambda: record["done"] == 2)
+    assert not service.web_enabled
+    assert "VocaDB" not in seen[1][-1]["content"]
+
+
+def test_failed_search_warns_and_still_answers(web_harness):
+    bus, _, _, _, record = web_harness(WebResult(failed=True))
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    assert record["notices"] == [conversation.WEB_FAILED_NOTICE]
+
+
+def test_stop_during_search_skips_the_model(web_harness):
+    bus, _, lookup, seen, record = web_harness()
+
+    def stopped_search(query):
+        bus.generation_stop_requested.emit()
+        time.sleep(0.05)
+        return WEB_RESULT
+
+    lookup.search = stopped_search
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: record["done"] == 1)
+    assert seen == []
+
+
+def test_no_results_add_no_block_or_source(web_harness):
+    bus, _, _, seen, record = web_harness(WebResult())
+    bus.user_message.emit("¿Quién es Fulanito?")
+    pump(lambda: record["done"] == 1)
+    assert "Consulta" not in seen[0][-1]["content"]
+    assert record["notices"] == []
 
 
 GPU = AiProfile("gpu", "g", 99)

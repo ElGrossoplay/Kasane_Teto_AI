@@ -24,6 +24,7 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 | faster-whisper 1.2.1, CTranslate2, onnxruntime | Reconocimiento de voz | MIT | 3 |
 | Modelo faster-whisper-base | Reconocimiento de voz | MIT | 3 |
 | sounddevice | Audio | MIT | 3 |
+| Datos de VocaDB (API pública) | Búsqueda de artistas y canciones | Creative Commons Attribution, con enlace a VocaDB en cada respuesta. Sin letras, imágenes ni audio, que no cubre esa licencia | 5 |
 
 ## Recursos propios
 
@@ -31,7 +32,8 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
   `scripts/generar_sprites_provisionales.py`. No representan al personaje.
 
 - `assets/knowledge/`: fichas redactadas por el proyecto con datos contrastados, sobre todo en los
-  artículos de Wikipedia de cada tema. Contienen hechos, no letras ni textos copiados. Las
+  artículos de Wikipedia de cada tema. El autor y la fecha de Senbonzakura vienen de
+  [VocaDB](https://vocadb.net/S/8394). Contienen hechos, no letras ni textos copiados. Las
   reacciones son invención del proyecto.
 
 ## Personaje

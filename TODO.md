@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-10-31 · **Fase 3 completada · Siguiente: por decidir, Fase 4 (memoria) o búsqueda web de la Fase 5**
+Última actualización: 2026-11-01 · **Fase 3 completada · Búsqueda en VocaDB hecha, pendiente de la prueba manual de Diego · Siguiente: Fase 4 (memoria)**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -123,19 +123,47 @@ Limitaciones conocidas:
 - El atajo global no detecta soltar la tecla: es una limitación de `RegisterHotKey`, que se usa por
   seguridad frente a anticheat.
 
-## Búsqueda en Internet (aprobada por Diego antes que la memoria; fuente por decidir)
+## Búsqueda en Internet (adelantada de la Fase 5, aprobada por Diego antes que la memoria)
 
-- Diego prefiere Vocaloid Wiki y SynthV Wiki, pero las condiciones de Fandom (19-dic-2025) prohíben
+- [x] W.1 `tools/vocadb.py`: API pública con user agent propio, caché SQLite de 7 días en
+      `%LOCALAPPDATA%\KasaneTetoAI\vocadb_cache.sqlite3` y máximo de 200 consultas al día
+- [x] W.2 `tools/web_lookup.py`: reconoce preguntas por artistas y canciones y envía solo el nombre.
+      Lo personal, los correos, los números largos y las frases largas no salen del equipo
+- [x] W.3 Integrado en `ConversationService` en hilo aparte. Las fichas locales mandan salvo en
+      listas de canciones, y las preguntas de seguimiento reutilizan los datos sin otra consulta
+- [x] W.4 Interruptor en Configuración, apagado por defecto. Cada respuesta enlaza su fuente en el
+      chat; ese enlace no se lee en voz alta
+- [x] W.5 Ficha de Senbonzakura completada con autor y fecha confirmados en VocaDB
+- [ ] W.6 **Diego:** prueba manual con el interruptor activado
+
+Medido (2026-11-01): 227 pruebas más 4 reales contra VocaDB. Búsqueda 25/27, los dos fallos en una
+pregunta de ficha local que no usa VocaDB ("Wawaka" por wowaka). Conocimiento 87/90, igual que
+antes. Reposo 78,1 MB frente a 77,9 MB de la versión anterior, y 0,01 % de CPU. Interfaz: pausa
+máxima 32 ms. Consulta sin caché 1–2 s; con caché, 0,02 s. Primera palabra con búsqueda sin caché
+~4,5 s, con caché ~2,4 s.
+
+Limitaciones conocidas:
+- La primera lista de una voz con muchas versiones es lenta: la de Kasane Teto tardó 17,6 s una vez
+  y ~6 s otra. Después queda en caché. Si una consulta supera 10 s, Teto avisa y responde sin datos
+- VocaDB cubre música: no sirve para cultura general ni para biografías largas. Muchas descripciones
+  son notas para editores, así que solo se usan las que parecen biografía
+- Solo reconoce frases concretas ("quién es X", "canciones de X", "háblame de X"…). Si la pregunta se
+  formula de otra forma, no busca
+- Un nombre común que coincida con un artista puede dar datos de otra persona ("Laura" es un
+  productor en VocaDB). Solo se acepta el nombre exacto o un alias
+- Sin datos, puede seguir inventando detalles sueltos: dijo que Tanuki-P es "muy conocido"
+- Las fichas incompletas impiden buscar: si existe ficha, no se consulta VocaDB salvo para listas
+- Fandom: Diego prefiere Vocaloid Wiki y SynthV Wiki, pero sus condiciones (19-dic-2025) prohíben
   cualquier acceso automatizado sin permiso escrito, y su robots.txt activa un control de Cloudflare.
   **No conectar Fandom sin ese permiso por escrito.** Nunca esquivar controles antibots
-- Alternativa verificada: API pública de VocaDB. Contenido bajo Creative Commons Attribution con
-  enlace a VocaDB. Hay que cachear, identificarse y evitar miles de consultas al día. Es fuerte en
-  canciones y créditos, y débil en biografías. No cubre letras ni imágenes
+- Condiciones de VocaDB leídas en su wiki: uso gratuito para cualquier fin, pide cachear, identificarse
+  y enlazar la fuente; miles de consultas al día sin permiso pueden suponer un bloqueo de la IP.
+  La licencia dice "Creative Commons Attribution" sin indicar versión
 
 ## Fases siguientes (detalle al aprobar cada una)
 
 - [ ] Fase 4 — Memoria: SQLite + FTS5, confirmaciones, panel, historial
-- [ ] Fase 5 — Herramientas: lista blanca, confirmaciones, registro, búsqueda web opcional
+- [ ] Fase 5 — Herramientas: lista blanca, confirmaciones, registro, búsqueda general opcional
 - [ ] Fase 6 — Optimización: modo juego (sin interactuar con juegos ni anticheat), estados, prueba de
       estabilidad de 8 h
 - [ ] Fase 7 — Final: corrección de errores, PyInstaller, instalador
@@ -178,3 +206,5 @@ Limitaciones conocidas:
 - **2026-11-01:** tras la prueba de Diego, corregida la captura del micrófono y la personalidad
   forzada. `probar_conocimiento.py` amplió a 30 preguntas (87/90 respuestas correctas). Fase 3
   cerrada y subida a GitHub.
+- **2026-11-01:** Fandom descartado por sus condiciones de uso. Búsqueda de música en VocaDB
+  implementada y medida, con `scripts/probar_busqueda.py`. Pendiente la prueba manual.

@@ -29,3 +29,6 @@ temperature = 0.3     # con 0,7 inventa bastante más
 repeat_penalty = 1.05 # evita bucles en listas; más alto distorsiona los datos del prompt
 idle_minutes = 5      # se cierra llama-server tras este tiempo sin uso
 load_timeout_seconds = 120
+
+[web]
+enabled = false       # nada sale a Internet hasta activarlo en Configuración

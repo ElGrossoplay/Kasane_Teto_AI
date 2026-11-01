@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
+from functools import partial
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
 
@@ -20,11 +22,13 @@ from kasane_teto.personality.prompt_builder import (
     knowledge_block,
     load_system_prompt,
 )
+from kasane_teto.tools.web_lookup import MusicLookup, WebQuery, WebResult, parse_query
 
 MAX_HISTORY_MESSAGES = 30
 KEPT_HISTORY_MESSAGES = 11
 EMOTION_HOLD_MS = 4000
 TRUNCATED_NOTICE = "…\n(Respuesta cortada por longitud: pídeme que continúe.)"
+WEB_FAILED_NOTICE = "\n(No pude consultar VocaDB: he respondido sin esos datos.)"
 
 log = logging.getLogger(__name__)
 
@@ -42,23 +46,36 @@ class _GenerationTask(QRunnable):
     def __init__(
         self,
         resources: ResourceManager,
-        messages: list[dict[str, str]],
+        compose: Callable[[WebResult], list[dict[str, str]]],
         params: GenerationParams,
         cancel: threading.Event,
+        web_search: Callable[[], WebResult] | None = None,
     ) -> None:
         super().__init__()
         self.signals = _TaskSignals()
         self._resources = resources
-        self._messages = messages
+        self._compose = compose
         self._params = params
         self._cancel = cancel
+        self._web_search = web_search
 
     def run(self) -> None:
         try:
+            web = WebResult()
+            if self._web_search is not None:
+                self.signals.status.emit("Buscando en VocaDB…")
+                web = self._web_search()
+                if self._cancel.is_set():
+                    self.signals.status.emit("")
+                    self.signals.finished.emit("")
+                    return
+            messages = self._compose(web)
             self.signals.status.emit("Despertando a Teto…")
             process = self._resources.ensure_loaded()
             self.signals.status.emit("")
-            self.signals.finished.emit(self._generate(process.base_url, process.api_key))
+            text = self._generate(process.base_url, process.api_key, messages)
+            self._announce_sources(web)
+            self.signals.finished.emit(text)
         except LLMStartError as exc:
             log.error("La IA no pudo arrancar: %s", exc)
             self.signals.failed.emit("No pude cargar la IA. Revisa los modelos en la carpeta models.")
@@ -69,12 +86,21 @@ class _GenerationTask(QRunnable):
             log.exception("Error inesperado al generar")
             self.signals.failed.emit("Algo salió mal al responder.")
 
-    def _generate(self, base_url: str, api_key: str) -> str:
+    def _announce_sources(self, web: WebResult) -> None:
+        """La licencia de VocaDB pide atribución con enlace; va solo al chat, no a la voz."""
+        if web.failed:
+            self.signals.notice.emit(WEB_FAILED_NOTICE)
+        elif web.sources:
+            self.signals.notice.emit(f"\n(Datos de VocaDB: {' · '.join(web.sources)})")
+
+    def _generate(
+        self, base_url: str, api_key: str, messages: list[dict[str, str]]
+    ) -> str:
         client = LLMClient(base_url, api_key)
         parser = EmotionParser()
         parts: list[str] = []
         announced = False
-        for chunk in client.stream_chat(self._messages, self._params, self._cancel):
+        for chunk in client.stream_chat(messages, self._params, self._cancel):
             text = parser.feed(chunk)
             if not text:
                 continue
@@ -99,12 +125,16 @@ class ConversationService(QObject):
         resources: ResourceManager,
         settings: Settings,
         knowledge: KnowledgeBase,
+        web: MusicLookup | None = None,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
         self._bus = bus
         self._resources = resources
+        self._settings = settings
         self._knowledge = knowledge
+        self._web = web
+        self._last_web = WebResult()
         self._system_prompt = load_system_prompt()
         self._context_size = int(settings.get("ai.context_size", 4096))
         self._params = GenerationParams(
@@ -127,10 +157,15 @@ class ConversationService(QObject):
         bus.user_message.connect(self._on_user_message)
         bus.generation_stop_requested.connect(self._on_stop)
         bus.speech_active.connect(self._on_speech_active)
+        bus.web_enabled_requested.connect(self._set_web_enabled)
 
     @property
     def is_busy(self) -> bool:
         return self._cancel is not None
+
+    @property
+    def web_enabled(self) -> bool:
+        return self._web is not None and bool(self._settings.get("web.enabled", False))
 
     def _on_user_message(self, text: str) -> None:
         text = text.strip()
@@ -142,18 +177,18 @@ class ConversationService(QObject):
         # y el servidor tendría que reprocesarla entera en todos los turnos siguientes.
         if len(self._history) > MAX_HISTORY_MESSAGES:
             self._history = self._history[-KEPT_HISTORY_MESSAGES:]
-        messages = build_messages(
-            self._system_prompt,
-            self._history,
-            self._context_size,
-            self._params.max_tokens,
-            knowledge_block(self._relevant_knowledge(), wants_opinion(text)),
-        )
+        entries = self._relevant_knowledge()
         self._cancel = threading.Event()
         self._resources.set_busy(True)
         self._bus.pet_state_requested.emit(PetState.THINKING)
 
-        task = _GenerationTask(self._resources, messages, self._params, self._cancel)
+        task = _GenerationTask(
+            self._resources,
+            partial(self._compose, text, entries),
+            self._params,
+            self._cancel,
+            self._web_search_for(text),
+        )
         task.signals.status.connect(self._bus.assistant_status)
         task.signals.state.connect(self._bus.pet_state_requested)
         task.signals.token.connect(self._bus.assistant_token)
@@ -170,7 +205,52 @@ class ConversationService(QObject):
         entries = self._knowledge.by_name(current)
         if not entries and len(user_messages) > 1 and is_follow_up(current):
             entries = self._knowledge.by_name(user_messages[-2])
-        return entries or self._knowledge.by_keywords(current)
+        if entries or self._continues_web_topic(current):
+            return entries
+        return self._knowledge.by_keywords(current)
+
+    def _continues_web_topic(self, text: str) -> bool:
+        """Una pregunta de seguimiento no debe activar fichas por una palabra suelta."""
+        return (
+            self.web_enabled
+            and bool(self._last_web.facts)
+            and is_follow_up(text)
+            and parse_query(text) is None
+            and not self._knowledge.by_name(text)
+        )
+
+    def _web_search_for(self, text: str) -> Callable[[], WebResult] | None:
+        """Las fichas locales mandan: a Internet solo va lo que ellas no resuelven."""
+        if not self.web_enabled or self._web is None:
+            return None
+        if self._continues_web_topic(text):
+            last = self._last_web
+            return lambda: last
+        query = parse_query(text)
+        if query is None or (not query.wants_songs and self._knowledge.by_name(text)):
+            return None
+        return partial(self._search_web, query)
+
+    def _search_web(self, query: WebQuery) -> WebResult:
+        assert self._web is not None
+        return self._web.search(query)
+
+    def _compose(
+        self, text: str, entries: list[Entry], web: WebResult
+    ) -> list[dict[str, str]]:
+        """Corre en el hilo de la tarea: el historial no cambia mientras el turno está activo."""
+        self._last_web = web
+        return build_messages(
+            self._system_prompt,
+            self._history,
+            self._context_size,
+            self._params.max_tokens,
+            knowledge_block(entries, wants_opinion(text), web.facts),
+        )
+
+    def _set_web_enabled(self, enabled: bool) -> None:
+        self._settings.set("web.enabled", enabled)
+        self._last_web = WebResult()
 
     def _on_stop(self) -> None:
         if self._cancel is not None:

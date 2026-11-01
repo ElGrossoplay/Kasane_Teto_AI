@@ -10,6 +10,8 @@ import socket
 import subprocess
 import sys
 import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import httpx
@@ -80,8 +82,9 @@ def passes(answer: str, required: list[list[str]], forbidden: list[str]) -> bool
     )
 
 
-def main() -> int:
-    knowledge = KnowledgeBase.load(knowledge_root())
+@contextmanager
+def local_model() -> Iterator[Callable[[str, int], str]]:
+    """Arranca el modelo real y da una función que responde a un mensaje con una semilla."""
     system = load_system_prompt()
     port = free_port()
     process = subprocess.Popen(
@@ -102,7 +105,6 @@ def main() -> int:
         stderr=subprocess.DEVNULL,
         creationflags=subprocess.CREATE_NO_WINDOW,
     )
-    passed = total = 0
     try:
         with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=120) as client:
             deadline = time.monotonic() + 180
@@ -112,40 +114,62 @@ def main() -> int:
                         break
                 except httpx.TransportError:
                     time.sleep(0.3)
-            for question, required, forbidden in CHECKS:
-                entries = knowledge.search(question)
-                message = knowledge_block(entries, wants_opinion(question)) + question
-                results = []
-                for seed in SEEDS:
-                    reply = client.post(
-                        "/v1/chat/completions",
-                        json={
-                            "messages": [
-                                {"role": "system", "content": system},
-                                {"role": "user", "content": message},
-                            ],
-                            "max_tokens": 400,
-                            "temperature": 0.3,
-                            "repeat_penalty": 1.05,
-                            "seed": seed,
-                            "grammar": RESPONSE_GRAMMAR,
-                            "chat_template_kwargs": {"enable_thinking": False},
-                        },
-                    ).json()["choices"][0]["message"]["content"]
-                    ok = passes(reply, required, forbidden)
-                    results.append((ok, reply))
-                    passed += ok
-                    total += 1
-                hits = sum(ok for ok, _ in results)
-                print(f"[{hits}/{len(SEEDS)}] {question}", flush=True)
-                for ok, reply in results:
-                    if not ok:
-                        print(f"    X {reply!r}", flush=True)
-                print(f"    ej: {results[0][1]!r}", flush=True)
+
+            def ask(message: str, seed: int) -> str:
+                return client.post(
+                    "/v1/chat/completions",
+                    json={
+                        "messages": [
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": message},
+                        ],
+                        "max_tokens": 400,
+                        "temperature": 0.3,
+                        "repeat_penalty": 1.05,
+                        "seed": seed,
+                        "grammar": RESPONSE_GRAMMAR,
+                        "chat_template_kwargs": {"enable_thinking": False},
+                    },
+                ).json()["choices"][0]["message"]["content"]
+
+            yield ask
     finally:
         process.terminate()
         process.wait(timeout=20)
+
+
+def run_checks(
+    ask: Callable[[str, int], str],
+    checks: list[tuple[str, list[list[str]], list[str]]],
+    build_message: Callable[[str], str],
+) -> None:
+    passed = total = 0
+    for question, required, forbidden in checks:
+        message = build_message(question)
+        results = []
+        for seed in SEEDS:
+            reply = ask(message, seed)
+            ok = passes(reply, required, forbidden)
+            results.append((ok, reply))
+            passed += ok
+            total += 1
+        hits = sum(ok for ok, _ in results)
+        print(f"[{hits}/{len(SEEDS)}] {question}", flush=True)
+        for ok, reply in results:
+            if not ok:
+                print(f"    X {reply!r}", flush=True)
+        print(f"    ej: {results[0][1]!r}", flush=True)
     print(f"TOTAL {passed}/{total} ({100 * passed / total:.0f} %)", flush=True)
+
+
+def main() -> int:
+    knowledge = KnowledgeBase.load(knowledge_root())
+
+    def build_message(question: str) -> str:
+        return knowledge_block(knowledge.search(question), wants_opinion(question)) + question
+
+    with local_model() as ask:
+        run_checks(ask, CHECKS, build_message)
     return 0
 
 

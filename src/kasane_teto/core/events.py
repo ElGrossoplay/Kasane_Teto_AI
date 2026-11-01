@@ -33,6 +33,7 @@ class EventBus(QObject):
     mic_enabled_requested = Signal(bool)
     volume_requested = Signal(int)
     voice_model_requested = Signal(str)
+    web_enabled_requested = Signal(bool)
     listen_toggled = Signal()
     listen_started = Signal()
     listen_stopped = Signal()

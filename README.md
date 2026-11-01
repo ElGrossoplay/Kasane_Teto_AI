@@ -5,8 +5,8 @@ que vive en tu escritorio, conversa en español con una IA que corre **en tu pro
 hablar y escucharte, recuerda lo que tú le autorices y realiza acciones sencillas de Windows bajo
 tu control.
 
-> **Estado:** Fase 3 completada. Funcionan la mascota con sprites provisionales, el chat con IA local y la voz. El
-> progreso está en [`TODO.md`](TODO.md) y el diseño en
+> **Estado:** Fase 3 completada y búsqueda de música en VocaDB añadida. Funcionan la mascota con sprites
+> provisionales, el chat con IA local y la voz. El progreso está en [`TODO.md`](TODO.md) y el diseño en
 > [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
 
 ## Principios
@@ -27,7 +27,8 @@ tu control.
 | Chat con IA local y personalidad de Teto | 2 | Hecho |
 | Voz (TTS) y push-to-talk (STT) | 3 | Hecho |
 | Memoria persistente con panel de administración | 4 | Pendiente |
-| Acciones de Windows controladas y búsqueda web opcional | 5 | Pendiente |
+| Búsqueda opcional de artistas y canciones en VocaDB | 5 | Hecho |
+| Acciones de Windows controladas | 5 | Pendiente |
 | Modo juego y estados de consumo | 6 | Pendiente |
 | Instalador para Windows | 7 | Pendiente |
 
@@ -57,6 +58,10 @@ Pruebas: `.\.venv\Scripts\python.exe -m pytest` (con modelos reales, añade `-m 
 
 Uso de la mascota: arrastrar con el botón izquierdo, rueda del ratón para cambiar el tamaño y clic
 derecho (o el icono de la bandeja) para el menú.
+
+La búsqueda en Internet viene apagada y se activa en Configuración. Consulta
+[VocaDB](https://vocadb.net), envía solo el nombre del artista o la canción y cita la fuente en el
+chat. Sus datos están bajo licencia Creative Commons Attribution.
 
 ## Diagnóstico del equipo
 

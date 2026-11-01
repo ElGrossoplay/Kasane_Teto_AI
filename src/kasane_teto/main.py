@@ -33,6 +33,8 @@ from kasane_teto.desktop.tray import TrayIcon
 from kasane_teto.interface.chat_window import ChatWindow
 from kasane_teto.interface.settings_window import SettingsWindow, VoiceOptions
 from kasane_teto.memory.knowledge import KnowledgeBase, KnowledgeError
+from kasane_teto.tools.vocadb import VocaDBClient
+from kasane_teto.tools.web_lookup import MusicLookup
 from kasane_teto.voice.audio import AudioPlayer, AudioRecorder
 from kasane_teto.voice.engines import STTEngine, TTSEngine
 from kasane_teto.voice.listening import ListenService
@@ -64,7 +66,12 @@ class TetoApp(QObject):
         )
         knowledge = self._load_knowledge()
         self._conversation = ConversationService(
-            self._bus, self._resources, settings, knowledge, self
+            self._bus,
+            self._resources,
+            settings,
+            knowledge,
+            MusicLookup(VocaDBClient(user_dir / "vocadb_cache.sqlite3")),
+            self,
         )
         self._chat_window = ChatWindow(self._bus)
         self._speech = SpeechService(
@@ -165,6 +172,7 @@ class TetoApp(QObject):
                 volume=int(self._settings.get("voice.volume", 80)),
                 mic_enabled=self._listen.enabled,
             ),
+            self._conversation.web_enabled,
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window

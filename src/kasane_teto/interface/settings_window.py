@@ -41,6 +41,7 @@ class SettingsWindow(QDialog):
         current_pack: str,
         data_dir: Path,
         voice: VoiceOptions,
+        web_enabled: bool,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Configuración")
@@ -82,6 +83,13 @@ class SettingsWindow(QDialog):
         self._mic.setChecked(voice.mic_enabled)
         self._mic.toggled.connect(bus.mic_enabled_requested)
 
+        self._web = QCheckBox("Buscar artistas y canciones en Internet (VocaDB)")
+        self._web.setToolTip(
+            "Solo se envía el nombre por el que preguntas, nunca la conversación."
+        )
+        self._web.setChecked(web_enabled)
+        self._web.toggled.connect(bus.web_enabled_requested)
+
         data_label = QLabel(str(data_dir))
         data_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
@@ -93,6 +101,7 @@ class SettingsWindow(QDialog):
         form.addRow("Voz", self._voice)
         form.addRow("Volumen", self._volume)
         form.addRow(self._mic)
+        form.addRow(self._web)
         form.addRow("Datos", data_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
