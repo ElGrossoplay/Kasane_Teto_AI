@@ -123,6 +123,15 @@ Limitaciones conocidas:
 - El atajo global no detecta soltar la tecla: es una limitación de `RegisterHotKey`, que se usa por
   seguridad frente a anticheat.
 
+## Búsqueda en Internet (aprobada por Diego antes que la memoria; fuente por decidir)
+
+- Diego prefiere Vocaloid Wiki y SynthV Wiki, pero las condiciones de Fandom (19-dic-2025) prohíben
+  cualquier acceso automatizado sin permiso escrito, y su robots.txt activa un control de Cloudflare.
+  **No conectar Fandom sin ese permiso por escrito.** Nunca esquivar controles antibots
+- Alternativa verificada: API pública de VocaDB. Contenido bajo Creative Commons Attribution con
+  enlace a VocaDB. Hay que cachear, identificarse y evitar miles de consultas al día. Es fuerte en
+  canciones y créditos, y débil en biografías. No cubre letras ni imágenes
+
 ## Fases siguientes (detalle al aprobar cada una)
 
 - [ ] Fase 4 — Memoria: SQLite + FTS5, confirmaciones, panel, historial
