@@ -226,7 +226,8 @@ con su voz sin una licencia que lo permita.
 
 | Opción | Modelo | RAM aprox. | Precisión en español | Comentario |
 |---|---|---|---|---|
-| **faster-whisper `base` int8 (CPU)** | ~140 MB | ~300–500 MB | Buena | **Recomendado** para push-to-talk |
+| faster-whisper `base` int8 (CPU) | ~140 MB | ~300–500 MB | Buena | Primera elección; sustituido por `small` |
+| **faster-whisper `small` int8 (CPU)** | ~460 MB | ~450–640 MB medidos | Mejor con la voz de Diego (88 % frente a 59 %) | **Elegido** para push-to-talk (2026-11-01) |
 | faster-whisper `tiny` int8 (CPU) | ~75 MB | ~150–300 MB | Aceptable | Modo ligero |
 | Vosk small es | ~40–50 MB | ~100–300 MB | Moderada | El más ligero; streaming; útil para palabra de activación futura |
 

@@ -82,7 +82,7 @@ class TTSEngine:
 
 class STTEngine:
     def __init__(
-        self, models: Path, workers: Path, threads: int, vocabulary: str, model: str = "base"
+        self, models: Path, workers: Path, threads: int, vocabulary: str, model: str = "small"
     ) -> None:
         self._python = _venv_python(models, "whisper")
         self._worker = workers / "whisper_worker.py"

@@ -22,8 +22,8 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 | Voz es_MX-ald-medium | Voz alternativa | Unlicense | 3 |
 | Voz es_AR-daniela-high | Voz alternativa | CC BY-SA 4.0 | 3 |
 | faster-whisper 1.2.1, CTranslate2, onnxruntime | Reconocimiento de voz | MIT | 3 |
-| Modelo faster-whisper-base | Reconocimiento de voz | MIT | 3 |
-| Modelo faster-whisper-small | Solo comparación, la app no lo usa | MIT | 5 |
+| Modelo faster-whisper-small | Reconocimiento de voz | MIT | 5 |
+| Modelo faster-whisper-base | Comparación, la app ya no lo usa | MIT | 3 |
 | sounddevice | Audio | MIT | 3 |
 | Datos de VocaDB (API pública) | Búsqueda de artistas y canciones | Creative Commons Attribution, con enlace a VocaDB en cada respuesta. Sin letras, imágenes ni audio, que no cubre esa licencia | 5 |
 

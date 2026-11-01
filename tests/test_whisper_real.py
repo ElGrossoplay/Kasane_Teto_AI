@@ -13,7 +13,7 @@ pytestmark = pytest.mark.slow
 
 
 @pytest.mark.skipif(
-    not (models_dir() / "whisper" / "base" / "model.bin").exists(), reason="modelo no descargado"
+    not (models_dir() / "whisper" / "small" / "model.bin").exists(), reason="modelo no descargado"
 )
 def test_stereo_48k_audio_reaches_the_recognizer():
     samples = array.array("h")

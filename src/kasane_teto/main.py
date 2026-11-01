@@ -84,7 +84,7 @@ class TetoApp(QObject):
             workers_dir(),
             int(settings.get("voice.stt_threads", 4)),
             knowledge.vocabulary(),
-            str(settings.get("voice.stt_model", "base")),
+            str(settings.get("voice.stt_model", "small")),
         )
         self._listen = ListenService(
             self._bus,

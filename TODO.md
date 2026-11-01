@@ -153,7 +153,10 @@ Limitaciones conocidas:
 - [x] W.16 Modelo `small` descargado con hash verificado y comparado: no mejora a `base`
 - [x] W.17 **Diego:** volvió a grabar las 12 frases con las mejoras de audio revisadas: `small` 88 %,
       `base` 59 %, en las mismas tomas. Con 6 hilos `small` da lo mismo y no va más rápido: siguen 4
-- [ ] W.18 **Diego:** aprobar el cambio de `base` a `small` (decisión vigente de CLAUDE.md)
+- [x] W.18 Diego aprobó el cambio: la app usa `small`. Con IA, Piper y Whisper cargados, 1740 MB sin
+      la ventana (por encima de ~1,5 GB solo mientras siguen cargados), y 54 MB al descargarlos. Con
+      la IA cargada, cada frase tarda ~2,8 s; la primera, 5,3 s
+- [ ] W.19 **Diego:** prueba por voz en la app con la búsqueda activada, y decidir si subir a GitHub
 
 Comparativa de ajustes del reconocedor con las 12 grabaciones (modelo `base`): sin vocabulario 54 %,
 sin refuerzo de agudos 59 %, ajuste actual 69 %, ejemplos genéricos en el prompt 69–74 %, y actual
@@ -261,4 +264,4 @@ Limitaciones conocidas:
 - **2026-11-01:** modelo `small` descargado y comparado: no mejora a `base`. Detectado un posible
   limitador en el audio del micrófono. Pendiente grabar sin mejoras de audio.
 - **2026-11-01:** con las mejoras de audio revisadas, `small` llega a 88 % y `base` baja a 59 %.
-  Pendiente que Diego apruebe el cambio de modelo.
+  Diego aprobó el cambio: la app pasa a `small`. Pendiente la prueba por voz en la app.
