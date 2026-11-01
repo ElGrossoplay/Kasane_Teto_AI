@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import threading
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
 
 import httpx
@@ -24,10 +24,13 @@ class LLMRequestError(Exception):
 class GenerationParams:
     max_tokens: int
     temperature: float
+    repeat_penalty: float = 1.0
     grammar: str | None = None
 
 
-def parse_sse_lines(lines: Iterable[str]) -> Iterator[str]:
+def parse_sse_lines(
+    lines: Iterable[str], on_finish: Callable[[str], None] | None = None
+) -> Iterator[str]:
     """Extrae los fragmentos de texto de las líneas de un flujo SSE."""
     for line in lines:
         if not line.startswith("data:"):
@@ -44,12 +47,18 @@ def parse_sse_lines(lines: Iterable[str]) -> Iterator[str]:
             content = (choice.get("delta") or {}).get("content")
             if content:
                 yield content
+            if on_finish is not None and choice.get("finish_reason"):
+                on_finish(choice["finish_reason"])
 
 
 class LLMClient:
     def __init__(self, base_url: str, api_key: str) -> None:
         self._base_url = base_url
         self._api_key = api_key
+        self.finish_reason: str | None = None
+
+    def _set_finish_reason(self, reason: str) -> None:
+        self.finish_reason = reason
 
     def stream_chat(
         self,
@@ -61,6 +70,7 @@ class LLMClient:
             "messages": messages,
             "max_tokens": params.max_tokens,
             "temperature": params.temperature,
+            "repeat_penalty": params.repeat_penalty,
             "stream": True,
             "chat_template_kwargs": {"enable_thinking": False},
         }
@@ -75,7 +85,8 @@ class LLMClient:
                 ) as response:
                     if response.status_code != 200:
                         raise LLMRequestError(f"Respuesta HTTP {response.status_code}")
-                    for chunk in parse_sse_lines(response.iter_lines()):
+                    chunks = parse_sse_lines(response.iter_lines(), self._set_finish_reason)
+                    for chunk in chunks:
                         if cancel.is_set():
                             return
                         yield chunk

@@ -51,8 +51,9 @@ Marcadores de posición declarados: los sprites son provisionales y el menú "Pr
 - [x] 2.5 Personalidad, gramática y `EmotionParser` (emoción → animación)
 - [x] 2.6 `ResourceManager`: GPU/CPU según VRAM libre, descarga por inactividad y manual
 - [x] 2.7 `ConversationService` en hilo aparte + `ChatWindow`
-- [x] 2.8 Pruebas: 71 automáticas + 1 con modelo real + verificación en el equipo real
-- [ ] 2.9 **Diego:** probar el chat con la app abierta y valorar la personalidad
+- [x] 2.8 Pruebas: 74 automáticas + 1 con modelo real + verificación en el equipo real
+- [~] 2.9 **Diego:** primera prueba hecha: listas cortadas y canciones inventadas. Corregido;
+      falta que Diego lo repita
 
 Medido (2026-10-31), objetivos entre paréntesis: reposo con IA descargada 75 MB y 0,00 % de CPU;
 IA activa 1215 MB de RAM (< ~1,5 GB) y 2933 MiB de VRAM (≤ ~3,5 GB); 42 tokens/s; primera palabra
@@ -60,7 +61,15 @@ IA activa 1215 MB de RAM (< ~1,5 GB) y 2933 MiB de VRAM (≤ ~3,5 GB); 42 tokens
 descargar (3694 → 3694 MiB libres); interfaz sin congelarse (pausa máxima 187 ms).
 En CPU: 8,4 tokens/s, 1,8 GB de RAM.
 
+Ajustes tras la prueba de Diego: máximo 400 tokens con aviso si se corta, temperatura 0,3,
+penalización de repetición 1,05 y ficha con datos verificados de Teto en el prompt (fuente:
+Wikipedia, "Kasane Teto"). Batería ampliada a 33 preguntas con preguntas trampa.
+
 Limitaciones conocidas:
+- **Inventa títulos fuera de la ficha:** canciones de Miku, películas de Ghibli. Ni el prompt ni la
+  temperatura lo eliminan; la vía real es la búsqueda web de la Fase 5. Lo que importe de Teto
+  debe añadirse a la ficha `personality/prompts/teto.txt` con datos verificados.
+- A veces deforma datos de la ficha o cuenta mal (dijo "diez" canciones siendo seis).
 - La carga en frío puede tardar 30–80 s si el modelo no está en la caché de disco de Windows.
 - Qwen3.5-4B usa mucho `[neutral]`, por lo que la mascota varía poco de expresión, y a veces añade
   frases sin sentido. Puede inventar: es inherente a un modelo de este tamaño.

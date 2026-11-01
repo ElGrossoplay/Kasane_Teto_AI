@@ -28,6 +28,13 @@ def test_parse_sse_skips_invalid_and_empty_chunks():
     assert list(parse_sse_lines(lines)) == ["ok"]
 
 
+def test_parse_sse_reports_finish_reason():
+    reasons = []
+    lines = [delta("Ho"), 'data: {"choices":[{"delta":{},"finish_reason":"length"}]}']
+    assert list(parse_sse_lines(lines, reasons.append)) == ["Ho"]
+    assert reasons == ["length"]
+
+
 def test_args_bind_to_loopback_without_shell_string(tmp_path):
     args = LLMProcess(config(tmp_path), tmp_path / "l.log").build_args(1234, "clave")
     assert args[args.index("--host") + 1] == "127.0.0.1"

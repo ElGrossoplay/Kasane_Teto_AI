@@ -24,16 +24,28 @@ def test_load_answer_and_release_vram(tmp_path):
     try:
         assert free_vram_mib() < before - 500
         parser = EmotionParser()
+        client = LLMClient(process.base_url, process.api_key)
         text = "".join(
             parser.feed(chunk)
-            for chunk in LLMClient(process.base_url, process.api_key).stream_chat(
+            for chunk in client.stream_chat(
                 [{"role": "user", "content": "Di hola."}],
-                GenerationParams(30, 0.2, RESPONSE_GRAMMAR),
+                GenerationParams(30, 0.2, grammar=RESPONSE_GRAMMAR),
                 threading.Event(),
             )
         )
         assert text.strip()
         assert parser.emotion is not None
+        assert client.finish_reason == "stop"
+
+        short = LLMClient(process.base_url, process.api_key)
+        list(
+            short.stream_chat(
+                [{"role": "user", "content": "Cuenta hasta cien."}],
+                GenerationParams(5, 0.2),
+                threading.Event(),
+            )
+        )
+        assert short.finish_reason == "length"
     finally:
         process.stop()
     assert not process.is_running

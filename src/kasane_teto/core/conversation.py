@@ -18,6 +18,7 @@ from kasane_teto.personality.prompt_builder import build_messages, load_system_p
 
 MAX_HISTORY_MESSAGES = 20
 EMOTION_HOLD_MS = 4000
+TRUNCATED_NOTICE = "…\n(Respuesta cortada por longitud: pídeme que continúe.)"
 
 log = logging.getLogger(__name__)
 
@@ -79,6 +80,8 @@ class _GenerationTask(QRunnable):
         if tail:
             parts.append(tail)
             self.signals.token.emit(tail)
+        if client.finish_reason == "length":
+            self.signals.token.emit(TRUNCATED_NOTICE)
         return "".join(parts).strip()
 
 
@@ -97,7 +100,8 @@ class ConversationService(QObject):
         self._context_size = int(settings.get("ai.context_size", 4096))
         self._params = GenerationParams(
             max_tokens=int(settings.get("ai.max_tokens", 200)),
-            temperature=float(settings.get("ai.temperature", 0.7)),
+            temperature=float(settings.get("ai.temperature", 0.3)),
+            repeat_penalty=float(settings.get("ai.repeat_penalty", 1.05)),
             grammar=RESPONSE_GRAMMAR,
         )
         self._history: list[dict[str, str]] = []

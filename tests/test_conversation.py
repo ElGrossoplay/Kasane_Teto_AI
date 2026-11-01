@@ -30,12 +30,12 @@ class FakeResources:
         self.busy_calls.append(busy)
 
 
-def install_client(monkeypatch, chunks=(), error=None, pause=0.0):
+def install_client(monkeypatch, chunks=(), error=None, pause=0.0, finish="stop"):
     seen = []
 
     class FakeClient:
         def __init__(self, base_url, api_key):
-            pass
+            self.finish_reason = None
 
         def stream_chat(self, messages, params, cancel):
             seen.append(messages)
@@ -46,6 +46,7 @@ def install_client(monkeypatch, chunks=(), error=None, pause=0.0):
                 yield chunk
             if error:
                 raise error
+            self.finish_reason = finish
 
     monkeypatch.setattr(conversation, "LLMClient", FakeClient)
     return seen
@@ -88,6 +89,25 @@ def test_turn_streams_text_and_applies_emotion(harness, monkeypatch):
     assert record["states"][:2] == [PetState.THINKING, PetState.HAPPY]
     assert resources.busy_calls == [True, False]
     assert not service.is_busy
+
+
+def test_truncated_answer_warns_but_notice_stays_out_of_history(harness, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"], finish="length")
+    bus, _, _, record = harness()
+    bus.user_message.emit("uno")
+    pump(lambda: record["done"] == 1)
+    assert record["tokens"] == ["Hola", conversation.TRUNCATED_NOTICE]
+    bus.user_message.emit("dos")
+    pump(lambda: record["done"] == 2)
+    assert seen[1][2]["content"] == "Hola"
+
+
+def test_complete_answer_has_no_notice(harness, monkeypatch):
+    install_client(monkeypatch, ["[neutral] Hola"])
+    bus, _, _, record = harness()
+    bus.user_message.emit("uno")
+    pump(lambda: record["done"] == 1)
+    assert record["tokens"] == ["Hola"]
 
 
 def test_history_is_sent_on_next_turn(harness, monkeypatch):
