@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import time
 from functools import partial
 from pathlib import Path
 
@@ -22,11 +23,13 @@ from kasane_teto.core.paths import (
     default_config_path,
     knowledge_root,
     models_dir,
+    project_root,
     workers_dir,
 )
 from kasane_teto.core.resource_manager import ResourceManager
 from kasane_teto.core.settings import Settings
 from kasane_teto.core.single_instance import SingleInstance
+from kasane_teto.core.updates import code_changed_since, relaunch
 from kasane_teto.desktop.animator import SpriteAnimator
 from kasane_teto.desktop.hotkey import HOTKEY_LABEL, GlobalHotkey
 from kasane_teto.desktop.pet_window import PetWindow
@@ -257,11 +260,24 @@ def main() -> int:
         QMessageBox.critical(None, "Kasane Teto AI", f"No se pudo iniciar la app.\n{exc}")
         return 1
 
-    instance.activated.connect(teto.show_pet)
+    started_at = time.time()
+    restart = {"requested": False}
+
+    def on_activated() -> None:
+        if code_changed_since(started_at, project_root()):
+            log.info("Hay código nuevo: se reinicia la app")
+            restart["requested"] = True
+            app.quit()
+        else:
+            teto.show_pet()
+
+    instance.activated.connect(on_activated)
     teto.start()
     log.info("App iniciada; estado inicial %s", PetState.IDLE.value)
     code = app.exec()
     instance.release()
+    if restart["requested"]:
+        relaunch(project_root())
     return code
 
 

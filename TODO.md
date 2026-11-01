@@ -290,7 +290,9 @@ la confirmación queda como opción en Configuración.
       de Steam, y las abre por el Explorador. El catálogo queda para lo que no aparezca ahí
 - [x] 5.16 Se excluyen consolas, herramientas del sistema, desinstaladores, manuales y Cheat Engine,
       que tampoco se puede añadir a mano. En el equipo de Diego: 198 entradas, 138 admitidas
-- [ ] 5.17 **Diego:** prueba manual de abrir aplicaciones instaladas y de minimizar
+- [x] 5.17 La prueba de Diego falló porque seguía corriendo la versión anterior: abrir la app solo
+      mostraba la que ya estaba en la bandeja. `core/updates.py` la reinicia si hay código más nuevo
+- [ ] 5.18 **Diego:** prueba manual de abrir aplicaciones instaladas y de minimizar
 
 Medido (2026-11-01): 558 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
 consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En el equipo real: encontró
