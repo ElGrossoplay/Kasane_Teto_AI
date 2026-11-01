@@ -1,5 +1,31 @@
 import pytest
 
+from kasane_teto.memory.knowledge import Entry as _Entry
+from kasane_teto.memory.knowledge import KnowledgeBase as _KnowledgeBase
+
+
+@pytest.mark.parametrize("name", ["senbozakura", "Sembo Sakura", "Senbon Zakura"])
+def test_similar_name_finds_entry(name):
+    base = _KnowledgeBase([_Entry("s", ("Senbonzakura",), "h", "")])
+    assert [entry.id for entry in base.by_similar_name(name)] == ["s"]
+
+
+@pytest.mark.parametrize(
+    "word", ["gracias", "hola", "trabajo", "Sembo segura", "Kiku", "buenas tardes", ""]
+)
+def test_similar_name_ignores_ordinary_words(word):
+    base = _KnowledgeBase(
+        [_Entry("s", ("Senbonzakura",), "h", ""), _Entry("m", ("Miku", "Hatsune Miku"), "h", "")]
+    )
+    assert base.by_similar_name(word) == []
+
+
+def test_vocabulary_starts_with_hard_names_and_has_no_duplicates():
+    base = _KnowledgeBase([_Entry("t", ("Kasane Teto",), "h", ""), _Entry("m", ("Miku",), "h", "")])
+    words = base.vocabulary().split(", ")
+    assert words[:3] == ["Kasane Teto", "VocaDB", "Senbonzakura"]
+    assert len(words) == len(set(words))
+
 from kasane_teto.core.paths import knowledge_root
 from kasane_teto.memory.knowledge import (
     Entry,

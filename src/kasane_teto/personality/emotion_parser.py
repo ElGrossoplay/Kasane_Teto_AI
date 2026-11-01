@@ -21,8 +21,11 @@ _TAG = re.compile(r"^\s*\[([^\[\]]*)\]\s*")
 
 # Gramática GBNF: exige una etiqueta válida al inicio y evita corchetes y emojis en el texto.
 RESPONSE_GRAMMAR = (
-    'root ::= "[" emotion "] " text\n'
+    'root ::= "[" emotion "] " first text\n'
     "emotion ::= " + " | ".join(f'"{name}"' for name in EMOTIONS) + "\n"
+    # El primer carácter es obligatorio: sin él, el modelo puede responder solo con la emoción.
+    r"first ::= [^ \t\n\[\]☀-➿\U0001F000-\U0001FAFF]"
+    "\n"
     r"text ::= [^\[\]☀-➿\U0001F000-\U0001FAFF]*"
     "\n"
 )

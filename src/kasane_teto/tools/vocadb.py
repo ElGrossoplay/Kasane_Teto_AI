@@ -19,7 +19,7 @@ from urllib.parse import urlencode
 
 import httpx
 
-from kasane_teto.memory.knowledge import normalize
+from kasane_teto.memory.knowledge import MIN_NAME_SIMILARITY, name_key, name_similarity
 
 API_URL = "https://vocadb.net/api"
 SITE_URL = "https://vocadb.net"
@@ -43,6 +43,7 @@ VOICE_TYPES = frozenset(
     "ACEVirtualSinger AIVOICE OtherVoiceSynthesizer".split()
 )
 MAX_VOICEBANK_LEVELS = 3
+POPULAR_ENTRIES = 100
 
 log = logging.getLogger(__name__)
 
@@ -70,15 +71,14 @@ def _biography(text: str) -> str:
     return "" if cleaned.casefold().startswith("note") else cleaned
 
 
-def _name_key(text: str) -> str:
-    return re.sub(r"[\W_]", "", normalize(text))
+def _item_names(item: dict[str, Any]) -> list[str]:
+    return [str(item.get("name", "")), *str(item.get("additionalNames", "")).split(",")]
 
 
 def _matches(query: str, item: dict[str, Any]) -> bool:
     """VocaDB devuelve parecidos: solo vale el nombre exacto o uno de sus alias."""
-    names = [str(item.get("name", "")), *str(item.get("additionalNames", "")).split(",")]
-    key = _name_key(query)
-    return any(_name_key(name) == key for name in names)
+    key = name_key(query)
+    return any(name_key(name) == key for name in _item_names(item))
 
 
 @dataclass(frozen=True)
@@ -179,6 +179,25 @@ class VocaDBClient:
             params["artistId[]"] = self._root_voicebank(artist.id)
             params["childVoicebanks"] = "true"
         return [_song(item) for item in self._get("songs", params).get("items", [])]
+
+    def closest_name(self, name: str) -> str | None:
+        """Corrige un nombre mal transcrito. La comparación se hace en este equipo."""
+        key = name_key(name)
+        best_name, best = None, 0.0
+        for item in self._popular_entries():
+            score = max(name_similarity(key, name_key(other)) for other in _item_names(item))
+            if score > best:
+                best_name, best = str(item.get("name", "")), score
+        return best_name if best >= MIN_NAME_SIMILARITY else None
+
+    def _popular_entries(self) -> list[dict[str, Any]]:
+        common = {"maxResults": POPULAR_ENTRIES, "fields": "AdditionalNames", "lang": "Romaji"}
+        lists = (
+            ("artists", {**common, "sort": "SongRating", "artistTypes": "Producer,Band,Circle"}),
+            ("artists", {**common, "sort": "FollowerCount", "artistTypes": ARTIST_TYPES}),
+            ("songs", {**common, "sort": "RatingScore", "songTypes": SONG_TYPES}),
+        )
+        return [item for path, params in lists for item in self._get(path, params).get("items", [])]
 
     def _root_voicebank(self, artist_id: int) -> int:
         """Cada versión de una voz cuelga de otra: Kasane Teto SV no es hija de la de UTAU."""

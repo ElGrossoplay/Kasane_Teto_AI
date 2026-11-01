@@ -438,6 +438,81 @@ def test_stop_during_search_skips_the_model(web_harness):
     assert seen == []
 
 
+def test_empty_answer_is_reported_and_drops_the_source(web_harness, monkeypatch):
+    bus, _, _, _, record = web_harness()
+    install_client(monkeypatch, ["[neutral] "])
+    errors = []
+    bus.assistant_error.connect(errors.append)
+    bus.user_message.emit("¿Quién es Kikuo?")
+    pump(lambda: errors)
+    assert errors == [conversation.EMPTY_ANSWER_MESSAGE]
+    assert record["notices"] == []
+
+
+def test_correction_note_reaches_the_chat(web_harness):
+    result = WebResult(("x",), ("https://vocadb.net/Ar/470",), note='Entendí "Kikuho" y busqué "Kikuo".')
+    bus, _, _, _, record = web_harness(result)
+    bus.user_message.emit("¿Quién es Kikuho?")
+    pump(lambda: record["done"] == 1)
+    assert 'Entendí "Kikuho"' in record["notices"][0]
+
+
+def test_misspelled_local_name_uses_the_entry_without_network(qapp, settings, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    settings.set("web.enabled", True)
+    bus = EventBus()
+    done = []
+    bus.assistant_done.connect(lambda: done.append(True))
+    knowledge = KnowledgeBase([Entry("senbonzakura", ("Senbonzakura",), "Es de KurousaP.", "")])
+    lookup = FakeLookup(WEB_RESULT)
+    service = conversation.ConversationService(bus, FakeResources(), settings, knowledge, lookup)
+    bus.user_message.emit("senbozakura")
+    pump(lambda: len(done) == 1)
+    bus.user_message.emit("¿Quién hizo Sembo Sakura?")
+    pump(lambda: len(done) == 2)
+    assert "KurousaP" in seen[0][-1]["content"]
+    assert "KurousaP" in seen[1][-1]["content"]
+    assert lookup.queries == []
+    assert service is not None
+
+
+def test_search_again_looks_for_the_previous_topic(web_harness):
+    bus, _, lookup, _, record = web_harness(WebResult())
+    bus.user_message.emit("¿Quién hizo Fulanito?")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("Puedes buscarlo en Boga de V, por favor.")
+    pump(lambda: record["done"] == 2)
+    assert [query.topic for query in lookup.queries] == ["Fulanito", "Fulanito"]
+    assert lookup.queries[1].explicit
+
+
+def test_genre_word_in_the_sentence_does_not_block_the_search(qapp, settings, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    settings.set("web.enabled", True)
+    bus = EventBus()
+    done = []
+    bus.assistant_done.connect(lambda: done.append(True))
+    knowledge = KnowledgeBase([Entry("vocaloid", ("Vocaloid",), "Lo hizo Yamaha.", "")])
+    lookup = FakeLookup(WEB_RESULT)
+    service = conversation.ConversationService(bus, FakeResources(), settings, knowledge, lookup)
+    bus.user_message.emit("Estoy preguntando por KikuO el productor de canciones de Vocaloid.")
+    pump(lambda: len(done) == 1)
+    assert [query.topic for query in lookup.queries] == ["KikuO"]
+    assert "Yamaha" not in seen[0][-1]["content"]
+    assert "VocaDB, artista: Kikuo." in seen[0][-1]["content"]
+    assert service is not None
+
+
+def test_search_again_tells_the_model_it_is_already_done(web_harness):
+    bus, _, _, seen, record = web_harness()
+    bus.user_message.emit("¿Quién hizo Fulanito?")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("Búscalo, por favor")
+    pump(lambda: record["done"] == 2)
+    assert "Ya has buscado" in seen[1][-1]["content"]
+    assert "Ya has buscado" not in seen[0][-1]["content"]
+
+
 def test_no_results_add_no_block_or_source(web_harness):
     bus, _, _, seen, record = web_harness(WebResult())
     bus.user_message.emit("¿Quién es Fulanito?")

@@ -311,5 +311,5 @@ def test_turning_off_microphone_stops_recording_and_unloads(listen):
 
 def test_vocabulary_lists_names_within_limit():
     base = KnowledgeBase([Entry("a", ("Hatsune Miku", "miku"), "h", ""), Entry("b", ("UTAU",), "h", "")])
-    assert base.vocabulary() == "Kasane Teto, Hatsune Miku, UTAU"
+    assert base.vocabulary().endswith("Kikuo, Hatsune Miku, UTAU")
     assert base.vocabulary(max_chars=15) == "Kasane Teto"

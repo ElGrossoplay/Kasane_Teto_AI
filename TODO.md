@@ -134,24 +134,44 @@ Limitaciones conocidas:
 - [x] W.4 Interruptor en Configuración, apagado por defecto. Cada respuesta enlaza su fuente en el
       chat; ese enlace no se lee en voz alta
 - [x] W.5 Ficha de Senbonzakura completada con autor y fecha confirmados en VocaDB
-- [ ] W.6 **Diego:** prueba manual con el interruptor activado
+- [x] W.6 **Diego:** primera prueba manual con voz: funcionó la lista de 20 canciones, y falló con
+      preguntas mal transcritas. Corregido (W.7 a W.11)
+- [x] W.7 Reconoce "quién es" deformado por la voz ("Kienes", "Quienes", "Gen es") y "preguntando por
+      X"; decide por el nombre preguntado, no por cualquier palabra de la frase
+- [x] W.8 Nombres mal transcritos: se comparan en el equipo con fichas y con los 100 artistas, voces
+      y canciones más populares de VocaDB, y el chat avisa de qué entendió y qué buscó
+- [x] W.9 "Quién es X" solo busca artistas; "búscalo" repite la búsqueda del mensaje anterior
+- [x] W.10 Si no hay resultados, se le avisa al modelo sin estropear la cultura general
+- [x] W.11 La gramática exige texto: ya no puede responder solo con la emoción. Si llegara vacía, se
+      avisa. No se pudo reproducir el caso original en 8 intentos
+- [ ] W.12 **Diego:** repetir la prueba manual y grabar las 4 frases nuevas de
+      `scripts/probar_microfono.py`
 
-Medido (2026-11-01): 227 pruebas más 4 reales contra VocaDB. Búsqueda 25/27, los dos fallos en una
-pregunta de ficha local que no usa VocaDB ("Wawaka" por wowaka). Conocimiento 87/90, igual que
-antes. Reposo 78,1 MB frente a 77,9 MB de la versión anterior, y 0,01 % de CPU. Interfaz: pausa
-máxima 32 ms. Consulta sin caché 1–2 s; con caché, 0,02 s. Primera palabra con búsqueda sin caché
-~4,5 s, con caché ~2,4 s.
+Medido (2026-11-01): 267 pruebas más 4 reales contra VocaDB. Búsqueda 59/60, con las transcripciones
+reales de Diego. Conocimiento 87/90, igual que antes, con la gramática nueva. Micrófono 79 % con
+las 8 grabaciones de Diego, sin cambios: aún no hay grabaciones de nombres como Kikuo. Reposo
+78,1 MB frente a 77,9 MB de la versión anterior, y 0,01 % de CPU. Interfaz: pausa máxima 32 ms.
+Consulta sin caché 1–2 s; con caché, 0,02 s. Primera palabra con búsqueda sin caché ~4,5 s, con
+caché ~2,4 s. La primera corrección de un nombre tarda ~8 s por las listas populares, que luego
+quedan en caché.
 
 Limitaciones conocidas:
 - La primera lista de una voz con muchas versiones es lenta: la de Kasane Teto tardó 17,6 s una vez
   y ~6 s otra. Después queda en caché. Si una consulta supera 10 s, Teto avisa y responde sin datos
+- **Modelo de respaldo:** con menos de 3100 MiB libres, la app usa el modelo en CPU sin avisar. Con
+  otros programas usando la GPU quedó menos memoria, y las respuestas fueron mucho peores y lentas.
+  Forzando la GPU cargó bien con 2968 MiB; el umbral sigue sin tocar
+- VocaDB falló de forma intermitente en 2 turnos de una repetición y en otra batería; no se repitió
+  después y no se registró la causa. El motivo queda ahora en el registro de la app
 - VocaDB cubre música: no sirve para cultura general ni para biografías largas. Muchas descripciones
   son notas para editores, así que solo se usan las que parecen biografía
-- Solo reconoce frases concretas ("quién es X", "canciones de X", "háblame de X"…). Si la pregunta se
-  formula de otra forma, no busca
+- Solo reconoce frases concretas. Si la pregunta se formula de otra forma, no busca
 - Un nombre común que coincida con un artista puede dar datos de otra persona ("Laura" es un
-  productor en VocaDB). Solo se acepta el nombre exacto o un alias
-- Sin datos, puede seguir inventando detalles sueltos: dijo que Tanuki-P es "muy conocido"
+  productor en VocaDB)
+- Una deformación muy grande no se corrige: "Sembo segura" (0,61) o "Sembo se ocurre" no llegan al
+  mínimo de 0,78. Rebajarlo empezaría a confundir palabras normales con nombres
+- Con datos correctos aún añade falsedades: dijo que Kikuo hace canciones "para Kasane Teto" y, sobre
+  Senbonzakura, "la hice yo". Sin datos puede inventar (1 de 3 en "sembo segura")
 - Las fichas incompletas impiden buscar: si existe ficha, no se consulta VocaDB salvo para listas
 - Fandom: Diego prefiere Vocaloid Wiki y SynthV Wiki, pero sus condiciones (19-dic-2025) prohíben
   cualquier acceso automatizado sin permiso escrito, y su robots.txt activa un control de Cloudflare.
@@ -208,3 +228,5 @@ Limitaciones conocidas:
   cerrada y subida a GitHub.
 - **2026-11-01:** Fandom descartado por sus condiciones de uso. Búsqueda de música en VocaDB
   implementada y medida, con `scripts/probar_busqueda.py`. Pendiente la prueba manual.
+- **2026-11-01:** primera prueba de Diego con voz: corregidas las preguntas mal transcritas, los
+  nombres deformados, "búscalo" y la respuesta vacía. Pendiente repetir la prueba manual.

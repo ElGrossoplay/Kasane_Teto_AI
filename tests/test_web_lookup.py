@@ -6,7 +6,14 @@ import pytest
 
 from kasane_teto.tools import vocadb
 from kasane_teto.tools.vocadb import VocaDBClient, VocaDBError, clean_text
-from kasane_teto.tools.web_lookup import UNAVAILABLE_FACT, MusicLookup, WebQuery, parse_query
+from kasane_teto.tools.web_lookup import (
+    UNAVAILABLE_FACT,
+    MusicLookup,
+    WebQuery,
+    bare_topic,
+    parse_query,
+    search_again_query,
+)
 
 KIKUO = {
     "id": 470,
@@ -55,17 +62,70 @@ def client(tmp_path, api):
         ("¿Qué canciones tiene Kikuo?", "Kikuo", True, 10),
         ("¿Cuál es la canción más famosa de DECO*27?", "DECO*27", True, 10),
         ("dame 99 temas de wowaka", "wowaka", True, 20),
-        ("¿Quién es Kikuo?", "Kikuo", False, 10),
         ("quien hizo la cancion Senbonzakura", "Senbonzakura", False, 10),
         ("¿Quién hizo la canción de Mesmerizer?", "Mesmerizer", False, 10),
         ("Háblame sobre el productor Mitchie M", "Mitchie M", False, 10),
         ("¿Conoces a Solaria?", "Solaria", False, 10),
         ('¿Qué sabes de "Rollin\' Girl", la de wowaka?', "Rollin' Girl", False, 10),
-        ("busca en internet Tetoris", "Tetoris", False, 10),
     ],
 )
 def test_parse_query_keeps_only_the_name(text, topic, wants_songs, count):
     assert parse_query(text) == WebQuery(topic, wants_songs, count)
+
+
+@pytest.mark.parametrize(
+    ("text", "topic"),
+    [
+        ("¿Quién es Kikuo?", "Kikuo"),
+        ("Dime kienes kikuo.", "kikuo"),
+        ("Kienes Mili.", "Mili"),
+        ("Quienes Kikuu.", "Kikuu"),
+        ("Gen es Kikuho.", "Kikuho"),
+        ("¿Quiénes son YOASOBI?", "YOASOBI"),
+    ],
+)
+def test_person_questions_survive_bad_transcription(text, topic):
+    assert parse_query(text) == WebQuery(topic, people_only=True)
+
+
+def test_words_starting_a_normal_sentence_are_not_people_questions():
+    assert parse_query("Los que quienes viven aquí saben") is None
+
+
+def test_refers_to_keeps_the_name_and_not_the_genre():
+    text = "Estoy preguntando por KikuO el productor de canciones de Vocaloid."
+    assert parse_query(text) == WebQuery("KikuO")
+
+
+def test_generic_genres_are_not_searched():
+    assert parse_query("¿Qué canciones de Vocaloid me recomiendas?") is None
+
+
+def test_explicit_search_is_marked():
+    assert parse_query("busca en internet Tetoris") == WebQuery("Tetoris", explicit=True)
+
+
+@pytest.mark.parametrize(
+    ("previous", "topic"),
+    [("¿Quién hizo Sembo Sakura?", "Sembo Sakura"), ("senbozakura", "senbozakura")],
+)
+def test_search_again_uses_the_previous_message(previous, topic):
+    query = search_again_query("Puedes buscarlo en Boga de V, por favor.", previous)
+    assert query == WebQuery(topic, explicit=True)
+
+
+def test_search_again_needs_a_request():
+    assert search_again_query("Gracias", "¿Quién hizo Melt?") is None
+
+
+def test_search_again_keeps_personal_messages_at_home():
+    assert search_again_query("Búscalo", "Háblame de mi novia Laura") is None
+
+
+def test_bare_topic_rejects_long_or_personal_messages():
+    assert bare_topic("senbozakura") == "senbozakura"
+    assert bare_topic("esto es una frase bastante larga") is None
+    assert bare_topic("mi jefe") is None
 
 
 @pytest.mark.parametrize(
@@ -255,10 +315,11 @@ def test_failure_is_not_presented_as_missing_data(tmp_path):
     assert not result.sources
 
 
-def test_unknown_name_gives_no_facts(tmp_path):
+def test_unknown_name_warns_without_blocking_general_knowledge(tmp_path):
     api = FakeApi([SIMILAR], [])
     result = MusicLookup(client(tmp_path, api)).search(WebQuery("Kikuo"))
-    assert result.facts == ()
+    assert "cultura general" in result.facts[0]
+    assert result.sources == ()
     assert not result.failed
 
 
@@ -266,6 +327,66 @@ def test_song_request_for_a_title_falls_back_to_the_song(tmp_path):
     api = FakeApi([], [SONG])
     result = MusicLookup(client(tmp_path, api)).search(WebQuery("Senbonzakura", True))
     assert result.facts[0].startswith('VocaDB, canción: "Senbonzakura"')
+
+
+class PopularApi(FakeApi):
+    """Solo el nombre correcto da resultado; la lista popular no lleva `query`."""
+
+    def __call__(self, request):
+        query = request.url.params.get("query", "")
+        self.requests.append(request)
+        last = request.url.path.rsplit("/", 1)[-1]
+        if last.isdigit():
+            return httpx.Response(200, json={})
+        if last == "artists":
+            found = "maxResults=100" in str(request.url) or query == "Kikuo"
+            return httpx.Response(200, json={"items": [KIKUO] if found else []})
+        found = "maxResults=100" in str(request.url) or query == "Senbonzakura"
+        return httpx.Response(200, json={"items": [SONG] if found else []})
+
+
+@pytest.mark.parametrize("heard", ["Kikuho", "Kikuu", "Kiku"])
+def test_misheard_artist_is_corrected(tmp_path, heard):
+    api = PopularApi()
+    result = MusicLookup(client(tmp_path, api)).search(WebQuery(heard, people_only=True))
+    assert any("artista: Kikuo" in fact for fact in result.facts)
+    assert f"Entendí \"{heard}\"" in result.note
+
+
+def test_misheard_song_is_corrected(tmp_path):
+    result = MusicLookup(client(tmp_path, PopularApi())).search(WebQuery("Sembo Sakura"))
+    assert any('canción: "Senbonzakura"' in fact for fact in result.facts)
+
+
+def test_misheard_text_is_only_compared_locally(tmp_path):
+    api = PopularApi()
+    MusicLookup(client(tmp_path, api)).search(WebQuery("Kikuho", people_only=True))
+    lists = [r for r in api.requests if "maxResults=100" in str(r.url)]
+    assert lists
+    assert all("query" not in r.url.params for r in lists)
+
+
+@pytest.mark.parametrize("name", ["Tanuki-P", "trabajo", "Laura"])
+def test_unrelated_names_are_not_corrected(tmp_path, name):
+    result = MusicLookup(client(tmp_path, PopularApi())).search(WebQuery(name))
+    assert not result.note
+    assert not result.sources
+
+
+def test_people_question_ignores_song_with_that_name(tmp_path):
+    class OnlyWhenAsked(FakeApi):
+        def __call__(self, request):
+            self.songs = [SONG] if "query" in request.url.params else []
+            return super().__call__(request)
+
+    api = OnlyWhenAsked()
+    result = MusicLookup(client(tmp_path, api)).search(WebQuery("Senbonzakura", people_only=True))
+    assert not any("canción" in fact for fact in result.facts)
+
+
+def test_explicit_search_without_results_says_so(tmp_path):
+    result = MusicLookup(client(tmp_path, FakeApi())).search(WebQuery("Fulano", explicit=True))
+    assert "no hay resultados" in result.facts[0]
 
 
 def test_cache_keeps_responses_as_json(tmp_path):

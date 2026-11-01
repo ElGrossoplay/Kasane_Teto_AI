@@ -32,6 +32,10 @@ PHRASES = [
     "Hoy tuve un día bastante pesado en el trabajo.",
     "¿Cuál es la canción más famosa de DECO*27?",
     "Explícame qué es la memoria RAM.",
+    "¿Quién es Kikuo?",
+    "¿Quién hizo Senbonzakura?",
+    "Dime cinco canciones de Mitchie M.",
+    "¿Quién es Mili?",
 ]
 
 

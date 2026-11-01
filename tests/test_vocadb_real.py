@@ -29,5 +29,5 @@ def test_real_voice_songs_include_every_voicebank(lookup):
     assert "Mesmerizer" in result.facts[0]
 
 
-def test_real_unknown_name_gives_no_facts(lookup):
-    assert lookup.search(WebQuery("capital de Japon")).facts == ()
+def test_real_unknown_name_has_no_source(lookup):
+    assert lookup.search(WebQuery("capital de Japon")).sources == ()

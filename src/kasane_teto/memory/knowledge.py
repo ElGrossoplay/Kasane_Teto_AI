@@ -8,10 +8,15 @@ import sqlite3
 import tomllib
 import unicodedata
 from dataclasses import dataclass
+from difflib import SequenceMatcher
 from pathlib import Path
 
 MAX_RESULTS = 3
 MIN_TERM_LENGTH = 4
+# Medido con transcripciones reales: "Sembo Sakura" da 0,78; "Tanuki-P" o "trabajo" no pasan de 0,67.
+MIN_NAME_SIMILARITY = 0.78
+MIN_SIMILAR_KEY_LENGTH = 4
+PRIORITY_VOCABULARY = ("Kasane Teto", "VocaDB", "Senbonzakura", "Mesmerizer", "Kikuo")
 
 # Palabras demasiado comunes en este tema: buscarlas activaría fichas sin relación.
 STOPWORDS = frozenset(
@@ -54,6 +59,20 @@ def normalize(text: str) -> str:
     decomposed = unicodedata.normalize("NFD", text.casefold())
     kept = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
     return unicodedata.normalize("NFC", kept)
+
+
+def name_key(text: str) -> str:
+    """Compara nombres sin espacios ni signos: "Sembo Sakura" y "Senbonzakura"."""
+    return re.sub(r"[\W_]", "", normalize(text))
+
+
+def name_similarity(first: str, second: str) -> float:
+    """Parecido entre dos claves de `name_key`; las muy cortas solo valen si son iguales."""
+    if first == second:
+        return 1.0
+    if min(len(first), len(second)) < MIN_SIMILAR_KEY_LENGTH:
+        return 0.0
+    return SequenceMatcher(None, first, second).ratio()
 
 
 def wants_opinion(text: str) -> bool:
@@ -102,6 +121,9 @@ class KnowledgeBase:
         self._patterns = [
             (entry.id, _name_pattern(name)) for entry in entries for name in entry.names
         ]
+        self._name_keys = [
+            (entry.id, name_key(name)) for entry in entries for name in entry.names
+        ]
         self._db = sqlite3.connect(":memory:")
         self._db.execute(
             "CREATE VIRTUAL TABLE fichas USING fts5(id UNINDEXED, texto, "
@@ -125,10 +147,11 @@ class KnowledgeBase:
 
     def vocabulary(self, max_chars: int = 250) -> str:
         """Nombres propios para que el reconocimiento de voz los entienda mejor."""
-        words = ["Kasane Teto"]
-        size = len(words[0])
-        for entry in self._entries.values():
-            name = entry.names[0]
+        words: list[str] = []
+        size = 0
+        for name in (*PRIORITY_VOCABULARY, *(e.names[0] for e in self._entries.values())):
+            if name in words:
+                continue
             if size + len(name) + 2 > max_chars:
                 break
             words.append(name)
@@ -148,6 +171,18 @@ class KnowledgeBase:
                 hits[entry_id] = match.start()
         ordered = sorted(hits, key=hits.__getitem__)
         return [self._entries[entry_id] for entry_id in ordered[:limit]]
+
+    def by_similar_name(self, text: str) -> list[Entry]:
+        """Corrige un nombre mal transcrito: `text` debe ser solo el nombre, no una frase."""
+        key = name_key(text)
+        if not key:
+            return []
+        entry_id, best = max(
+            ((entry_id, name_similarity(key, name)) for entry_id, name in self._name_keys),
+            key=lambda item: item[1],
+            default=("", 0.0),
+        )
+        return [self._entries[entry_id]] if best >= MIN_NAME_SIMILARITY else []
 
     def by_keywords(self, text: str, limit: int = MAX_RESULTS) -> list[Entry]:
         query = normalize(text)

@@ -19,16 +19,26 @@ from kasane_teto.memory.knowledge import Entry, KnowledgeBase, is_follow_up, wan
 from kasane_teto.personality.emotion_parser import RESPONSE_GRAMMAR, EmotionParser
 from kasane_teto.personality.prompt_builder import (
     build_messages,
+    SEARCH_DONE,
     knowledge_block,
     load_system_prompt,
 )
-from kasane_teto.tools.web_lookup import MusicLookup, WebQuery, WebResult, parse_query
+from kasane_teto.tools.web_lookup import (
+    MusicLookup,
+    WebQuery,
+    WebResult,
+    asks_to_search,
+    bare_topic,
+    parse_query,
+    search_again_query,
+)
 
 MAX_HISTORY_MESSAGES = 30
 KEPT_HISTORY_MESSAGES = 11
 EMOTION_HOLD_MS = 4000
 TRUNCATED_NOTICE = "…\n(Respuesta cortada por longitud: pídeme que continúe.)"
 WEB_FAILED_NOTICE = "\n(No pude consultar VocaDB: he respondido sin esos datos.)"
+EMPTY_ANSWER_MESSAGE = "Me he quedado en blanco. ¿Me lo repites?"
 
 log = logging.getLogger(__name__)
 
@@ -74,7 +84,11 @@ class _GenerationTask(QRunnable):
             process = self._resources.ensure_loaded()
             self.signals.status.emit("")
             text = self._generate(process.base_url, process.api_key, messages)
-            self._announce_sources(web)
+            if not text and not self._cancel.is_set():
+                self.signals.failed.emit(EMPTY_ANSWER_MESSAGE)
+                return
+            if text:
+                self._announce_sources(web)
             self.signals.finished.emit(text)
         except LLMStartError as exc:
             log.error("La IA no pudo arrancar: %s", exc)
@@ -91,7 +105,8 @@ class _GenerationTask(QRunnable):
         if web.failed:
             self.signals.notice.emit(WEB_FAILED_NOTICE)
         elif web.sources:
-            self.signals.notice.emit(f"\n(Datos de VocaDB: {' · '.join(web.sources)})")
+            note = f"{web.note} " if web.note else ""
+            self.signals.notice.emit(f"\n({note}Datos de VocaDB: {' · '.join(web.sources)})")
 
     def _generate(
         self, base_url: str, api_key: str, messages: list[dict[str, str]]
@@ -202,12 +217,21 @@ class ConversationService(QObject):
         """Un nombre citado manda; el tema anterior solo sigue en preguntas de seguimiento."""
         user_messages = [m["content"] for m in self._history if m["role"] == "user"]
         current = user_messages[-1]
-        entries = self._knowledge.by_name(current)
+        entries = self._named_entries(current)
         if not entries and len(user_messages) > 1 and is_follow_up(current):
             entries = self._knowledge.by_name(user_messages[-2])
         if entries or self._continues_web_topic(current):
             return entries
         return self._knowledge.by_keywords(current)
+
+    def _named_entries(self, text: str) -> list[Entry]:
+        """Fichas citadas por su nombre o por uno parecido, como los que deforma la voz."""
+        entries = self._knowledge.by_name(text)
+        if entries:
+            return entries
+        query = parse_query(text)
+        topic = query.topic if query is not None else bare_topic(text)
+        return self._knowledge.by_similar_name(topic) if topic else []
 
     def _continues_web_topic(self, text: str) -> bool:
         """Una pregunta de seguimiento no debe activar fichas por una palabra suelta."""
@@ -216,20 +240,31 @@ class ConversationService(QObject):
             and bool(self._last_web.facts)
             and is_follow_up(text)
             and parse_query(text) is None
-            and not self._knowledge.by_name(text)
+            and not self._named_entries(text)
         )
+
+    def _web_query(self, text: str) -> WebQuery | None:
+        user_messages = [m["content"] for m in self._history if m["role"] == "user"]
+        previous = user_messages[-2] if len(user_messages) > 1 else ""
+        return search_again_query(text, previous) or parse_query(text)
 
     def _web_search_for(self, text: str) -> Callable[[], WebResult] | None:
         """Las fichas locales mandan: a Internet solo va lo que ellas no resuelven."""
         if not self.web_enabled or self._web is None:
             return None
-        if self._continues_web_topic(text):
+        query = self._web_query(text)
+        if query is None:
+            if not self._continues_web_topic(text):
+                return None
             last = self._last_web
             return lambda: last
-        query = parse_query(text)
-        if query is None or (not query.wants_songs and self._knowledge.by_name(text)):
+        if not (query.wants_songs or query.explicit) and self._knows_topic(query.topic):
             return None
         return partial(self._search_web, query)
+
+    def _knows_topic(self, topic: str) -> bool:
+        """Decide el nombre preguntado: "Kikuo, el de Vocaloid" no va sobre Vocaloid."""
+        return bool(self._knowledge.by_name(topic) or self._knowledge.by_similar_name(topic))
 
     def _search_web(self, query: WebQuery) -> WebResult:
         assert self._web is not None
@@ -240,12 +275,18 @@ class ConversationService(QObject):
     ) -> list[dict[str, str]]:
         """Corre en el hilo de la tarea: el historial no cambia mientras el turno está activo."""
         self._last_web = web
+        query = parse_query(text)
+        if web.sources and query is not None and not self._knows_topic(query.topic):
+            entries = []
+        block = knowledge_block(entries, wants_opinion(text), web.facts)
+        if web.sources and asks_to_search(text):
+            block += SEARCH_DONE
         return build_messages(
             self._system_prompt,
             self._history,
             self._context_size,
             self._params.max_tokens,
-            knowledge_block(entries, wants_opinion(text), web.facts),
+            block,
         )
 
     def _set_web_enabled(self, enabled: bool) -> None:
