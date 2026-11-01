@@ -26,7 +26,9 @@ from PySide6.QtCore import QStandardPaths
 from kasane_teto.core.settings import Settings
 from kasane_teto.memory.knowledge import MIN_NAME_SIMILARITY, name_key, name_similarity
 from kasane_teto.memory.proposals import has_secret
+from kasane_teto.tools import windows_control
 from kasane_teto.tools.commands import (
+    CLOSE_APP,
     INFO,
     INFO_BATTERY,
     INFO_CPU,
@@ -39,6 +41,7 @@ from kasane_teto.tools.commands import (
     OPEN_FOLDER,
     OPEN_URL,
     SAFE_FILE_TYPES,
+    UNSAFE_FILE_TYPES,
     WEB_SEARCH,
     Command,
 )
@@ -50,6 +53,32 @@ FORBIDDEN_PROGRAMS = frozenset(
     "wsl python pythonw py schtasks sc reg net netsh taskkill bcdedit format diskpart "
     "certutil bitsadmin".split()
 )
+BROWSER_WORDS = frozenset("navegador browser internet chrome edge firefox brave opera".split())
+# Las ventanas de navegador se reconocen por el final de su título.
+BROWSER_TITLES = ("google chrome", "microsoft edge", "mozilla firefox", "brave", "opera", "vivaldi")
+START_PAGE = "https://duckduckgo.com"
+KNOWN_SITES = {
+    "youtube": "https://www.youtube.com",
+    "google": "https://www.google.com",
+    "gmail": "https://mail.google.com",
+    "twitch": "https://www.twitch.tv",
+    "twitter": "https://x.com",
+    "instagram": "https://www.instagram.com",
+    "facebook": "https://www.facebook.com",
+    "tiktok": "https://www.tiktok.com",
+    "reddit": "https://www.reddit.com",
+    "netflix": "https://www.netflix.com",
+    "github": "https://github.com",
+    "wikipedia": "https://es.wikipedia.org",
+    "vocadb": "https://vocadb.net",
+}
+# Nombres con los que aparece cada app incluida en su título de ventana.
+BUILTIN_TITLES = {
+    "calculadora": ("calculadora", "calculator"),
+    "bloc de notas": ("bloc de notas", "notepad"),
+}
+MAX_FILES_SCANNED = 5000
+MAX_FOLDER_DEPTH = 2
 SEARCH_URL = "https://duckduckgo.com/?q="
 MAX_SEARCH_CHARS = 120
 CPU_SAMPLE_SECONDS = 0.3
@@ -87,9 +116,14 @@ class SystemRunner(Protocol):
     def start_program(self, path: Path) -> None: ...
     def open_path(self, path: Path) -> None: ...
     def open_url(self, url: str) -> None: ...
+    def list_windows(self) -> list[windows_control.Window]: ...
+    def close_window(self, handle: int) -> None: ...
 
 
 class WindowsRunner:
+    list_windows = staticmethod(windows_control.list_windows)
+    close_window = staticmethod(windows_control.close_window)
+
     def start_program(self, path: Path) -> None:
         subprocess.Popen(
             [str(path)],
@@ -145,6 +179,32 @@ def known_folder(name: str) -> Path:
     return Path(QStandardPaths.writableLocation(_FOLDER_LOCATIONS[name]))
 
 
+def _clean_title(title: str) -> str:
+    """Edge esconde un espacio de ancho cero en su nombre."""
+    return title.replace("​", "").casefold().strip()
+
+
+def _is_browser_window(title: str) -> bool:
+    return _clean_title(title).endswith(BROWSER_TITLES)
+
+
+def _has_word(title: str, word: str) -> bool:
+    return re.search(rf"(?<!\w){re.escape(word.casefold())}(?!\w)", _clean_title(title)) is not None
+
+
+def _file_score(path: Path, wanted: str) -> float:
+    """Exacto, todas las palabras pedidas o nombre parecido: la voz rara vez lo dice perfecto."""
+    if path.name.casefold() == wanted:
+        return 2.0
+    key, other = name_key(wanted), name_key(path.stem)
+    if key == other:
+        return 1.5
+    words = set(re.findall(r"\w+", wanted))
+    if words and words <= set(re.findall(r"\w+", path.stem.casefold())):
+        return 1.2
+    return name_similarity(key, other)
+
+
 def _gigabytes(size: float) -> str:
     return f"{size / 1024 ** 3:.1f}".replace(".", ",")
 
@@ -174,15 +234,16 @@ class ToolRegistry:
     def prepare(self, command: Command) -> Action:
         """Valida la orden. Lo que no esté permitido lanza `ActionRejected`."""
         if command.kind == OPEN_APP:
-            name, path = self._find_app(command.target)
-            return Action(command, f"Voy a abrir {name}", str(path))
+            return self._prepare_open(command)
+        if command.kind == CLOSE_APP:
+            return self._prepare_close(command)
         if command.kind == OPEN_FOLDER:
             path = self._folder(command.target)
             if not path.is_dir():
                 raise ActionRejected(f"No encuentro la carpeta de {command.target}.")
             return Action(command, f"Voy a abrir la carpeta de {command.target}", str(path))
         if command.kind == OPEN_FILE:
-            path = self._find_file(command.target)
+            path = self._find_file(command.target, command.folder)
             return Action(command, f"Voy a abrir {path.name}", str(path))
         if command.kind == OPEN_URL:
             url = validate_url(command.target)
@@ -199,17 +260,67 @@ class ToolRegistry:
         url = SEARCH_URL + quote_plus(command.target)
         return Action(command, f"Voy a buscar «{command.target}» en el navegador", url)
 
-    def _find_app(self, target: str) -> tuple[str, Path]:
+    def _catalog_name(self, target: str) -> str | None:
         key = name_key(target)
         best_name, best = None, 0.0
         for name in self.catalog():
             score = name_similarity(key, name_key(name))
             if score > best:
                 best_name, best = name, score
-        if best_name is None or best < MIN_NAME_SIMILARITY:
+        return best_name if best >= MIN_NAME_SIMILARITY else None
+
+    def _prepare_open(self, command: Command) -> Action:
+        target = command.target.casefold()
+        name = self._catalog_name(target)
+        if name is not None:
+            found, path = self._find_app(name)
+            return Action(command, f"Voy a abrir {found}", str(path))
+        if name_key(target) in FORBIDDEN_PROGRAMS:
             raise ActionRejected(
-                f"{target} no está en mi lista de aplicaciones. Añádelo en Configuración."
+                f"{command.target} no lo abro por seguridad: permitiría ejecutar cualquier comando."
             )
+        if target in BROWSER_WORDS:
+            return Action(Command(OPEN_URL, START_PAGE), "Voy a abrir el navegador", START_PAGE)
+        if target in KNOWN_SITES:
+            url = KNOWN_SITES[target]
+            return Action(Command(OPEN_URL, url), f"Voy a abrir {command.target}", url)
+        raise ActionRejected(
+            f"{command.target} no está en mi lista de aplicaciones. Añádelo en Configuración."
+        )
+
+    def _prepare_close(self, command: Command) -> Action:
+        target = command.target.casefold()
+        if target in BROWSER_WORDS or target in KNOWN_SITES:
+            return Action(command, f"Voy a cerrar {command.target}")
+        name = self._catalog_name(target)
+        if name is None:
+            raise ActionRejected(f"{command.target} no está en mi lista de aplicaciones.")
+        return Action(command, f"Voy a cerrar {name}", name)
+
+    def _windows_to_close(self, action: Action) -> list[windows_control.Window]:
+        target = action.command.target.casefold()
+        windows = self._runner.list_windows()
+        if target in BROWSER_WORDS:
+            return [w for w in windows if _is_browser_window(w.title)]
+        if target in KNOWN_SITES:
+            return [w for w in windows if _is_browser_window(w.title) and _has_word(w.title, target)]
+        words = BUILTIN_TITLES.get(action.resolved, (action.resolved,))
+        return [
+            w
+            for w in windows
+            if not _is_browser_window(w.title) and any(_has_word(w.title, word) for word in words)
+        ]
+
+    def _close(self, action: Action) -> str:
+        windows = self._windows_to_close(action)
+        if not windows:
+            return f"No veo ninguna ventana de {action.command.target} abierta."
+        for window in windows:
+            self._runner.close_window(window.handle)
+        return "Cerrada." if len(windows) == 1 else f"He cerrado {len(windows)} ventanas."
+
+    def _find_app(self, name: str) -> tuple[str, Path]:
+        best_name = name
         location = self.catalog()[best_name]
         found = location if Path(location).is_absolute() else shutil.which(location)
         if found is None:
@@ -218,39 +329,48 @@ class ToolRegistry:
         validate_program(path)
         return best_name, path
 
-    def _find_file(self, name: str) -> Path:
+    def _find_file(self, name: str, folder: str = "") -> Path:
         if not name or any(mark in name for mark in '/\\:*?"<>|'):
             raise ActionRejected("Dime solo el nombre del archivo, sin ruta.")
         suffix = Path(name).suffix.casefold()
-        if suffix and suffix not in SAFE_FILE_TYPES:
+        if suffix in UNSAFE_FILE_TYPES:
             raise ActionRejected("Solo abro documentos, imágenes y audio.")
-        matches = [path for folder in self._all_folders() for path in self._matches(folder, name)]
-        if not matches:
+        folders = [self._folder(folder)] if folder else self._all_folders()
+        scored = [item for place in folders for item in self._matches(place, name.casefold())]
+        if not scored:
             raise ActionRejected(f"No encuentro {name} en tus carpetas.")
+        best = max(score for score, _ in scored)
+        matches = [path for score, path in scored if score == best]
         if len(matches) > 1:
-            raise ActionRejected(f"Hay varios archivos llamados {name}: dime la extensión.")
+            raise ActionRejected(f"Hay varios archivos que se llaman parecido a {name}.")
         return matches[0]
 
     @staticmethod
-    def _matches(folder: Path, name: str) -> list[Path]:
-        if not folder.is_dir():
-            return []
-        wanted = name.casefold()
-        found = []
-        for entry in os.scandir(folder):
-            path = Path(entry.path)
-            if not entry.is_file(follow_symlinks=False):
-                continue
-            if path.suffix.casefold() not in SAFE_FILE_TYPES:
-                continue
-            if path.name.casefold() == wanted or path.stem.casefold() == wanted:
-                found.append(path)
+    def _matches(folder: Path, wanted: str) -> list[tuple[float, Path]]:
+        """Recorre pocos niveles y sin seguir enlaces: nunca sale de la carpeta conocida."""
+        found: list[tuple[float, Path]] = []
+        scanned = 0
+        for root, folders, files in os.walk(folder):
+            if len(Path(root).relative_to(folder).parts) >= MAX_FOLDER_DEPTH:
+                folders.clear()
+            for file in files:
+                scanned += 1
+                path = Path(root, file)
+                if path.suffix.casefold() not in SAFE_FILE_TYPES or path.is_symlink():
+                    continue
+                score = _file_score(path, wanted)
+                if score >= MIN_NAME_SIMILARITY:
+                    found.append((score, path))
+            if scanned >= MAX_FILES_SCANNED:
+                break
         return found
 
     def run(self, action: Action) -> str:
         """Vuelve a validar: entre la confirmación y este momento algo pudo cambiar."""
         checked = self.prepare(action.command)
         command = checked.command
+        if command.kind == CLOSE_APP:
+            return self._close(checked)
         if command.kind == OPEN_APP:
             self._runner.start_program(Path(checked.resolved))
         elif command.kind in (OPEN_FOLDER, OPEN_FILE):

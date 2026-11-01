@@ -218,6 +218,7 @@ class TetoApp(QObject):
             self._conversation.history_enabled,
             self._conversation.tools_enabled,
             dict(self._settings.get("tools.apps", {})),
+            bool(self._settings.get("tools.confirm", False)),
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window

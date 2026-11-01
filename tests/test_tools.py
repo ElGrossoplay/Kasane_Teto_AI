@@ -13,7 +13,9 @@ from kasane_teto.core.events import EventBus
 from kasane_teto.interface.apps_window import AppsWindow
 from kasane_teto.interface.chat_window import ChatWindow
 from kasane_teto.memory.knowledge import KnowledgeBase
+from kasane_teto.tools import windows_control
 from kasane_teto.tools.commands import (
+    CLOSE_APP,
     INFO,
     OPEN_APP,
     OPEN_FILE,
@@ -32,6 +34,7 @@ from kasane_teto.tools.registry import (
     validate_program,
     validate_url,
 )
+from kasane_teto.tools.windows_control import Window
 
 SOURCE = Path(conversation.__file__).parents[1]
 
@@ -42,6 +45,11 @@ SOURCE = Path(conversation.__file__).parents[1]
         ("Abre Discord", OPEN_APP, "Discord"),
         ("Teto, abre la calculadora, por favor.", OPEN_APP, "calculadora"),
         ("¿Puedes abrir el bloc de notas?", OPEN_APP, "bloc de notas"),
+        ("Abre, Discord.", OPEN_APP, "Discord"),
+        ("Abré Discord", OPEN_APP, "Discord"),
+        ("Cierra Discord", CLOSE_APP, "Discord"),
+        ("Sierra el navegador", CLOSE_APP, "navegador"),
+        ("Por favor, cierra la ventana de Discord", CLOSE_APP, "Discord"),
         ("Ábreme Spotify", OPEN_APP, "Spotify"),
         ("Abre la carpeta de descargas", OPEN_FOLDER, "descargas"),
         ("Abre mis documentos", OPEN_FOLDER, "documentos"),
@@ -99,6 +107,14 @@ class FakeRunner:
         self.opened = []
         self.urls = []
         self.error = error
+        self.windows = []
+        self.closed = []
+
+    def list_windows(self):
+        return self.windows
+
+    def close_window(self, handle):
+        self.closed.append(handle)
 
     def start_program(self, path):
         if self.error:
@@ -142,9 +158,15 @@ def test_builtin_app_is_found_on_the_system(tools):
     assert tools.prepare(Command(OPEN_APP, "calculadora")).resolved.lower().endswith("calc.exe")
 
 
-@pytest.mark.parametrize("name", ["valorant", "cmd", "powershell", "regedit", "mi novia"])
+@pytest.mark.parametrize("name", ["valorant", "spotify", "mi novia"])
 def test_app_outside_the_catalog_is_rejected(tools, name):
     with pytest.raises(ActionRejected, match="no está en mi lista"):
+        tools.prepare(Command(OPEN_APP, name))
+
+
+@pytest.mark.parametrize("name", ["cmd", "powershell", "regedit"])
+def test_consoles_are_refused_by_name(tools, name):
+    with pytest.raises(ActionRejected, match="por seguridad"):
         tools.prepare(Command(OPEN_APP, name))
 
 
@@ -227,10 +249,19 @@ def test_file_outside_known_folders_is_not_found(tools, tmp_path):
         tools.prepare(Command(OPEN_FILE, "fuera.txt"))
 
 
-def test_file_inside_a_subfolder_is_not_opened(tools, folders):
+def test_file_in_a_near_subfolder_is_found(tools, folders):
     sub = folders["documentos"] / "sub"
     sub.mkdir()
-    (sub / "dentro.txt").write_text("x")
+    path = sub / "dentro.txt"
+    path.write_text("x")
+    tools.run(tools.prepare(Command(OPEN_FILE, "dentro.txt")))
+    assert tools._runner.opened == [path]
+
+
+def test_file_too_deep_is_not_found(tools, folders):
+    deep = folders["documentos"] / "a" / "b" / "c" / "d"
+    deep.mkdir(parents=True)
+    (deep / "dentro.txt").write_text("x")
     with pytest.raises(ActionRejected, match="No encuentro"):
         tools.prepare(Command(OPEN_FILE, "dentro.txt"))
 
@@ -396,122 +427,235 @@ def test_disabled_tools_never_run_and_explain_why(service, settings):
     assert record["notices"] == [conversation.TOOLS_OFF_NOTICE]
 
 
-def test_order_waits_for_confirmation(service):
+def say(bus, record, text):
+    done = record["done"]
+    bus.user_message.emit(text)
+    pump(lambda: record["done"] == done + 1)
+
+
+def test_order_runs_directly_by_default(service, fake_app):
     bus, _, tools, seen, record = service
-    bus.user_message.emit("Abre Discord")
-    assert record["actions"] == ["Voy a abrir discord"]
-    assert tools._runner.started == []
+    say(bus, record, "Abre Discord")
+    assert tools._runner.started == [fake_app]
+    assert record["actions"] == []
     assert seen == []
-    assert "¿De acuerdo?" in record["tokens"][0]
+    assert record["tokens"] == ["Hecho."]
 
 
-def test_spoken_yes_runs_the_action_once(service, fake_app):
+def test_info_answers_directly_by_default(service):
+    bus, _, _, _, record = service
+    say(bus, record, "¿Qué hora es?")
+    assert record["tokens"][-1].startswith("Son las")
+
+
+def test_close_order_closes_only_matching_windows(service):
     bus, _, tools, _, record = service
-    bus.user_message.emit("Abre Discord")
-    bus.user_message.emit("sí")
-    pump(lambda: record["done"] == 2)
-    bus.user_message.emit("sí")
-    pump(lambda: record["done"] == 3)
-    assert tools._runner.started == [fake_app]
+    tools._runner.windows = [
+        Window(1, "# general | Amigos - Discord"),
+        Window(2, "Discord - Google Chrome"),
+        Window(3, "Sin título - Bloc de notas"),
+    ]
+    say(bus, record, "Cierra Discord")
+    assert tools._runner.closed == [1]
+    assert record["tokens"][-1] == "Cerrada."
 
 
-def test_button_yes_runs_the_action(service, fake_app):
-    bus, _, tools, _, record = service
-    bus.user_message.emit("Abre Discord")
-    bus.action_answered.emit(True)
-    pump(lambda: tools._runner.started)
-    assert tools._runner.started == [fake_app]
-    assert record["actions"][-1] == ""
+def test_close_browser_closes_every_browser_window(tools):
+    tools._runner.windows = [
+        Window(1, "Inicio - YouTube - Google Chrome"),
+        Window(2, "Noticias - Mozilla Firefox"),
+        Window(3, "Bing - Microsoft\u200b Edge"),
+        Window(4, "Amigos - Discord"),
+    ]
+    assert tools.run(tools.prepare(Command(CLOSE_APP, "navegador"))) == "He cerrado 3 ventanas."
+    assert tools._runner.closed == [1, 2, 3]
 
 
-def test_no_cancels_the_action(service):
-    bus, _, tools, _, record = service
-    bus.user_message.emit("Abre Discord")
-    bus.user_message.emit("no")
-    assert record["tokens"][-1] == conversation.ACTION_CANCELLED_REPLY
-    assert tools._runner.started == []
+def test_close_site_only_touches_that_browser_window(tools):
+    tools._runner.windows = [
+        Window(1, "Inicio - YouTube - Google Chrome"),
+        Window(2, "Noticias - Google Chrome"),
+    ]
+    tools.run(tools.prepare(Command(CLOSE_APP, "youtube")))
+    assert tools._runner.closed == [1]
 
 
-def test_other_message_cancels_the_action(service):
-    bus, _, tools, _, record = service
-    bus.user_message.emit("Abre Discord")
-    bus.user_message.emit("Cuéntame un chiste")
-    pump(lambda: record["done"] == 2)
-    bus.user_message.emit("sí")
-    pump(lambda: record["done"] == 3)
-    assert tools._runner.started == []
+def test_close_builtin_uses_its_window_name(tools):
+    tools._runner.windows = [Window(1, "Calculadora")]
+    tools.run(tools.prepare(Command(CLOSE_APP, "calculadora")))
+    assert tools._runner.closed == [1]
 
 
-def test_stop_button_cancels_the_action(service):
-    bus, _, tools, _, record = service
-    bus.user_message.emit("Abre Discord")
-    bus.generation_stop_requested.emit()
-    assert record["actions"][-1] == ""
-    bus.action_answered.emit(True)
-    assert tools._runner.started == []
+def test_close_says_when_nothing_is_open(tools, settings, fake_app):
+    settings.set("tools.apps", {"discord": str(fake_app)})
+    reply = tools.run(tools.prepare(Command(CLOSE_APP, "discord")))
+    assert reply == "No veo ninguna ventana de discord abierta."
 
 
-def test_turning_tools_off_cancels_the_action(service):
-    bus, _, tools, _, record = service
-    bus.user_message.emit("Abre Discord")
-    bus.tools_enabled_requested.emit(False)
-    bus.action_answered.emit(True)
-    assert tools._runner.started == []
+def test_close_outside_the_catalog_is_rejected(tools):
+    tools._runner.windows = [Window(1, "VALORANT")]
+    with pytest.raises(ActionRejected):
+        tools.prepare(Command(CLOSE_APP, "valorant"))
+    assert tools._runner.closed == []
 
 
-def test_old_confirmation_expires(service, monkeypatch):
-    bus, _, tools, _, record = service
-    monkeypatch.setattr(conversation, "ACTION_TIMEOUT_SECONDS", -1)
-    bus.user_message.emit("Abre Discord")
-    bus.user_message.emit("sí")
-    assert record["tokens"][-1] == conversation.ACTION_EXPIRED_REPLY
-    assert tools._runner.started == []
+def test_real_window_list_skips_games_and_has_no_process_access():
+    """Lista real: sin barra de título o a pantalla completa, la ventana no aparece."""
+    assert all(window.title for window in windows_control.list_windows())
+
+
+def test_open_browser_and_known_sites(tools):
+    tools.run(tools.prepare(Command(OPEN_APP, "navegador")))
+    tools.run(tools.prepare(Command(OPEN_APP, "YouTube")))
+    assert tools._runner.urls == [registry_module.START_PAGE, "https://www.youtube.com"]
+
+
+def test_console_refusal_does_not_suggest_adding_it(tools):
+    with pytest.raises(ActionRejected, match="por seguridad"):
+        tools.prepare(Command(OPEN_APP, "PowerShell"))
+
+
+def test_file_found_with_folder_and_spaces(tools, folders):
+    path = folders["documentos"] / "Resumen Viaje.docx"
+    path.write_text("x")
+    command = parse_command("Abre el archivo Resumen Viaje en documentos.")
+    assert command == Command(OPEN_FILE, "Resumen Viaje", "documentos")
+    tools.run(tools.prepare(command))
+    assert tools._runner.opened == [path]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Abre resumen viaje en documentos",
+        "Abre archivo, resumen viaje en documentos, todos minúsculas",
+        "Abre el archivo resumen viajes en documentos",
+    ],
+)
+def test_file_tolerates_how_it_is_said(tools, folders, text):
+    path = folders["documentos"] / "Resumen Viaje.docx"
+    path.write_text("x")
+    tools.run(tools.prepare(parse_command(text)))
+    assert tools._runner.opened == [path]
+
+
+def test_file_with_more_words_is_found(tools, folders):
+    path = folders["documentos"] / "Resumen del Viaje final.docx"
+    path.write_text("x")
+    tools.run(tools.prepare(Command(OPEN_FILE, "resumen viaje")))
+    assert tools._runner.opened == [path]
+
+
+def test_requested_folder_limits_the_search(tools, folders):
+    (folders["documentos"] / "foto.png").write_text("x")
+    wanted = folders["imagenes"] / "foto.png"
+    wanted.write_text("x")
+    tools.run(tools.prepare(Command(OPEN_FILE, "foto", "imagenes")))
+    assert tools._runner.opened == [wanted]
+
+
+def test_misheard_folder_with_the_word_folder(tools, folders):
+    command = parse_command("Abre la carpeta de escargas")
+    assert command == Command(OPEN_FOLDER, "descargas")
+
+
+class TestConfirmationOption:
+    @pytest.fixture(autouse=True)
+    def ask_first(self, settings):
+        settings.set("tools.confirm", True)
+
+    def test_order_waits_for_confirmation(self, service):
+        bus, _, tools, seen, record = service
+        say(bus, record, "Abre Discord")
+        assert record["actions"] == ["Voy a abrir discord"]
+        assert tools._runner.started == []
+        assert seen == []
+        assert "¿De acuerdo?" in record["tokens"][0]
+
+    @pytest.mark.parametrize("answer", ["sí", "Sí, hazlo.", "hazlo", "dale", "ok", "de acuerdo"])
+    def test_yes_runs_the_action_once(self, service, fake_app, answer):
+        bus, _, tools, _, record = service
+        say(bus, record, "Abre Discord")
+        say(bus, record, answer)
+        say(bus, record, "sí")
+        assert tools._runner.started == [fake_app]
+
+    def test_button_yes_runs_the_action(self, service, fake_app):
+        bus, _, tools, _, record = service
+        say(bus, record, "Abre Discord")
+        bus.action_answered.emit(True)
+        pump(lambda: tools._runner.started)
+        assert tools._runner.started == [fake_app]
+        assert record["actions"][-1] == ""
+
+    def test_no_cancels_the_action(self, service):
+        bus, _, tools, _, record = service
+        say(bus, record, "Abre Discord")
+        say(bus, record, "no")
+        assert record["tokens"][-1] == conversation.ACTION_CANCELLED_REPLY
+        assert tools._runner.started == []
+
+    def test_other_message_cancels_the_action(self, service):
+        bus, _, tools, _, record = service
+        say(bus, record, "Abre Discord")
+        say(bus, record, "Cuéntame un chiste")
+        say(bus, record, "sí")
+        assert tools._runner.started == []
+
+    def test_stop_button_cancels_the_action(self, service):
+        bus, _, tools, _, record = service
+        say(bus, record, "Abre Discord")
+        bus.generation_stop_requested.emit()
+        assert record["actions"][-1] == ""
+        bus.action_answered.emit(True)
+        assert tools._runner.started == []
+
+    def test_turning_tools_off_cancels_the_action(self, service):
+        bus, _, tools, _, record = service
+        say(bus, record, "Abre Discord")
+        bus.tools_enabled_requested.emit(False)
+        bus.action_answered.emit(True)
+        assert tools._runner.started == []
+
+    def test_old_confirmation_expires(self, service, monkeypatch):
+        bus, _, tools, _, record = service
+        monkeypatch.setattr(conversation, "ACTION_TIMEOUT_SECONDS", -1)
+        say(bus, record, "Abre Discord")
+        say(bus, record, "sí")
+        assert record["tokens"][-1] == conversation.ACTION_EXPIRED_REPLY
+        assert tools._runner.started == []
 
 
 def test_rejected_order_is_explained_without_the_model(service):
     bus, _, _, seen, record = service
-    bus.user_message.emit("Abre powershell")
-    assert "no está en mi lista" in record["tokens"][0]
+    say(bus, record, "Abre powershell")
+    assert "por seguridad" in record["tokens"][0]
     assert seen == []
-    assert record["actions"] == []
 
 
 def test_model_text_never_triggers_an_action(service):
     bus, _, tools, seen, record = service
-    bus.user_message.emit("Dime una frase")
-    pump(lambda: record["done"] == 1)
+    say(bus, record, "Dime una frase")
     assert "".join(record["tokens"]) == "Abre Discord"
     assert record["actions"] == []
     assert tools._runner.started == []
 
 
-def test_info_also_asks_first(service):
-    bus, _, _, _, record = service
-    bus.user_message.emit("¿Qué hora es?")
-    assert record["actions"] == ["Voy a mirar la hora"]
-    bus.user_message.emit("sí")
-    pump(lambda: record["done"] == 2)
-    assert record["tokens"][-1].startswith("Son las")
-
-
 def test_failed_program_is_reported(service, tmp_path):
     bus, _, tools, _, record = service
     tools._runner.error = OSError("no arranca")
-    bus.user_message.emit("Abre Discord")
-    bus.user_message.emit("sí")
-    pump(lambda: record["done"] == 2)
+    say(bus, record, "Abre Discord")
     assert record["tokens"][-1] == conversation.ACTION_FAILED_REPLY
     assert "error" in (tmp_path / "logs" / "actions.log").read_text(encoding="utf-8")
 
 
 def test_every_outcome_reaches_the_log(service, tmp_path):
     bus, _, _, _, record = service
-    bus.user_message.emit("Abre powershell")
-    bus.user_message.emit("Abre Discord")
-    bus.user_message.emit("no")
+    say(bus, record, "Abre powershell")
+    say(bus, record, "Abre Discord")
     text = (tmp_path / "logs" / "actions.log").read_text(encoding="utf-8")
     assert "powershell\trechazado" in text
-    assert "Discord\tcancelado" in text
+    assert "Discord\thecho" in text
 
 
 def test_chat_shows_action_bar_and_buttons_answer(qapp):

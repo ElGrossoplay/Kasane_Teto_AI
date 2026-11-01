@@ -6,10 +6,13 @@ import re
 from dataclasses import dataclass
 from pathlib import PurePath
 
+from kasane_teto.memory.knowledge import MIN_NAME_SIMILARITY, name_key, name_similarity
+
 OPEN_APP = "app"
 OPEN_FOLDER = "folder"
 OPEN_FILE = "file"
 OPEN_URL = "url"
+CLOSE_APP = "close"
 WEB_SEARCH = "search"
 INFO = "info"
 
@@ -21,7 +24,8 @@ INFO_DISK = "disco"
 INFO_BATTERY = "bateria"
 
 SAFE_FILE_TYPES = frozenset(
-    ".txt .md .pdf .png .jpg .jpeg .gif .webp .bmp .mp3 .wav".split()
+    ".txt .md .pdf .rtf .csv .doc .docx .xlsx .pptx .odt .ods .odp "
+    ".png .jpg .jpeg .gif .webp .bmp .mp3 .wav".split()
 )
 # Tipos que ejecutan algo: se reconocen para poder rechazarlos, nunca para abrirlos.
 UNSAFE_FILE_TYPES = frozenset(
@@ -45,9 +49,14 @@ _PREFIX = (
     r"^\W*(?:oye\W+)?(?:teto\W+)?(?:por\s+favor\W+)?"
     r"(?:puedes\s+|podr[ií]as\s+|quiero\s+que\s+|me\s+puedes\s+)?"
 )
+# Incluye lo que la voz deforma: "abré", "abra" y "sierra" por "cierra".
 _OPEN = re.compile(
-    _PREFIX + r"(?:[aá]bre(?:me)?|abrir|abras|inicia|iniciar|lanza|lanzar|ejecuta|ejecutar)"
-    r"\s+(?P<target>.+)$",
+    _PREFIX + r"(?:[aá]br[eéa](?:me)?|abr[ií]r?|abras|inicia|iniciar|lanza|lanzar|ejecuta|ejecutar)"
+    r"\W+(?P<target>.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_CLOSE = re.compile(
+    _PREFIX + r"(?:[cs]i[eé]rra(?:me)?|[cs]errar|[cs]ierres|apaga)\W+(?P<target>.+)$",
     re.IGNORECASE | re.DOTALL,
 )
 _SEARCH = re.compile(
@@ -91,15 +100,23 @@ _INFO = (
     ),
 )
 _FILE_WORDS = re.compile(
-    r"^(?:(?:el|la|mi)\s+)?(?:archivo|fichero|documento|foto|imagen|pdf)\s+(?P<name>.+)$",
+    r"^(?:(?:el|la|mi)\s+)?(?:archivo|fichero|documento|foto|imagen|pdf)\W+(?P<name>.+)$",
     re.IGNORECASE,
 )
 _FOLDER = re.compile(
-    r"^(?:(?:la|mi|mis)\s+)?(?:carpeta\s+)?(?:(?:de|del|mis)\s+)?(?:(?:el|la|las|los)\s+)?"
+    r"^(?:(?:la|mi|mis)\s+)?(?P<word>carpeta\s+)?(?:(?:de|del|mis)\s+)?(?:(?:el|la|las|los)\s+)?"
     r"(?P<name>\w+)$",
     re.IGNORECASE,
 )
-_LEADING = re.compile(r"^(?:(?:el|la|los|las|mi|mis|un|una)\s+)+", re.IGNORECASE)
+_IN_FOLDER = re.compile(
+    r"\s+(?:en|de|dentro\s+de)\s+(?:(?:la\s+)?carpeta\s+(?:de\s+)?)?(?:(?:mis|el|la|las)\s+)?"
+    r"(?P<folder>\w+)$",
+    re.IGNORECASE,
+)
+_LEADING = re.compile(
+    r"^(?:(?:el|la|los|las|mi|mis|un|una|esa|ese|programa|ventana|aplicaci[oó]n|app|de|del)\s+)+",
+    re.IGNORECASE,
+)
 _TRAILING = re.compile(r"\s*,?\s*(?:por\s+favor|porfa)$", re.IGNORECASE)
 _SPOKEN_DOT = re.compile(r"\s+punto\s+", re.IGNORECASE)
 _URL = re.compile(r"^(?:https?://)?[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}(?:[/?#]\S*)?$", re.IGNORECASE)
@@ -109,11 +126,29 @@ _URL = re.compile(r"^(?:https?://)?[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}(?:[/?#]\S*)?$"
 class Command:
     kind: str
     target: str = ""
+    folder: str = ""
 
 
 def _clean_target(raw: str) -> str:
     target = raw.strip().rstrip(".,;:!?¡¿ ").strip("\"'“”«»")
     return _TRAILING.sub("", target).strip()
+
+
+def _folder_name(word: str, tolerant: bool = False) -> str:
+    """La voz come letras ("escargas"): si dijo "carpeta", se admite un nombre parecido."""
+    name = FOLDER_NAMES.get(word.casefold(), "")
+    if name or not tolerant:
+        return name
+    key = name_key(word)
+    best = max(FOLDER_NAMES, key=lambda known: name_similarity(key, name_key(known)))
+    return FOLDER_NAMES[best] if name_similarity(key, name_key(best)) >= MIN_NAME_SIMILARITY else ""
+
+
+def _file_command(raw: str) -> Command:
+    name = _clean_target(raw.split(",")[0])
+    place = _IN_FOLDER.search(name)
+    folder = _folder_name(place.group("folder"), tolerant=True) if place else ""
+    return Command(OPEN_FILE, name[: place.start()].strip() if folder and place else name, folder)
 
 
 def _classify_open(raw: str) -> Command | None:
@@ -122,15 +157,20 @@ def _classify_open(raw: str) -> Command | None:
         return None
     named_file = _FILE_WORDS.match(target)
     if named_file is not None:
-        return Command(OPEN_FILE, _clean_target(named_file.group("name")))
+        return _file_command(named_file.group("name"))
     if PurePath(target).suffix.casefold() in SAFE_FILE_TYPES | UNSAFE_FILE_TYPES:
         return Command(OPEN_FILE, target)
     spoken = _SPOKEN_DOT.sub(".", target)
     if _URL.match(spoken):
         return Command(OPEN_URL, spoken)
     folder = _FOLDER.match(target)
-    if folder is not None and folder.group("name").casefold() in FOLDER_NAMES:
-        return Command(OPEN_FOLDER, FOLDER_NAMES[folder.group("name").casefold()])
+    if folder is not None:
+        name = _folder_name(folder.group("name"), tolerant=bool(folder.group("word")))
+        if name:
+            return Command(OPEN_FOLDER, name)
+    place = _IN_FOLDER.search(target)
+    if place is not None and _folder_name(place.group("folder"), tolerant=True):
+        return _file_command(target)
     return Command(OPEN_APP, _LEADING.sub("", target))
 
 
@@ -143,6 +183,10 @@ def parse_command(text: str) -> Command | None:
     opened = _OPEN.match(text.strip())
     if opened is not None:
         return _classify_open(opened.group("target"))
+    closed = _CLOSE.match(text.strip())
+    if closed is not None:
+        target = _LEADING.sub("", _clean_target(closed.group("target")))
+        return Command(CLOSE_APP, target) if target else None
     for name, pattern in _INFO:
         if pattern.search(text):
             return Command(INFO, name)

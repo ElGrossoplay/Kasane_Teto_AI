@@ -32,10 +32,16 @@ _SECRET = re.compile(
     r"|token|\d{6,}|\S+@\S+\.\S+",
     re.IGNORECASE,
 )
-_YES = frozenset(
-    "si|si guardalo|si recuerdalo|si por favor|si claro|claro|vale|guardalo|recuerdalo".split("|")
+# Una respuesta vale si todas sus palabras son de esta lista: "Sí, hazlo" sí, "Sí que me gusta" no.
+_YES_WORDS = frozenset(
+    "si claro vale ok okay dale adelante hazlo de acuerdo por favor guardalo recuerdalo "
+    "abrelo abrela cierralo cierrala venga perfecto bien".split()
 )
-_NO = frozenset("no|no gracias|no lo guardes|no lo recuerdes|mejor no|olvidalo|dejalo".split("|"))
+_YES_FIRST = _YES_WORDS - frozenset("de acuerdo por favor bien".split()) | {"de"}
+_NO_WORDS = frozenset(
+    "no gracias lo guardes recuerdes hagas abras cierres mejor olvidalo dejalo nada cancela".split()
+)
+_NO_FIRST = frozenset("no mejor olvidalo dejalo cancela".split())
 _ASKS_MEMORIES = re.compile(
     r"\bqu[eé]\s+(?:recuerdas|sabes|tienes\s+guardado|has\s+guardado)\s+(?:de|sobre)\s+m[ií]\b"
     r"|\bqu[eé]\s+(?:cosas\s+)?recuerdas\b",
@@ -83,10 +89,12 @@ def detect_proposal(text: str) -> Proposal | None:
 
 def read_answer(text: str) -> bool | None:
     """Sí o no a una propuesta. Cualquier otra frase significa que el usuario cambió de tema."""
-    answer = " ".join(re.findall(r"\w+", normalize(text)))
-    if answer in _YES:
+    words = re.findall(r"\w+", normalize(text))
+    if not words:
+        return None
+    if words[0] in _YES_FIRST and _YES_WORDS.issuperset(words):
         return True
-    return False if answer in _NO else None
+    return False if words[0] in _NO_FIRST and _NO_WORDS.issuperset(words) else None
 
 
 def asks_memories(text: str) -> bool:

@@ -242,8 +242,9 @@ Limitaciones conocidas:
 
 ## Fase 5 — Herramientas de Windows (aprobada por Diego, 2026-11-01)
 
-Elegido por Diego: abrir apps de un catálogo, carpetas conocidas, webs, documentos e imágenes, e
-información del equipo, con confirmación **siempre**, incluida la información.
+Elegido por Diego: abrir y cerrar apps de un catálogo, carpetas conocidas, webs, documentos e
+imágenes, e información del equipo. Tras probarlo decidió que actúe **directamente, sin preguntar**;
+la confirmación queda como opción en Configuración.
 
 - [x] 5.1 `tools/commands.py`: órdenes reconocidas con reglas fijas, solo desde el mensaje del
       usuario. Lo que escribe el modelo nunca activa una acción
@@ -260,19 +261,31 @@ información del equipo, con confirmación **siempre**, incluida la información
 - [x] 5.7 **Corregido fallo de anticheat de la Fase 2:** `kill_orphans` recorría todos los procesos al
       cargar la IA, incluidos los de un juego abierto. Eliminado: el Job Object ya cierra el servidor
       (matando la app a la fuerza, el servidor cayó en 2,2 s). Una prueba impide que vuelva
-- [ ] 5.8 **Diego:** prueba manual
+- [x] 5.8 **Diego:** primera prueba manual: calculadora y webs funcionaron; fallaron "Sí, hazlo", el
+      archivo de Word y cerrar ventanas, y pidió no tener que confirmar
+- [x] 5.9 Cerrar ventanas con `tools/windows_control.py`: lee títulos y pide cerrar, como pulsar la
+      X. No abre procesos y omite lo que esté a pantalla completa o sin barra de título (juegos)
+- [x] 5.10 Archivos: admite Word, Excel, PowerPoint y otros documentos sin macros, "en documentos",
+      nombres aproximados y dos niveles de subcarpetas
+- [x] 5.11 Abrir "el navegador" y sitios conocidos ("abre YouTube"). Más formas de decir sí y no, y
+      deformaciones de voz como "Sierra Discord" o "carpeta de escargas"
+- [ ] 5.12 **Diego:** repetir la prueba manual
 
-Medido (2026-11-01): 529 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
-consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En esas pruebas el sistema está
-simulado; solo el lanzamiento de un programa se probó de verdad, con `hostname.exe`. Abrir carpetas,
-archivos y el navegador queda para la prueba manual. Reposo 80,1 MB y 0,01 % de CPU.
+Medido (2026-11-01): 558 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
+consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En el equipo real: encontró
+un documento de Word en 8 ms, distinguió la ventana de Chrome de la de Discord, y abrió y cerró
+el Bloc de notas. Pendiente de prueba real: abrir Word, carpetas y cerrar el navegador.
 
 Limitaciones conocidas:
 - Solo reconoce frases concretas, y las órdenes por voz dependen de la transcripción
-- Los nombres de archivo son difíciles de dictar, y solo busca en el primer nivel de cada carpeta
+- Cerrar equivale a pulsar la X: Discord se oculta en la bandeja y sigue en marcha, y si hay algo
+  sin guardar, la aplicación pregunta
+- "Cierra YouTube" cierra la ventana entera del navegador, no solo esa pestaña
+- Solo cierra apps del catálogo. Una ventana a pantalla completa no se cierra, a propósito
+- Las ventanas se reconocen por su título: una app que no ponga su nombre no se encuentra
+- Sin confirmación, un error de voz puede abrir o cerrar lo que no pediste
 - La calculadora y el bloc de notas están siempre disponibles: no se pueden quitar del catálogo
 - "Abre X" con una X desconocida responde que no está en la lista, aunque fuera una frase normal
-- La pregunta de la hora también pide confirmación, por decisión de Diego
 - Sin Job Object (si Windows no lo crea), el servidor podría sobrevivir a un cierre forzado de la app
 
 ## Fases siguientes (detalle al aprobar cada una)

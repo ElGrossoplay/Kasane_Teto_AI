@@ -35,6 +35,7 @@ enabled = false       # nada sale a Internet hasta activarlo en Configuración
 
 [tools]
 enabled = false       # control de Windows: siempre desactivado hasta activarlo en Configuración
+confirm = false       # preguntar antes de cada acción (decisión de Diego: actuar directamente)
 
 [memory]
 suggest = true       # Teto pregunta si guardar lo que le cuentas; nunca guarda sin confirmación

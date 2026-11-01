@@ -40,6 +40,7 @@ class EventBus(QObject):
     memory_proposed = Signal(str)
     memory_answered = Signal(bool)
     tools_enabled_requested = Signal(bool)
+    tools_confirm_requested = Signal(bool)
     allowed_apps_requested = Signal(dict)
     action_proposed = Signal(str)
     action_answered = Signal(bool)

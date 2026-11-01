@@ -48,6 +48,7 @@ class SettingsWindow(QDialog):
         save_history: bool = False,
         tools_enabled: bool = False,
         allowed_apps: dict[str, str] | None = None,
+        tools_confirm: bool = False,
     ) -> None:
         super().__init__()
         self._bus = bus
@@ -109,9 +110,12 @@ class SettingsWindow(QDialog):
         self._history.toggled.connect(bus.history_enabled_requested)
 
         self._tools = QCheckBox("Permitir que Teto controle Windows")
-        self._tools.setToolTip("Siempre te pide confirmación antes de cada acción.")
+        self._tools.setToolTip("Abrir y cerrar programas, carpetas, archivos y webs permitidos.")
         self._tools.setChecked(tools_enabled)
         self._tools.toggled.connect(bus.tools_enabled_requested)
+        self._confirm = QCheckBox("Preguntar antes de cada acción")
+        self._confirm.setChecked(tools_confirm)
+        self._confirm.toggled.connect(bus.tools_confirm_requested)
         self._apps_button = QPushButton("Aplicaciones permitidas…")
         self._apps_button.clicked.connect(self._open_apps)
         bus.allowed_apps_requested.connect(self._remember_apps)
@@ -131,6 +135,7 @@ class SettingsWindow(QDialog):
         form.addRow(self._suggest)
         form.addRow(self._history)
         form.addRow(self._tools)
+        form.addRow(self._confirm)
         form.addRow(self._apps_button)
         form.addRow("Datos", data_label)
 

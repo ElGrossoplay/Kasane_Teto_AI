@@ -30,7 +30,7 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 | Memoria | SQLite + FTS5, sin embeddings por ahora. Datos en `%LOCALAPPDATA%\KasaneTetoAI\` |
 | Conocimiento | Fichas TOML verificadas en `assets/knowledge/`; solo las relevantes llegan al modelo. Sin datos sin contrastar |
 | Mascota | Sprites PNG por estado con "paquetes de personaje"; Live2D solo como mejora futura |
-| Herramientas | Lista blanca + validación + confirmación **siempre**. Órdenes con reglas fijas: el modelo nunca decide acciones. Control de Windows **desactivado por defecto** |
+| Herramientas | Lista blanca + validación. Abrir, cerrar y consultar actúan directamente (decisión de Diego); confirmar es opcional. Órdenes con reglas fijas: el modelo nunca decide acciones. Control de Windows **desactivado por defecto** |
 | Web | Opcional y desactivada por defecto. Música: API pública de VocaDB (`tools/`), con caché y citando la fuente. Fandom solo con su permiso escrito. Búsqueda general (Wikipedia API, DuckDuckGo vía `ddgs`) por decidir |
 | Empaquetado | PyInstaller `--onedir`; modelos y llama.cpp fuera del ejecutable |
 | Distribución | App de uso personal; código en repositorio **público** de GitHub. Nunca subir datos del equipo, recuerdos, configuración de usuario ni arte de terceros. Distribuir la app exigiría revisar las licencias |
@@ -72,7 +72,8 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 - Juegos y anticheat: nunca forzar la superposición sobre un juego. Sin inyección, ganchos de teclado
   o ratón, overlays de GPU, capturas de pantalla del juego, lectura de su memoria ni apertura de su
   proceso. Tampoco se listan procesos (`process_iter`): recorrerlos abre también los del juego; lo
-  vigila `tests/test_tools.py`. Atajos solo con `RegisterHotKey`. Si el juego no deja ver la mascota,
+  vigila `tests/test_tools.py`. Cerrar ventanas solo por título, nunca a pantalla completa o sin barra
+  de título. Atajos solo con `RegisterHotKey`. Si el juego no deja ver la mascota,
   se acepta.
 - Arte y voz de Kasane Teto: derechos de TWINDRILL (directrices en kasaneteto.jp). Claude no dibuja
   al personaje; el arte lo aporta Diego con permiso del autor. No clonar la voz oficial.

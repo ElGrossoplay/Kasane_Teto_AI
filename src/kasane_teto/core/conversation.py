@@ -32,7 +32,7 @@ from kasane_teto.personality.prompt_builder import (
     knowledge_block,
     load_system_prompt,
 )
-from kasane_teto.tools.commands import parse_command
+from kasane_teto.tools.commands import Command, parse_command
 from kasane_teto.tools.registry import Action, ActionRejected, ToolRegistry
 from kasane_teto.tools.web_lookup import (
     MusicLookup,
@@ -77,22 +77,28 @@ class _TaskSignals(QObject):
 
 
 class _ActionSignals(QObject):
+    prepared = Signal(object)
     finished = Signal(str, str)
 
 
 class _ActionTask(QRunnable):
-    """Lanzar un programa o medir la CPU puede tardar: no debe congelar la interfaz."""
+    """Buscar un archivo o lanzar un programa puede tardar: no debe congelar la interfaz."""
 
-    def __init__(self, tools: ToolRegistry, action: Action) -> None:
+    def __init__(self, tools: ToolRegistry, command: Command, ask_first: bool) -> None:
         super().__init__()
         self.signals = _ActionSignals()
         self._tools = tools
-        self._action = action
+        self._command = command
+        self._ask_first = ask_first
 
     def run(self) -> None:
-        command = self._action.command
+        command = self._command
         try:
-            reply, result = self._tools.run(self._action), "hecho"
+            action = self._tools.prepare(command)
+            if self._ask_first:
+                self.signals.prepared.emit(action)
+                return
+            reply, result = self._tools.run(action), "hecho"
         except ActionRejected as exc:
             reply, result = str(exc), "rechazado"
         except OSError as exc:
@@ -243,6 +249,7 @@ class ConversationService(QObject):
         bus.memory_suggestions_requested.connect(self._set_suggestions_enabled)
         bus.action_answered.connect(self._on_action_answered)
         bus.tools_enabled_requested.connect(self._set_tools_enabled)
+        bus.tools_confirm_requested.connect(self._set_tools_confirm)
         bus.allowed_apps_requested.connect(self._set_allowed_apps)
 
     @property
@@ -324,15 +331,23 @@ class ConversationService(QObject):
         command = parse_command(text)
         if command is None:
             return False
-        try:
-            action = self._tools.prepare(command)
-        except ActionRejected as exc:
-            self._tools.record(command.kind, command.target, "rechazado")
-            self._reply_directly(str(exc))
-            return True
+        ask_first = bool(self._settings.get("tools.confirm", False))
+        self._start_action_task(command, ask_first, by_button=False)
+        return True
+
+    def _start_action_task(self, command: Command, ask_first: bool, by_button: bool) -> None:
+        assert self._tools is not None
+        self._action_by_button = by_button
+        task = _ActionTask(self._tools, command, ask_first)
+        task.signals.prepared.connect(self._on_action_prepared)
+        task.signals.finished.connect(self._on_action_finished)
+        self._action_signals = task.signals
+        QThreadPool.globalInstance().start(task)
+
+    def _on_action_prepared(self, action: Action) -> None:
+        self._action_signals = None
         self._set_pending_action(action)
         self._reply_directly(ACTION_CONFIRM_REPLY.format(summary=action.summary))
-        return True
 
     def _set_pending_action(self, action: Action | None) -> None:
         self._pending_action = action
@@ -368,11 +383,7 @@ class ConversationService(QObject):
             self._finish_action(reply, by_button)
             return
         self._set_pending_action(None)
-        self._action_by_button = by_button
-        task = _ActionTask(self._tools, action)
-        task.signals.finished.connect(self._on_action_finished)
-        self._action_signals = task.signals
-        QThreadPool.globalInstance().start(task)
+        self._start_action_task(action.command, ask_first=False, by_button=by_button)
 
     def _on_action_finished(self, reply: str, _result: str) -> None:
         self._action_signals = None
@@ -386,6 +397,11 @@ class ConversationService(QObject):
 
     def _set_tools_enabled(self, enabled: bool) -> None:
         self._settings.set("tools.enabled", enabled)
+        if not enabled:
+            self._cancel_pending_action()
+
+    def _set_tools_confirm(self, enabled: bool) -> None:
+        self._settings.set("tools.confirm", enabled)
         if not enabled:
             self._cancel_pending_action()
 
