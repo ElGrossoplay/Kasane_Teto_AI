@@ -13,7 +13,7 @@ from kasane_teto.character.states import PetState
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.resource_manager import ResourceManager
 from kasane_teto.core.settings import Settings
-from kasane_teto.memory.knowledge import Entry, KnowledgeBase
+from kasane_teto.memory.knowledge import Entry, KnowledgeBase, is_follow_up
 from kasane_teto.personality.emotion_parser import RESPONSE_GRAMMAR, EmotionParser
 from kasane_teto.personality.prompt_builder import (
     build_messages,
@@ -33,6 +33,7 @@ class _TaskSignals(QObject):
     status = Signal(str)
     state = Signal(PetState)
     token = Signal(str)
+    notice = Signal(str)
     finished = Signal(str)
     failed = Signal(str)
 
@@ -87,7 +88,7 @@ class _GenerationTask(QRunnable):
             parts.append(tail)
             self.signals.token.emit(tail)
         if client.finish_reason == "length":
-            self.signals.token.emit(TRUNCATED_NOTICE)
+            self.signals.notice.emit(TRUNCATED_NOTICE)
         return "".join(parts).strip()
 
 
@@ -122,8 +123,10 @@ class ConversationService(QObject):
             lambda: bus.pet_state_requested.emit(PetState.IDLE)
         )
 
+        self._speaking = False
         bus.user_message.connect(self._on_user_message)
         bus.generation_stop_requested.connect(self._on_stop)
+        bus.speech_active.connect(self._on_speech_active)
 
     @property
     def is_busy(self) -> bool:
@@ -154,19 +157,20 @@ class ConversationService(QObject):
         task.signals.status.connect(self._bus.assistant_status)
         task.signals.state.connect(self._bus.pet_state_requested)
         task.signals.token.connect(self._bus.assistant_token)
+        task.signals.notice.connect(self._bus.assistant_notice)
         task.signals.finished.connect(self._on_finished)
         task.signals.failed.connect(self._on_failed)
         self._task_signals = task.signals
         QThreadPool.globalInstance().start(task)
 
     def _relevant_knowledge(self) -> list[Entry]:
-        """Un nombre citado manda; si no, sigue el tema anterior ("¿y cuándo salió?")."""
+        """Un nombre citado manda; el tema anterior solo sigue en preguntas de seguimiento."""
         user_messages = [m["content"] for m in self._history if m["role"] == "user"]
-        for text in reversed(user_messages[-2:]):
-            entries = self._knowledge.by_name(text)
-            if entries:
-                return entries
-        return self._knowledge.by_keywords(user_messages[-1])
+        current = user_messages[-1]
+        entries = self._knowledge.by_name(current)
+        if not entries and len(user_messages) > 1 and is_follow_up(current):
+            entries = self._knowledge.by_name(user_messages[-2])
+        return entries or self._knowledge.by_keywords(current)
 
     def _on_stop(self) -> None:
         if self._cancel is not None:
@@ -186,7 +190,16 @@ class ConversationService(QObject):
         self._bus.pet_state_requested.emit(PetState.CONFUSED)
         self._bus.assistant_error.emit(message)
 
+    def _on_speech_active(self, active: bool) -> None:
+        """La mascota mantiene su emoción mientras Teto habla."""
+        self._speaking = active
+        if active:
+            self._rest_timer.stop()
+        elif not self.is_busy:
+            self._rest_timer.start()
+
     def _end_turn(self) -> None:
         self._cancel = None
         self._resources.set_busy(False)
-        self._rest_timer.start()
+        if not self._speaking:
+            self._rest_timer.start()

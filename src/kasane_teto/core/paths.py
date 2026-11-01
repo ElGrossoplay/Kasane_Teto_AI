@@ -24,6 +24,10 @@ def knowledge_root() -> Path:
     return project_root() / "assets" / "knowledge"
 
 
+def workers_dir() -> Path:
+    return project_root() / "workers"
+
+
 def models_dir() -> Path:
     return project_root() / "models"
 

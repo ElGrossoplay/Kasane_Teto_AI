@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import Qt
@@ -17,7 +18,17 @@ from PySide6.QtWidgets import (
 )
 
 from kasane_teto.core.events import EventBus
+from kasane_teto.desktop.hotkey import HOTKEY_LABEL
 from kasane_teto.desktop.pet_window import MAX_SCALE, MIN_SCALE, SCALE_STEP
+
+
+@dataclass(frozen=True)
+class VoiceOptions:
+    tts_enabled: bool
+    models: list[str]
+    model: str
+    volume: int
+    mic_enabled: bool
 
 
 class SettingsWindow(QDialog):
@@ -29,6 +40,7 @@ class SettingsWindow(QDialog):
         packs: list[str],
         current_pack: str,
         data_dir: Path,
+        voice: VoiceOptions,
     ) -> None:
         super().__init__()
         self.setWindowTitle("Configuración")
@@ -50,6 +62,26 @@ class SettingsWindow(QDialog):
         self._pack.setCurrentText(current_pack)
         self._pack.currentTextChanged.connect(bus.pack_requested)
 
+        self._tts = QCheckBox("Teto habla en voz alta")
+        self._tts.setChecked(voice.tts_enabled)
+        self._tts.toggled.connect(bus.tts_enabled_requested)
+
+        self._voice = QComboBox()
+        self._voice.addItems(voice.models)
+        self._voice.setCurrentText(voice.model)
+        self._voice.currentTextChanged.connect(bus.voice_model_requested)
+
+        self._volume = QSpinBox()
+        self._volume.setRange(0, 100)
+        self._volume.setSingleStep(5)
+        self._volume.setSuffix(" %")
+        self._volume.setValue(voice.volume)
+        self._volume.valueChanged.connect(bus.volume_requested)
+
+        self._mic = QCheckBox(f"Activar el micrófono (atajo {HOTKEY_LABEL})")
+        self._mic.setChecked(voice.mic_enabled)
+        self._mic.toggled.connect(bus.mic_enabled_requested)
+
         data_label = QLabel(str(data_dir))
         data_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
@@ -57,6 +89,10 @@ class SettingsWindow(QDialog):
         form.addRow(self._always_on_top)
         form.addRow("Tamaño", self._scale)
         form.addRow("Personaje", self._pack)
+        form.addRow(self._tts)
+        form.addRow("Voz", self._voice)
+        form.addRow("Volumen", self._volume)
+        form.addRow(self._mic)
         form.addRow("Datos", data_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)

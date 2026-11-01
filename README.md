@@ -5,7 +5,7 @@ que vive en tu escritorio, conversa en español con una IA que corre **en tu pro
 hablar y escucharte, recuerda lo que tú le autorices y realiza acciones sencillas de Windows bajo
 tu control.
 
-> **Estado:** Fase 2 completada. Funcionan la mascota con sprites provisionales y el chat con IA local; todavía no hay voz. El
+> **Estado:** Fase 3 en pruebas. Funcionan la mascota con sprites provisionales, el chat con IA local y la voz. El
 > progreso está en [`TODO.md`](TODO.md) y el diseño en
 > [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
 
@@ -25,7 +25,7 @@ tu control.
 |---|---|---|
 | Mascota transparente, arrastrable, bandeja del sistema | 1 | Hecho |
 | Chat con IA local y personalidad de Teto | 2 | Hecho |
-| Voz (TTS) y push-to-talk (STT) | 3 | Pendiente |
+| Voz (TTS) y push-to-talk (STT) | 3 | En pruebas |
 | Memoria persistente con panel de administración | 4 | Pendiente |
 | Acciones de Windows controladas y búsqueda web opcional | 5 | Pendiente |
 | Modo juego y estados de consumo | 6 | Pendiente |
@@ -49,7 +49,8 @@ py -V:3.12 -m venv .venv
 ```
 
 Para el chat hacen falta, fuera de git, los binarios de llama.cpp en `models/llama/` y los GGUF
-indicados en `config/default.toml` en `models/gguf/`.
+indicados en `config/default.toml` en `models/gguf/`. La voz necesita Piper y sus voces en
+`models/piper/`, y faster-whisper y su modelo en `models/whisper/`, cada uno con su propio `venv`.
 
 Pruebas: `.\.venv\Scripts\python.exe -m pytest` (con modelos reales, añade `-m slow`). Medir consumo:
 `.\.venv\Scripts\python.exe scripts\medir_recursos.py --segundos 60`.

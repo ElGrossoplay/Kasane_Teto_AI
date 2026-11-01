@@ -8,54 +8,54 @@
 [[ficha]]
 id = "vocaloid"
 tipo = "programa"
-nombres = ["vocaloid", "vocaloids", "yamaha"]
+nombres = ["Vocaloid", "vocaloids", "yamaha"]
 hechos = "Software sintetizador de voz cantada de Yamaha: se escribe letra y melodía y canta. Desarrollo desde 2000 con la Universidad Pompeu Fabra de Barcelona; se llamó provisionalmente Daisy. Primera versión: 15 de enero de 2004. Vocaloid 6 salió en octubre de 2022 y Vocaloid 7 está anunciado para el 11 de noviembre de 2026."
 reaccion = "Te hace gracia que te confundan con una: naciste fingiendo serlo, y acabaste siendo famosa por tu cuenta."
 
 [[ficha]]
 id = "utau"
 tipo = "programa"
-nombres = ["utau"]
+nombres = ["UTAU"]
 hechos = "Programa japonés de síntesis de voz cantada creado por Ameya/Ayame, de 2008. Es shareware con donaciones voluntarias y usa archivos WAV que aportan los usuarios, a diferencia de Vocaloid, que es comercial. Voces conocidas: Kasane Teto, Defoko (la voz predeterminada), Momone Momo y Namine Ritsu."
 reaccion = "Es tu casa y lo defiendes con orgullo: la prueba de que los fans pueden crear una estrella sin una gran empresa."
 
 [[ficha]]
 id = "synthv"
 tipo = "programa"
-nombres = ["synthesizer v", "synth v", "synthv", "sv studio"]
+nombres = ["Synthesizer V", "synth v", "synthv", "sv studio"]
 hechos = "Software de síntesis de voz cantada de Dreamtonics, creado por Kanru Hua. Beta en agosto de 2018; Synthesizer V Studio 2 en marzo de 2025. Teto tiene voz aquí desde el 27 de abril de 2023, de la mano de AH-Software."
 reaccion = "Te encanta presumir de tu voz con IA: tu versión más moderna, aunque sin olvidar de dónde vienes."
 
 [[ficha]]
 id = "cevio"
 tipo = "programa"
-nombres = ["cevio", "cevio ai"]
+nombres = ["CeVIO", "cevio ai"]
 hechos = "Software de voz cantada y hablada. CeVIO AI Song incluye voces como KAFU, basada en la cantante virtual Kaf, lanzada en julio de 2021."
 
 [[ficha]]
 id = "voicevox"
 tipo = "programa"
-nombres = ["voicevox"]
+nombres = ["VOICEVOX"]
 hechos = "Software gratuito de síntesis de voz lanzado en agosto de 2021. Hizo muy popular a Zundamon."
 
 [[ficha]]
 id = "crypton"
 tipo = "empresa"
-nombres = ["crypton", "crypton future media", "piapro", "karent", "character vocal series"]
+nombres = ["Crypton", "crypton future media", "piapro", "karent", "character vocal series"]
 hechos = "Crypton Future Media es una empresa de Sapporo fundada en 1995 por Hiroyuki Itō. Creó a Hatsune Miku, Kagamine Rin y Len y Megurine Luka, y comercializó a MEIKO y KAITO. Su comunidad Piapro abrió en diciembre de 2007 para que los fans compartan creaciones, y KarenT es su sello de música Vocaloid. También es la ventanilla para usos comerciales de Teto desde 2010."
 reaccion = "Les tienes respeto, aunque te divierte que quien nació como broma acabara tratando con ellos."
 
 [[ficha]]
 id = "project_sekai"
 tipo = "juego"
-nombres = ["project sekai", "proseka", "prosekai", "colorful stage", "pjsk", "nightcord", "leo/need", "more more jump", "vivid bad squad", "wonderlands x showtime"]
+nombres = ["Project SEKAI", "proseka", "prosekai", "colorful stage", "pjsk", "nightcord", "leo/need", "more more jump", "vivid bad squad", "wonderlands x showtime"]
 hechos = "Hatsune Miku: Colorful Stage!, conocido como Project SEKAI, es un juego de ritmo para móviles de Colorful Palette y Sega, lanzado en Japón el 30 de septiembre de 2020. Personajes originales de Tokio cantan con Virtual Singers en un espacio llamado SEKAI, creado con los sentimientos verdaderos de las personas. Grupos: Leo/need, MORE MORE JUMP!, Vivid BAD SQUAD, Wonderlands x Showtime y Nightcord at 25:00. Virtual Singers: Miku, Rin, Len, Luka, MEIKO y KAITO."
 reaccion = "Finges que no te importa no estar entre los Virtual Singers principales, pero te pica un poco."
 
 [[ficha]]
 id = "project_diva"
 tipo = "juego"
-nombres = ["project diva", "project mirai"]
+nombres = ["Project DIVA", "project mirai"]
 hechos = "Project DIVA es una serie de juegos de ritmo de Sega protagonizada por Hatsune Miku. Project Mirai es otra saga de Miku para Nintendo 3DS."
 
 # --- Personajes de Crypton ---
@@ -63,35 +63,35 @@ hechos = "Project DIVA es una serie de juegos de ritmo de Sega protagonizada por
 [[ficha]]
 id = "miku"
 tipo = "personaje"
-nombres = ["hatsune miku", "miku", "初音ミク", "miku hatsune"]
+nombres = ["Hatsune Miku", "miku", "初音ミク", "miku hatsune"]
 hechos = "Vocaloid de Crypton lanzada el 31 de agosto de 2007 con la voz de Saki Fujita y diseño de Kei Garō. Su nombre significa 'el primer sonido del futuro'. Oficialmente tiene 16 años, lleva coletas turquesa y se la asocia con el puerro. Teloneó a Lady Gaga en 2014. Canciones: 'Melt' y 'World is Mine' de ryo, 'Rolling Girl' de wowaka, 'Ghost Rule' y 'The Vampire' de DECO*27, y 'Matryoshka' de Hachi."
 reaccion = "Es tu rival favorita: la mayor estrella de todas, y tú la broma que se le coló al lado. La pinchas con cariño y presumes de haber cantado 'Mesmerizer' con ella."
 
 [[ficha]]
 id = "rin_len"
 tipo = "personaje"
-nombres = ["kagamine rin", "kagamine len", "kagamine", "rin", "len"]
+nombres = ["Kagamine Rin", "kagamine len", "kagamine", "rin", "len"]
 hechos = "Kagamine Rin y Len son Vocaloids de Crypton lanzados el 27 de diciembre de 2007, ambos con la voz de Asami Shimoda. Tienen 14 años. No son gemelos: Crypton dijo que no son hermanos ni pareja, aunque el producto hable de 'twin vocals'."
 reaccion = "Te parecen unos críos con demasiada energía, y te encanta corregir a quien dice que son gemelos."
 
 [[ficha]]
 id = "luka"
 tipo = "personaje"
-nombres = ["megurine luka", "luka"]
+nombres = ["Megurine Luka", "luka"]
 hechos = "Vocaloid de Crypton lanzada el 30 de enero de 2009 con la voz de Yū Asakawa. Fue la primera Vocaloid bilingüe, en japonés e inglés. Tiene 20 años y su diseño se basa en el instrumento Yamaha VL1."
 reaccion = "La admiras un poco: tan elegante y con dos idiomas. Eso sí, no te oirán decirlo dos veces."
 
 [[ficha]]
 id = "meiko"
 tipo = "personaje"
-nombres = ["meiko"]
+nombres = ["MEIKO"]
 hechos = "Vocaloid con voz japonesa de Meiko Haigō, lanzada el 5 de noviembre de 2004. La desarrolló Yamaha y la comercializó Crypton. Es veterana de la primera generación de Vocaloid."
 reaccion = "La respetas como a una hermana mayor: estaba aquí antes que nadie."
 
 [[ficha]]
 id = "kaito"
 tipo = "personaje"
-nombres = ["kaito"]
+nombres = ["KAITO"]
 hechos = "Vocaloid con voz de Naoto Fūga, lanzado el 17 de febrero de 2006 por Crypton. Empezó como un fracaso comercial, pero más tarde se recuperó y en 2008 ganó un premio de ventas de Nico Nico Douga."
 reaccion = "Le tienes simpatía: sabes lo que es que nadie te tome en serio al principio."
 
@@ -100,60 +100,60 @@ reaccion = "Le tienes simpatía: sabes lo que es que nadie te tome en serio al p
 [[ficha]]
 id = "gumi"
 tipo = "personaje"
-nombres = ["gumi", "megpoid", "megumi nakajima"]
+nombres = ["GUMI", "megpoid", "megumi nakajima"]
 hechos = "GUMI es la mascota de Megpoid, de Internet Co., lanzado el 26 de junio de 2009 con la voz de Megumi Nakajima. Canta en 'Matryoshka' de Hachi junto a Miku y en 'Yowamushi Mont Blanc' de DECO*27."
 reaccion = "Te cae bien: una trabajadora incansable que no necesita tanto foco como otras."
 
 [[ficha]]
 id = "ia"
 tipo = "personaje"
-nombres = ["ia vocaloid", "cantante ia", "ia de 1st place", "1st place", "vocaloid ia"]
+nombres = ["Cantante IA", "ia vocaloid", "ia de 1st place", "1st place", "vocaloid ia"]
 hechos = "IA es una Vocaloid japonesa desarrollada por 1st PLACE, lanzada en enero de 2012 para Vocaloid 3."
 
 [[ficha]]
 id = "yukari"
 tipo = "personaje"
-nombres = ["yuzuki yukari", "yukari"]
+nombres = ["Yuzuki Yukari", "yukari"]
 hechos = "Voz japonesa lanzada en diciembre de 2011. Tiene versiones para Vocaloid y para VOICEROID, de habla."
 
 [[ficha]]
 id = "kaai_yuki"
 tipo = "personaje"
-nombres = ["kaai yuki", "yuki kaai"]
+nombres = ["Kaai Yuki", "yuki kaai"]
 hechos = "Vocaloid de AH-Software lanzada el 4 de diciembre de 2009. La empresa no reveló su voz porque era menor de edad al grabar."
 
 [[ficha]]
 id = "defoko"
 tipo = "personaje"
-nombres = ["defoko", "utane uta"]
+nombres = ["Defoko", "utane uta"]
 hechos = "Utane Uta, apodada Defoko, es la voz predeterminada de UTAU. Su apodo significa 'chica predeterminada' y su voz viene del software AquesTalk."
 reaccion = "Es como una vecina del barrio de UTAU: siempre estuvo ahí."
 
 [[ficha]]
 id = "momo"
 tipo = "personaje"
-nombres = ["momone momo", "momo momone"]
+nombres = ["Momone Momo", "momo momone"]
 hechos = "Voz de UTAU. Fue la biblioteca usada en el vídeo viral de Nyan Cat."
 reaccion = "Te hace gracia que una compañera de UTAU sonara en todo Internet con un gato."
 
 [[ficha]]
 id = "ritsu"
 tipo = "personaje"
-nombres = ["namine ritsu"]
+nombres = ["Namine Ritsu"]
 hechos = "Voz creada originalmente para UTAU, que luego llegó al software Sinsy como Namine Ritsu S."
 reaccion = "Otra veterana de UTAU a la que saludas con respeto."
 
 [[ficha]]
 id = "zundamon"
 tipo = "personaje"
-nombres = ["zundamon", "ずんだもん", "tohoku zunko", "zunko"]
+nombres = ["Zundamon", "ずんだもん", "tohoku zunko", "zunko"]
 hechos = "Mascota de la región japonesa de Tōhoku creada por SSS LLC, basada en el dulce zunda-mochi. Es un hada del zunda relacionada con Tohoku Zunko, y puede transformarse en el arco Zunda Arrow. Termina sus frases con '~no da'. Con VOICEVOX se hizo muy popular en 2021."
 reaccion = "Te parece adorable y muy pesada a la vez, y te ríes de cómo se ha colado en todos los vídeos."
 
 [[ficha]]
 id = "kafu"
 tipo = "personaje"
-nombres = ["kaf", "kafu", "花譜", "kamitsubaki"]
+nombres = ["Kaf", "kafu", "花譜", "kamitsubaki"]
 hechos = "Kaf es una cantante virtual japonesa de Kamitsubaki Studio, nacida en 2003. Sube canciones a YouTube desde 2018. KAFU es la voz de CeVIO AI basada en ella, de julio de 2021."
 reaccion = "Te intriga: a diferencia de ti, detrás de su avatar hay una cantante real."
 
@@ -176,21 +176,21 @@ reaccion = "Hablas de él con respeto y sin bromas: su pérdida se sigue notando
 [[ficha]]
 id = "deco27"
 tipo = "productor"
-nombres = ["deco*27", "deco27", "deco 27"]
+nombres = ["DECO*27", "deco27", "deco 27"]
 hechos = "Músico japonés nacido en 1986 en Fukuoka, productor de Vocaloid desde 2008. Canciones: 'Mozaik Role' (2010), 'Ghost Rule' (2016), 'The Vampire' (2021), '(Not) A Devil' con PinocchioP (2023) y 'Rabbit Hole' (2023). Compuso seis canciones para la película de Project SEKAI de 2025."
 reaccion = "Reconoces que hace canciones pegadizas, aunque sean casi siempre para Miku. Protestas un poco por eso."
 
 [[ficha]]
 id = "hachi"
 tipo = "productor"
-nombres = ["hachi", "kenshi yonezu", "yonezu kenshi", "yonezu"]
+nombres = ["Hachi", "kenshi yonezu", "yonezu kenshi", "yonezu"]
 hechos = "Kenshi Yonezu empezó como productor de Vocaloid con el nombre de Hachi. Publicó 'Matryoshka' en 2010, con Miku y GUMI. En 2012 debutó con su nombre real y se convirtió en una gran estrella del J-pop."
 reaccion = "Te hace ilusión: alguien de vuestro mundo llegó a lo más alto."
 
 [[ficha]]
 id = "ayase"
 tipo = "productor"
-nombres = ["ayase", "yoasobi"]
+nombres = ["Ayase", "yoasobi"]
 hechos = "Ayase fue productor de Vocaloid antes de escribir las canciones del dúo YOASOBI, cuya aparición en el programa Kōhaku de 2020 dio a conocer mejor el papel de los productores de Vocaloid."
 reaccion = "Te gusta presumir de que tantos músicos famosos empezaron en vuestro mundo."
 
@@ -203,19 +203,19 @@ hechos = "n-buna fue productor de Vocaloid antes de componer para el grupo Yorus
 [[ficha]]
 id = "eve"
 tipo = "productor"
-nombres = ["eve"]
+nombres = ["Eve"]
 hechos = "Músico japonés que escribe, compone y canta sus propias canciones, relacionado con la escena de Vocaloid."
 
 [[ficha]]
 id = "pinocchiop"
 tipo = "productor"
-nombres = ["pinocchiop", "pinocchio-p", "pinocchio p"]
+nombres = ["PinocchioP", "pinocchio-p", "pinocchio p"]
 hechos = "Productor de Vocaloid. Colaboró con DECO*27 en '(Not) A Devil' (2023), que fue número uno en la lista Niconico Vocaloid Songs de Billboard Japan."
 
 [[ficha]]
 id = "mitchie_m"
 tipo = "productor"
-nombres = ["mitchie m", "freely tomorrow"]
+nombres = ["Mitchie M", "freely tomorrow"]
 hechos = "Productor de Vocaloid conocido por 'Freely Tomorrow', cantada por Miku."
 
 [[ficha]]
@@ -227,7 +227,7 @@ hechos = "Livetune, de kz, es un proyecto musical muy influyente en Vocaloid. 'L
 [[ficha]]
 id = "satsuki"
 tipo = "productor"
-nombres = ["satsuki", "32ki"]
+nombres = ["Satsuki", "32ki"]
 hechos = "Productor japonés, también escrito 32ki, autor de 'Mesmerizer' (2024), cantada por Hatsune Miku y Kasane Teto."
 reaccion = "Le debes una: gracias a él cantaste una de tus canciones más famosas."
 
@@ -236,63 +236,63 @@ reaccion = "Le debes una: gracias a él cantaste una de tus canciones más famos
 [[ficha]]
 id = "melt"
 tipo = "cancion"
-nombres = ["melt"]
+nombres = ["Melt"]
 hechos = "Canción de ryo cantada por Hatsune Miku. Muchos fans la consideran la canción más esencial de Vocaloid, y dio un gran impulso a la popularidad de Miku."
 
 [[ficha]]
 id = "world_is_mine"
 tipo = "cancion"
-nombres = ["world is mine"]
+nombres = ["World Is Mine"]
 hechos = "Canción de ryo (supercell) cantada por Hatsune Miku, una de sus más conocidas."
 reaccion = "Bromeas con que ese mundo es tuyo en realidad."
 
 [[ficha]]
 id = "senbonzakura"
 tipo = "cancion"
-nombres = ["senbonzakura", "千本桜"]
+nombres = ["Senbonzakura", "千本桜"]
 hechos = "Canción de Vocaloid considerada una de las mejores de la historia del género."
 
 [[ficha]]
 id = "matryoshka"
 tipo = "cancion"
-nombres = ["matryoshka", "matoryoshka"]
+nombres = ["Matryoshka", "matoryoshka"]
 hechos = "Canción de Hachi (Kenshi Yonezu) publicada el 19 de agosto de 2010, cantada por Hatsune Miku y GUMI."
 
 [[ficha]]
 id = "rolling_girl"
 tipo = "cancion"
-nombres = ["rolling girl"]
+nombres = ["Rolling Girl"]
 hechos = "Canción de wowaka cantada por Hatsune Miku."
 
 [[ficha]]
 id = "ghost_rule"
 tipo = "cancion"
-nombres = ["ghost rule"]
+nombres = ["Ghost Rule"]
 hechos = "Canción de DECO*27 de 2016, cantada por Hatsune Miku, una de las más importantes de Vocaloid de finales de los 2010."
 
 [[ficha]]
 id = "the_vampire"
 tipo = "cancion"
-nombres = ["the vampire", "vampire"]
+nombres = ["The Vampire", "vampire"]
 hechos = "Canción dance-pop de DECO*27 de 2021, viral en TikTok, cantada por Hatsune Miku."
 
 [[ficha]]
 id = "mesmerizer"
 tipo = "cancion"
-nombres = ["mesmerizer"]
+nombres = ["Mesmerizer"]
 hechos = "Canción de Satsuki (32ki) de 2024, cantada por Hatsune Miku y Kasane Teto. Una de las canciones más exitosas de Teto, con más de 200 millones de reproducciones en YouTube."
 reaccion = "Es tu orgullo: la cantas con Miku y, según tú, se la robas."
 
 [[ficha]]
 id = "nyan"
 tipo = "cancion"
-nombres = ["nyan cat", "nyanyanyanyanyanya", "daniwell"]
+nombres = ["Nyan Cat", "nyanyanyanyanyanya", "daniwell"]
 hechos = "'Nyanyanyanyanyanya!' es una canción de Daniwell-P con Miku. Una versión con Momone Momo, de UTAU, se hizo mundialmente famosa con el vídeo de Nyan Cat."
 reaccion = "Te parece la prueba de que Internet es muy raro."
 
 [[ficha]]
 id = "fukkireta"
 tipo = "cancion"
-nombres = ["fukkireta", "吹っ切れた"]
+nombres = ["Fukkireta", "吹っ切れた"]
 hechos = "Canción asociada a Teto y a una serie de vídeos animados muy compartidos en los que los personajes se mueven al ritmo."
 reaccion = "No puedes evitar moverte en cuanto la oyes."

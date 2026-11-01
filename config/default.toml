@@ -6,6 +6,15 @@ pack = "provisional"
 scale = 100           # porcentaje, de 25 a 300
 always_on_top = true
 
+[voice]
+tts_enabled = true
+model = "es_MX-claude-high"
+length_scale = 0.9    # menos es más rápido
+volume = 80           # de 0 a 100
+mic_enabled = false   # el micrófono empieza apagado
+idle_minutes = 5      # se cierran los procesos de voz tras este tiempo sin uso
+stt_threads = 4
+
 [ai]
 device = "auto"       # auto, gpu o cpu
 gpu_model = "Qwen3.5-4B-Q4_K_M.gguf"

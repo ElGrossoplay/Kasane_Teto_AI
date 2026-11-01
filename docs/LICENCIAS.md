@@ -16,6 +16,14 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 | httpx, httpcore, idna | Conexión local con la IA | BSD-3-Clause | 2 |
 | anyio, h11 | Dependencias de httpx | MIT | 2 |
 | certifi | Dependencia de httpx | MPL-2.0 | 2 |
+| Piper 1.8.0 (`piper-tts`), en proceso y entorno propios | Síntesis de voz | GPL-3.0-or-later | 3 |
+| `workers/piper_worker.py` | Usa la biblioteca de Piper | GPL-3.0-or-later | 3 |
+| Voz es_MX-claude-high | Voz de Teto | Apache-2.0 | 3 |
+| Voz es_MX-ald-medium | Voz alternativa | Unlicense | 3 |
+| Voz es_AR-daniela-high | Voz alternativa | CC BY-SA 4.0 | 3 |
+| faster-whisper 1.2.1, CTranslate2, onnxruntime | Reconocimiento de voz | MIT | 3 |
+| Modelo faster-whisper-base | Reconocimiento de voz | MIT | 3 |
+| sounddevice | Audio | MIT | 3 |
 
 ## Recursos propios
 

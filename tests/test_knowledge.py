@@ -5,6 +5,7 @@ from kasane_teto.memory.knowledge import (
     Entry,
     KnowledgeBase,
     KnowledgeError,
+    is_follow_up,
     normalize,
 )
 from kasane_teto.personality.prompt_builder import estimate_tokens, knowledge_block
@@ -66,6 +67,40 @@ def test_results_are_limited(base):
 )
 def test_unrelated_text_activates_nothing(base, text):
     assert base.search(text) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "¿Y cuándo salió?",
+        "¿Y qué sientes por ella?",
+        "¿Qué canciones tiene?",
+        "¿Cuándo salió?",
+        "¿Qué opinas?",
+        "¿Dónde nació?",
+    ],
+)
+def test_follow_up_questions_are_detected(text):
+    assert is_follow_up(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Cuéntame un chiste corto.",
+        "¿Qué tiempo hace hoy?",
+        "¿Cuál es la capital de Japón?",
+        "Explícame qué es la memoria RAM del ordenador.",
+    ],
+)
+def test_new_topics_are_not_follow_ups(text):
+    assert not is_follow_up(text)
+
+
+def test_real_vocabulary_uses_proper_capitals(base):
+    words = base.vocabulary(max_chars=2000)
+    for name in ("Hatsune Miku", "UTAU", "Kagamine Rin", "DECO*27"):
+        assert name in words
 
 
 def test_singer_ia_needs_a_specific_name(base):

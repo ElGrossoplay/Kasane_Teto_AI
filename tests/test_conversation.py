@@ -68,8 +68,9 @@ def harness(qapp, settings):
 
     def make(resources=None):
         bus = EventBus()
-        record = {"tokens": [], "states": [], "done": 0, "errors": []}
+        record = {"tokens": [], "states": [], "done": 0, "errors": [], "notices": []}
         bus.assistant_token.connect(record["tokens"].append)
+        bus.assistant_notice.connect(record["notices"].append)
         bus.pet_state_requested.connect(record["states"].append)
         bus.assistant_error.connect(record["errors"].append)
         bus.assistant_done.connect(lambda: record.__setitem__("done", record["done"] + 1))
@@ -98,7 +99,8 @@ def test_truncated_answer_warns_but_notice_stays_out_of_history(harness, monkeyp
     bus, _, _, record = harness()
     bus.user_message.emit("uno")
     pump(lambda: record["done"] == 1)
-    assert record["tokens"] == ["Hola", conversation.TRUNCATED_NOTICE]
+    assert record["tokens"] == ["Hola"]
+    assert record["notices"] == [conversation.TRUNCATED_NOTICE]
     bus.user_message.emit("dos")
     pump(lambda: record["done"] == 2)
     assert seen[1][2]["content"] == "Hola"
@@ -174,6 +176,16 @@ def test_follow_up_wins_over_keyword_of_other_entry(qapp, settings, monkeypatch)
     assert "Dato de Miku." in seen[1][-1]["content"]
     assert "salió ayer" not in seen[1][-1]["content"]
     assert service is not None
+
+
+def test_new_topic_does_not_inherit_previous_entry(harness, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    bus, _, _, record = harness()
+    bus.user_message.emit("Háblame de Miku")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("Cuéntame un chiste")
+    pump(lambda: record["done"] == 2)
+    assert "Dato de Miku." not in seen[1][-1]["content"]
 
 
 def test_unrelated_message_adds_no_knowledge(harness, monkeypatch):

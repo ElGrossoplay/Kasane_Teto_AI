@@ -22,6 +22,13 @@ STOPWORDS = frozenset(
     "hace hizo creo creado voz voces nombre nombres significa significado".split()
 )
 
+MAX_FOLLOW_UP_WORDS = 5
+_FOLLOW_UP_START = re.compile(r"y\s")
+_FOLLOW_UP_WORDS = re.compile(r"\b(ella|ellas|ellos|esa|ese|aquella|aquel|sus?)\b")
+_FOLLOW_UP_VERBS = re.compile(
+    r"\b(tiene|tienen|salio|nacio|canta|cantan|hizo|opinas|sientes|piensas|cuando|donde)\b"
+)
+
 log = logging.getLogger(__name__)
 
 
@@ -42,6 +49,14 @@ def normalize(text: str) -> str:
     decomposed = unicodedata.normalize("NFD", text.casefold())
     kept = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
     return unicodedata.normalize("NFC", kept)
+
+
+def is_follow_up(text: str) -> bool:
+    """Detecta preguntas que dependen del tema anterior, como "¿y cuándo salió?"."""
+    query = re.sub(r"^\W+", "", normalize(text))
+    if _FOLLOW_UP_START.match(query) or _FOLLOW_UP_WORDS.search(query):
+        return True
+    return len(query.split()) <= MAX_FOLLOW_UP_WORDS and bool(_FOLLOW_UP_VERBS.search(query))
 
 
 def _name_pattern(name: str) -> re.Pattern[str]:
@@ -97,6 +112,18 @@ class KnowledgeBase:
 
     def __len__(self) -> int:
         return len(self._entries)
+
+    def vocabulary(self, max_chars: int = 500) -> str:
+        """Nombres propios para que el reconocimiento de voz los entienda mejor."""
+        words = ["Kasane Teto"]
+        size = len(words[0])
+        for entry in self._entries.values():
+            name = entry.names[0]
+            if size + len(name) + 2 > max_chars:
+                break
+            words.append(name)
+            size += len(name) + 2
+        return ", ".join(words)
 
     def search(self, text: str, limit: int = MAX_RESULTS) -> list[Entry]:
         """Prioriza los nombres citados; si no hay, busca por palabras clave."""

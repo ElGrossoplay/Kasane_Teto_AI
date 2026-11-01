@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-10-31 · **Fase 2 completada · Siguiente: Fase 3 (voz), pendiente de aprobación**
+Última actualización: 2026-10-31 · **Fase actual: 3 (voz) — implementada, falta la prueba manual de Diego (3.8)**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -88,9 +88,34 @@ Limitaciones conocidas:
   un respaldo para cuando no hay VRAM.
 - Marcador de posición: la conversación se pierde al cerrar la app hasta la Fase 4 (memoria).
 
+## Fase 3 — Voz (en pruebas)
+
+- [x] 3.1 Piper 1.8.0 en `models/piper/venv` y 3 voces con hash verificado
+- [x] 3.2 faster-whisper 1.2.1 en `models/whisper/venv` y modelo `base` con hash verificado
+- [x] 3.3 Procesos aparte en `workers/`: cargan una vez, atienden por tuberías y mueren con la app
+- [x] 3.4 `SpeechService`: voz por frases, sin bloquear, cortable y con volumen
+- [x] 3.5 `ListenService`: grabar, descartar silencio, transcribir; vocabulario sacado de las fichas
+- [x] 3.6 Atajo global `Ctrl+Alt+T` con `RegisterHotKey` (pulsar para empezar y para terminar) y
+      botón "Hablar" en el chat (mantener pulsado)
+- [x] 3.7 Configuración: voz, volumen, micrófono (apagado por defecto)
+- [ ] 3.8 **Diego:** elegir voz en `models/piper/muestras/` y probar con el micrófono real: la
+      grabación real es lo único que no se ha podido verificar
+
+Medido (2026-10-31): Piper 0,15–0,33 s por frase (carga 4 s), 310 MB de RAM, 0 de VRAM. Whisper
+0,9–1,8 s por frase con audio sintético (< 2 s), ~195 MB. Reposo 78 MB y 0,01 % de CPU. Interfaz sin
+congelarse en todo el ciclo (pausa máxima 172 ms). RAM con todo activo ~1,74 GB, por encima de
+~1,5 GB solo mientras Piper y Whisper siguen cargados.
+
+Limitaciones conocidas:
+- El reconocimiento falla en palabras sueltas ("chiste" → "ciste") y Teto divaga cuando ocurre.
+  Falta medirlo con voz humana real.
+- La voz es genérica: no suena como Teto. RVC queda como mejora (ver ideas).
+- La primera respuesta de voz puede tardar 40 s si el modelo no está en la caché de Windows.
+- El atajo global no detecta soltar la tecla: es una limitación de `RegisterHotKey`, que se usa por
+  seguridad frente a anticheat.
+
 ## Fases siguientes (detalle al aprobar cada una)
 
-- [ ] Fase 3 — Voz: Piper, faster-whisper/Vosk, push-to-talk, volumen
 - [ ] Fase 4 — Memoria: SQLite + FTS5, confirmaciones, panel, historial
 - [ ] Fase 5 — Herramientas: lista blanca, confirmaciones, registro, búsqueda web opcional
 - [ ] Fase 6 — Optimización: modo juego (sin interactuar con juegos ni anticheat), estados, prueba de
@@ -99,6 +124,9 @@ Limitaciones conocidas:
 
 ## Ideas para el futuro (fuera del alcance actual)
 
+- Voz de Teto con RVC (aprobado para después de Piper, 2026-10-31): solo modelo entrenado por Diego
+  con la biblioteca oficial de UTAU, para uso personal y sin distribuirlo; nunca modelos ajenos.
+  Antes hay que medir CPU y VRAM, y ajustar la regla "No clonar la voz oficial" de CLAUDE.md
 - Palabra de activación "Teto" y reconocimiento continuo
 - Modelo Live2D (con arte licenciado)
 - Búsqueda semántica en memoria (embeddings)
@@ -127,3 +155,5 @@ Limitaciones conocidas:
   inactividad. Pendiente la prueba manual.
 - **2026-10-31:** corregidas listas cortadas y canciones inventadas tras la prueba de Diego. Añadida
   la base de conocimiento de Vocaloid y música virtual. Fase 2 cerrada y subida a GitHub.
+- **2026-10-31:** Fase 3 implementada: Piper, faster-whisper, atajo global y botón de hablar.
+  Pendiente la prueba con micrófono real y la elección de voz.

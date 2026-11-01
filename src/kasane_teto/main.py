@@ -21,16 +21,22 @@ from kasane_teto.core.paths import (
     default_config_path,
     knowledge_root,
     models_dir,
+    workers_dir,
 )
 from kasane_teto.core.resource_manager import ResourceManager
 from kasane_teto.core.settings import Settings
 from kasane_teto.core.single_instance import SingleInstance
 from kasane_teto.desktop.animator import SpriteAnimator
+from kasane_teto.desktop.hotkey import HOTKEY_LABEL, GlobalHotkey
 from kasane_teto.desktop.pet_window import PetWindow
 from kasane_teto.desktop.tray import TrayIcon
 from kasane_teto.interface.chat_window import ChatWindow
-from kasane_teto.interface.settings_window import SettingsWindow
+from kasane_teto.interface.settings_window import SettingsWindow, VoiceOptions
 from kasane_teto.memory.knowledge import KnowledgeBase, KnowledgeError
+from kasane_teto.voice.audio import AudioPlayer, AudioRecorder
+from kasane_teto.voice.engines import STTEngine, TTSEngine
+from kasane_teto.voice.listening import ListenService
+from kasane_teto.voice.speech import SpeechService
 
 FALLBACK_PACK = "provisional"
 
@@ -56,10 +62,27 @@ class TetoApp(QObject):
         self._resources = ResourceManager(
             settings, models_dir(), user_dir / "logs" / "llama-server.log", self
         )
+        knowledge = self._load_knowledge()
         self._conversation = ConversationService(
-            self._bus, self._resources, settings, self._load_knowledge(), self
+            self._bus, self._resources, settings, knowledge, self
         )
         self._chat_window = ChatWindow(self._bus)
+        self._speech = SpeechService(
+            self._bus, settings, self._new_tts(), AudioPlayer(), self
+        )
+        stt = STTEngine(
+            models_dir(),
+            workers_dir(),
+            int(settings.get("voice.stt_threads", 4)),
+            f"Conversación con Teto. {knowledge.vocabulary()}.",
+        )
+        self._listen = ListenService(self._bus, settings, stt, AudioRecorder(), self)
+        self._hotkey = GlobalHotkey(lambda: self._bus.listen_toggled.emit())
+        if self._listen.enabled:
+            self._hotkey.register()
+        self._bus.mic_enabled_requested.connect(self._on_mic_enabled)
+        self._bus.volume_requested.connect(lambda v: settings.set("voice.volume", v))
+        self._bus.voice_model_requested.connect(self._change_voice)
 
         self._bus.pet_state_requested.connect(self._animator.set_state)
         self._bus.pet_visibility_toggled.connect(self._pet.toggle_visibility)
@@ -79,6 +102,20 @@ class TetoApp(QObject):
     def show_pet(self) -> None:
         self._pet.show()
         self._pet.raise_()
+
+    def _new_tts(self) -> TTSEngine:
+        voice = str(self._settings.get("voice.model", "es_MX-claude-high"))
+        return TTSEngine(models_dir(), workers_dir(), voice)
+
+    def _change_voice(self, voice: str) -> None:
+        self._settings.set("voice.model", voice)
+        self._speech.set_engine(self._new_tts())
+
+    def _on_mic_enabled(self, enabled: bool) -> None:
+        if not enabled:
+            self._hotkey.unregister()
+        elif not self._hotkey.register():
+            self._bus.voice_status.emit(f"El atajo {HOTKEY_LABEL} no está disponible.")
 
     @staticmethod
     def _load_knowledge() -> KnowledgeBase:
@@ -120,6 +157,13 @@ class TetoApp(QObject):
             list_packs(character_root()),
             self._pack_id,
             self._user_dir,
+            VoiceOptions(
+                tts_enabled=self._speech.enabled,
+                models=sorted(p.stem for p in (models_dir() / "piper" / "voices").glob("*.onnx")),
+                model=str(self._settings.get("voice.model", "")),
+                volume=int(self._settings.get("voice.volume", 80)),
+                mic_enabled=self._listen.enabled,
+            ),
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window
@@ -132,6 +176,9 @@ class TetoApp(QObject):
         self._bus.generation_stop_requested.emit()
         self._pet.save_position()
         self._tray.hide()
+        self._hotkey.unregister()
+        self._listen.shutdown()
+        self._speech.shutdown()
         self._resources.shutdown()
 
 
