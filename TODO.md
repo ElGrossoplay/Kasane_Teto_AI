@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-01 · **Fase 3 completada · Búsqueda en VocaDB hecha, pendiente de la prueba manual de Diego · Siguiente: Fase 4 (memoria)**
+Última actualización: 2026-11-01 · **Fase 3 completada · Búsqueda en VocaDB completada y aprobada por Diego · Siguiente: Fase 4 (memoria), pendiente de aprobación**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -149,14 +149,14 @@ Limitaciones conocidas:
 - [x] W.13 `voice/transcript.py` corrige "Kienes", "Quienes" y "Gen es", y nombres casi exactos
       ("Katsune Miku"): sube a 80 % con esas 12 grabaciones
 - [x] W.14 Con la búsqueda apagada, el chat avisa cuando buscar habría ayudado
-- [ ] W.15 **Diego:** repetir la prueba por voz con la búsqueda activada
+- [x] W.15 **Diego:** repetir la prueba por voz con la búsqueda activada
 - [x] W.16 Modelo `small` descargado con hash verificado y comparado: no mejora a `base`
 - [x] W.17 **Diego:** volvió a grabar las 12 frases con las mejoras de audio revisadas: `small` 88 %,
       `base` 59 %, en las mismas tomas. Con 6 hilos `small` da lo mismo y no va más rápido: siguen 4
 - [x] W.18 Diego aprobó el cambio: la app usa `small`. Con IA, Piper y Whisper cargados, 1740 MB sin
       la ventana (por encima de ~1,5 GB solo mientras siguen cargados), y 54 MB al descargarlos. Con
       la IA cargada, cada frase tarda ~2,8 s; la primera, 5,3 s
-- [ ] W.19 **Diego:** prueba por voz en la app con la búsqueda activada, y decidir si subir a GitHub
+- [x] W.19 **Diego:** prueba por voz en la app con la búsqueda activada superada; aprobó subirlo
 
 Comparativa de ajustes del reconocedor con las 12 grabaciones (modelo `base`): sin vocabulario 54 %,
 sin refuerzo de agudos 59 %, ajuste actual 69 %, ejemplos genéricos en el prompt 69–74 %, y actual
@@ -264,4 +264,4 @@ Limitaciones conocidas:
 - **2026-11-01:** modelo `small` descargado y comparado: no mejora a `base`. Detectado un posible
   limitador en el audio del micrófono. Pendiente grabar sin mejoras de audio.
 - **2026-11-01:** con las mejoras de audio revisadas, `small` llega a 88 % y `base` baja a 59 %.
-  Diego aprobó el cambio: la app pasa a `small`. Pendiente la prueba por voz en la app.
+  Diego aprobó el cambio: la app pasa a `small`. Prueba por voz superada y subido a GitHub.
