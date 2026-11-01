@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-01 · **Fases 1 a 5 completadas, salvo la búsqueda de conocimiento general · Siguiente: Fase 6 (modo juego y optimización), pendiente de aprobación**
+Última actualización: 2026-11-01 · **Fases 1 a 5 completadas, salvo la búsqueda de conocimiento general · Pantalla, documentos y comentarios hechos, pendientes de la prueba manual de Diego · Siguiente: Fase 6**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -293,6 +293,36 @@ la confirmación queda como opción en Configuración.
 - [x] 5.17 La prueba de Diego falló porque seguía corriendo la versión anterior: abrir la app solo
       mostraba la que ya estaba en la bandeja. `core/updates.py` la reinicia si hay código más nuevo
 - [ ] 5.18 **Diego:** prueba manual de abrir aplicaciones instaladas y de minimizar
+
+## Pantalla, documentos y comentarios (pedido por Diego, 2026-11-01)
+
+Elegido por Diego: títulos de ventana más mirar la pantalla si lo pide, comentarios con y sin juegos,
+y crear archivos en lugar de simular teclado.
+
+- [x] P.1 "¿Qué tengo abierto?": los títulos de ventana llegan solo al modelo local
+- [x] P.2 "Mira mi pantalla": captura en memoria, sin guardarla, solo con el control de Windows activo.
+      Se niega si hay un juego abierto. El módulo de visión se carga solo al pedirlo, en CPU
+- [x] P.3 "Escribe X en el bloc de notas / Word" y "crea una presentación sobre X": archivo nuevo en
+      Documentos\Teto, que se abre al terminar. Nunca modifica uno existente. Usa las fichas verificadas
+- [x] P.4 Comentarios por su cuenta, apagados por defecto, con los minutos en Configuración. Usan el
+      título de la ventana, una vez por ventana y solo si hay actividad en el equipo. En juegos, frases
+      preparadas, sin cargar la IA
+- [x] P.5 Regla de "no puedes" sustituida con el control activo por otra corta (conocimiento 87/90)
+- [ ] P.6 **Diego:** prueba manual
+
+Medido (2026-11-01): 676 pruebas más 6 reales. Con la visión en GPU quedan 34 MiB libres y tarda 24 s;
+en CPU quedan 874 MiB y tarda 14 s, y por eso va en CPU. Mirar tarda ~25 s la primera vez, al recargar
+el servidor, y ~15 s después. Con visión cargada, unos 2,1 GB de RAM más los procesos de voz. Crear un
+documento tarda de 3 a 8 s. Comentario: ~1,3 s con la IA ya cargada.
+
+Limitaciones conocidas:
+- La visión acierta lo general y se inventa detalles: leyó nombres de usuarios y describió bloques
+- Comentarios simples y a veces fuera de lugar: en Discord dijo que estaba programando
+- La protección con juegos no se ha probado con un juego abierto. Se apoya en listas de clases y
+  títulos, y en tratar como juego lo que ocupe la pantalla sin ser web
+- Mirar solo captura la pantalla donde esté el ratón
+- El modelo puede inventar en documentos sobre temas sin ficha: conviene revisar lo que escribe
+- Crea archivos, no edita los que ya tienes ni escribe en un programa abierto
 
 Medido (2026-11-01): 558 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
 consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En el equipo real: encontró

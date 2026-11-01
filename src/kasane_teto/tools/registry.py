@@ -26,7 +26,7 @@ from PySide6.QtCore import QStandardPaths
 from kasane_teto.core.settings import Settings
 from kasane_teto.memory.knowledge import MIN_NAME_SIMILARITY, name_key, name_similarity
 from kasane_teto.memory.proposals import has_secret
-from kasane_teto.tools import installed_apps, windows_control
+from kasane_teto.tools import documents, installed_apps, windows_control
 from kasane_teto.tools.commands import (
     CLOSE_APP,
     INFO,
@@ -138,6 +138,9 @@ class SystemRunner(Protocol):
     def start_program(self, path: Path) -> None: ...
     def start_app(self, app_id: str) -> None: ...
     def list_start_apps(self) -> list[tuple[str, str]]: ...
+    def foreground(self) -> windows_control.Foreground: ...
+    def game_on_screen(self) -> bool: ...
+    def seconds_since_input(self) -> float: ...
     def open_path(self, path: Path) -> None: ...
     def open_url(self, url: str) -> None: ...
     def list_windows(self) -> list[windows_control.Window]: ...
@@ -152,6 +155,9 @@ class WindowsRunner:
     show_window = staticmethod(windows_control.show_window)
     foreground_window = staticmethod(windows_control.foreground_window)
     list_start_apps = staticmethod(installed_apps.read_start_apps)
+    foreground = staticmethod(windows_control.foreground)
+    game_on_screen = staticmethod(windows_control.game_on_screen)
+    seconds_since_input = staticmethod(windows_control.seconds_since_input)
 
     def start_app(self, app_id: str) -> None:
         """Por el Explorador, como un clic en el menú Inicio: la app no es hija de Teto."""
@@ -271,6 +277,24 @@ class ToolRegistry:
 
     def catalog(self) -> dict[str, str]:
         return {**BUILTIN_APPS, **dict(self._settings.get("tools.apps", {}))}
+
+    def foreground(self) -> windows_control.Foreground:
+        return self._runner.foreground()
+
+    def game_on_screen(self) -> bool:
+        return self._runner.game_on_screen()
+
+    def seconds_since_input(self) -> float:
+        return self._runner.seconds_since_input()
+
+    def open_windows(self) -> list[str]:
+        return [window.title for window in self._runner.list_windows()]
+
+    def save_document(self, kind: str, text: str) -> Path:
+        """Siempre un archivo nuevo en Documentos\\Teto, y se abre para que lo veas."""
+        path = documents.create_document(kind, text, self._folder("documentos") / "Teto")
+        self._runner.open_path(path)
+        return path
 
     def prepare(self, command: Command) -> Action:
         """Valida la orden. Lo que no esté permitido lanza `ActionRejected`."""

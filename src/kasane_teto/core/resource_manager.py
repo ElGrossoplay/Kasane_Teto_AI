@@ -92,9 +92,11 @@ class ResourceManager(QObject):
         log.info("VRAM libre: %s MiB; dispositivo: %s", free, device)
         return choose_profiles(device, gpu, cpu, free, required)
 
-    def _config(self, profile: AiProfile) -> LLMConfig:
+    def _config(self, profile: AiProfile, vision: bool) -> LLMConfig:
         get = self._settings.get
+        vision_path = self._models_dir / "gguf" / str(get("ai.vision_model")) if vision else None
         return LLMConfig(
+            vision_path=vision_path,
             server_path=self._models_dir / "llama" / "llama-server.exe",
             model_path=self._models_dir / "gguf" / profile.model_file,
             context_size=int(get("ai.context_size", 4096)),
@@ -111,14 +113,23 @@ class ResourceManager(QObject):
         else:
             self._idle_timer.start()
 
-    def ensure_loaded(self) -> LLMProcess:
-        """Bloquea hasta que la IA esté lista; llamar solo desde un hilo de trabajo."""
+    def ensure_loaded(self, vision: bool = False) -> LLMProcess:
+        """Bloquea hasta que la IA esté lista; llamar solo desde un hilo de trabajo.
+
+        La visión gasta RAM, así que solo se carga si se pide. Exige el modelo de la GPU: el de
+        respaldo no tiene módulo de visión.
+        """
         with self._lock:
-            if self._process is not None and self._process.is_running:
-                return self._process
+            process = self._process
+            if process is not None and process.is_running and (process.has_vision or not vision):
+                return process
+            if process is not None:
+                process.stop()
+                self._process = None
+            profiles = [p for p in self._profiles() if p.name == "gpu" or not vision]
             last_error: LLMStartError | None = None
-            for profile in self._profiles():
-                process = LLMProcess(self._config(profile), self._log_path)
+            for profile in profiles:
+                process = LLMProcess(self._config(profile, vision), self._log_path)
                 try:
                     process.start()
                 except LLMStartError as exc:

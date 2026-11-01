@@ -22,6 +22,7 @@ class ChatWindow(QWidget):
         super().__init__()
         self._bus = bus
         self._awaiting_first_token = False
+        self._answering = False
         self.setWindowTitle("Hablar con Teto")
         self.resize(420, 520)
 
@@ -127,9 +128,11 @@ class ChatWindow(QWidget):
         self._bus.user_message.emit(text)
 
     def _on_token(self, text: str) -> None:
-        if self._awaiting_first_token:
+        # Sin turno en marcha es un comentario de Teto: no hubo mensaje antes.
+        if self._awaiting_first_token or not self._answering:
             self._awaiting_first_token = False
             self._append("Teto: ")
+        self._answering = True
         self._append(text)
 
     def _on_done(self) -> None:
@@ -143,6 +146,7 @@ class ChatWindow(QWidget):
 
     def _finish_turn(self) -> None:
         self._awaiting_first_token = False
+        self._answering = False
         self._status.clear()
         self._set_generating(False)
 

@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from kasane_teto.character.pack import CharacterPack, PackError, list_packs, load_pack
 from kasane_teto.character.states import PetState
+from kasane_teto.core.comments import CommentService
 from kasane_teto.core.conversation import ConversationService
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.logging_setup import setup_logging
@@ -75,6 +76,7 @@ class TetoApp(QObject):
         knowledge = self._load_knowledge()
         self._memory = self._open_memory_store(user_dir)
         self._memory_window: MemoryWindow | None = None
+        tools = ToolRegistry(settings, user_dir / "logs" / "actions.log")
         self._conversation = ConversationService(
             self._bus,
             self._resources,
@@ -83,7 +85,10 @@ class TetoApp(QObject):
             MusicLookup(VocaDBClient(user_dir / "vocadb_cache.sqlite3")),
             self,
             memory=self._memory,
-            tools=ToolRegistry(settings, user_dir / "logs" / "actions.log"),
+            tools=tools,
+        )
+        self._comments = CommentService(
+            self._bus, settings, tools, self._conversation.comment, self
         )
         self._chat_window = ChatWindow(self._bus)
         self._speech = SpeechService(
@@ -222,6 +227,8 @@ class TetoApp(QObject):
             self._conversation.tools_enabled,
             dict(self._settings.get("tools.apps", {})),
             bool(self._settings.get("tools.confirm", False)),
+            self._comments.enabled,
+            int(self._settings.get("comments.minutes", 10)),
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window
@@ -235,6 +242,7 @@ class TetoApp(QObject):
         self._pet.save_position()
         self._tray.hide()
         self._hotkey.unregister()
+        self._comments.shutdown()
         self._listen.shutdown()
         self._speech.shutdown()
         self._resources.shutdown()

@@ -28,6 +28,19 @@ def test_web_checkbox_shows_state_and_requests_change(qapp):
     close(window)
 
 
+def test_comments_checkbox_and_minutes_request_changes(qapp):
+    bus = EventBus()
+    enabled, minutes = [], []
+    bus.comments_enabled_requested.connect(enabled.append)
+    bus.comments_minutes_requested.connect(minutes.append)
+    window = make_window(bus, False)
+    window._comments.setChecked(True)
+    window._comment_minutes.setValue(3)
+    assert enabled == [True]
+    assert minutes == [3]
+    close(window)
+
+
 def test_web_checkbox_explains_what_is_sent(qapp):
     window = make_window(EventBus(), True)
     assert window._web.isChecked()

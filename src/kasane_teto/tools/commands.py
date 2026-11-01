@@ -18,6 +18,8 @@ RESTORE_APP = "restore"
 MAXIMIZE_APP = "maximize"
 WINDOW_KINDS = frozenset((CLOSE_APP, MINIMIZE_APP, RESTORE_APP, MAXIMIZE_APP))
 THIS_WINDOW = "esta ventana"
+LOOK_AT_SCREEN = "look"
+WRITE_DOCUMENT = "write"
 WEB_SEARCH = "search"
 INFO = "info"
 
@@ -69,6 +71,46 @@ _WINDOW_ORDERS = (
 _WINDOW = tuple(
     (kind, re.compile(_PREFIX + rf"(?:{verbs})(?:\W+(?P<target>.+))?$", re.IGNORECASE | re.DOTALL))
     for kind, verbs in _WINDOW_ORDERS
+)
+_LOOK = re.compile(
+    r"\b(?:mira|m[ií]rame|ve|observa|analiza|revisa|describe|lee)\s+(?:a\s+)?(?:mi|la|esta)\s+pantalla\b"
+    r"|\bqu[eé]\s+(?:ves|hay|sale|aparece)\s+en\s+(?:mi|la|esta)\s+pantalla\b"
+    r"|\bqu[eé]\s+ves\b",
+    re.IGNORECASE,
+)
+_ASKS_OPEN_THINGS = re.compile(
+    r"\bqu[eé]\s+(?:tengo|hay)\s+abiert[oa]s?\b"
+    r"|\bqu[eé]\s+(?:ventanas|programas|aplicaciones|apps)\s+(?:tengo|hay)\b"
+    r"|\bqu[eé]\s+estoy\s+(?:viendo|haciendo|jugando|usando)\b"
+    r"|\bqu[eé]\s+tengo\s+delante\b",
+    re.IGNORECASE,
+)
+_DOCUMENT_WORDS = (
+    (r"bloc\s+de\s+notas|notepad|archivo\s+de\s+texto|txt", "txt"),
+    (r"(?:documento\s+de\s+)?word|documento", "docx"),
+    (r"power\s*point|presentaci[oó]n|diapositivas", "pptx"),
+)
+_WRITE_IN = tuple(
+    (
+        kind,
+        re.compile(
+            _PREFIX + r"(?:escr[ií]b[ea]|escribir|redacta|anota|apunta|pon|crea|haz)(?:me)?\s+"
+            rf"(?P<what>.+?)\s+en\s+(?:(?:un|una|el|la|mi)\s+)?(?:nuevo\s+)?(?:{words})\W*$",
+            re.IGNORECASE | re.DOTALL,
+        ),
+    )
+    for words, kind in _DOCUMENT_WORDS
+)
+_MAKE_DOCUMENT = tuple(
+    (
+        kind,
+        re.compile(
+            _PREFIX + r"(?:crea|haz|hazme|prepara|escribe|redacta)(?:me)?\s+(?:un|una)\s+(?:nuev[oa]\s+)?"
+            rf"(?:{words})\s+(?:sobre|de|con|acerca\s+de)\s+(?P<what>.+?)\W*$",
+            re.IGNORECASE | re.DOTALL,
+        ),
+    )
+    for words, kind in _DOCUMENT_WORDS
 )
 _THIS_WINDOW = re.compile(
     r"^(?:(?:est[ae]|es[ae]|la|el)\s+)?(?:ventana|programa|aplicaci[oó]n|app)?(?:\s+actual)?$"
@@ -134,6 +176,12 @@ _LEADING = re.compile(
     re.IGNORECASE,
 )
 _TRAILING = re.compile(r"\s*,?\s*(?:por\s+favor|porfa)$", re.IGNORECASE)
+# "Abre Discord y dime un chiste": la segunda parte no es el nombre de la aplicación.
+_SECOND_ORDER = re.compile(
+    r"\s*(?:,|\s+y)\s+(?:(?:luego|despu[eé]s)\s+)?"
+    r"(?:dime|cu[eé]ntame|h[aá]blame|hazme|haz|pon|ponme|busca|escribe|minimiza|cierra|abre)\b.*$",
+    re.IGNORECASE | re.DOTALL,
+)
 _SPOKEN_DOT = re.compile(r"\s+punto\s+", re.IGNORECASE)
 _URL = re.compile(r"^(?:https?://)?[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}(?:[/?#]\S*)?$", re.IGNORECASE)
 
@@ -146,7 +194,7 @@ class Command:
 
 
 def _clean_target(raw: str) -> str:
-    target = raw.strip().rstrip(".,;:!?¡¿ ").strip("\"'“”«»")
+    target = _SECOND_ORDER.sub("", raw.strip()).rstrip(".,;:!?¡¿ ").strip("\"'“”«»")
     return _TRAILING.sub("", target).strip()
 
 
@@ -190,8 +238,26 @@ def _classify_open(raw: str) -> Command | None:
     return Command(OPEN_APP, _LEADING.sub("", target))
 
 
+def asks_open_things(text: str) -> bool:
+    return _ASKS_OPEN_THINGS.search(text) is not None
+
+
+def _document_command(text: str) -> Command | None:
+    for kind, pattern in (*_MAKE_DOCUMENT, *_WRITE_IN):
+        match = pattern.match(text.strip())
+        if match is not None:
+            what = _clean_target(match.group("what"))
+            return Command(WRITE_DOCUMENT, what, kind) if what else None
+    return None
+
+
 def parse_command(text: str) -> Command | None:
     """Convierte una orden clara en un comando. Cualquier otra frase es conversación."""
+    if _LOOK.search(text):
+        return Command(LOOK_AT_SCREEN)
+    document = _document_command(text)
+    if document is not None:
+        return document
     search = _SEARCH.match(text)
     if search is not None:
         target = _clean_target(search.group("target"))

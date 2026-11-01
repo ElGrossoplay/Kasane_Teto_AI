@@ -24,6 +24,10 @@ from kasane_teto.desktop.pet_window import MAX_SCALE, MIN_SCALE, SCALE_STEP
 from kasane_teto.interface.apps_window import AppsWindow
 
 
+MIN_COMMENT_MINUTES = 1
+MAX_COMMENT_MINUTES = 120
+
+
 @dataclass(frozen=True)
 class VoiceOptions:
     tts_enabled: bool
@@ -49,6 +53,8 @@ class SettingsWindow(QDialog):
         tools_enabled: bool = False,
         allowed_apps: dict[str, str] | None = None,
         tools_confirm: bool = False,
+        comments_enabled: bool = False,
+        comments_minutes: int = 10,
     ) -> None:
         super().__init__()
         self._bus = bus
@@ -120,6 +126,16 @@ class SettingsWindow(QDialog):
         self._apps_button.clicked.connect(self._open_apps)
         bus.allowed_apps_requested.connect(self._remember_apps)
 
+        self._comments = QCheckBox("Teto comenta por su cuenta")
+        self._comments.setToolTip("Mira el título de la ventana activa. Nunca captura la pantalla.")
+        self._comments.setChecked(comments_enabled)
+        self._comments.toggled.connect(bus.comments_enabled_requested)
+        self._comment_minutes = QSpinBox()
+        self._comment_minutes.setRange(MIN_COMMENT_MINUTES, MAX_COMMENT_MINUTES)
+        self._comment_minutes.setSuffix(" min")
+        self._comment_minutes.setValue(comments_minutes)
+        self._comment_minutes.valueChanged.connect(bus.comments_minutes_requested)
+
         data_label = QLabel(str(data_dir))
         data_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
@@ -137,6 +153,8 @@ class SettingsWindow(QDialog):
         form.addRow(self._tools)
         form.addRow(self._confirm)
         form.addRow(self._apps_button)
+        form.addRow(self._comments)
+        form.addRow("Tiempo sin hablar", self._comment_minutes)
         form.addRow("Datos", data_label)
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)

@@ -129,6 +129,51 @@ def foreground_window() -> int:
     return int(_user32.GetForegroundWindow() or 0)
 
 
+@dataclass(frozen=True)
+class Foreground:
+    title: str
+    is_game: bool
+
+
+def foreground() -> Foreground:
+    """Solo lee el título. Lo que ocupe toda la pantalla sin ser web se trata como juego."""
+    hwnd = foreground_window()
+    if not hwnd:
+        return Foreground("", False)
+    title, kind = _title(hwnd), _class_name(hwnd)
+    fullscreen = not _user32.IsZoomed(hwnd) and _is_fullscreen(hwnd)
+    return Foreground(title, is_game_window(kind, title) or (fullscreen and kind not in WEB_CLASSES))
+
+
+def game_on_screen() -> bool:
+    """Hay un juego delante o abierto en cualquier monitor: entonces no se captura nada."""
+    if foreground().is_game:
+        return True
+    found: list[bool] = []
+
+    def visit(hwnd: int, _extra: int) -> bool:
+        if _user32.IsWindowVisible(hwnd) and is_game_window(_class_name(hwnd), _title(hwnd)):
+            found.append(True)
+            return False
+        return True
+
+    _user32.EnumWindows(_EnumProc(visit), 0)
+    return bool(found)
+
+
+class _LastInput(ctypes.Structure):
+    _fields_ = [("cbSize", wintypes.UINT), ("dwTime", wintypes.DWORD)]
+
+
+def seconds_since_input() -> float:
+    """Tiempo sin tocar teclado ni ratón, sin ganchos: lo da el propio Windows."""
+    info = _LastInput(cbSize=ctypes.sizeof(_LastInput))
+    if not _user32.GetLastInputInfo(ctypes.byref(info)):
+        return 0.0
+    now = ctypes.windll.kernel32.GetTickCount()
+    return ((now - info.dwTime) & 0xFFFFFFFF) / 1000.0
+
+
 def close_window(handle: int) -> None:
     """Si hay algo sin guardar, es la propia aplicación la que pregunta."""
     if not _user32.PostMessageW(handle, WM_CLOSE, 0, 0):

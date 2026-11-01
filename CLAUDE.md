@@ -24,7 +24,7 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 |---|---|
 | Lenguaje / UI | Python 3.12 en `.venv`, PySide6. Sin QtWebEngine ni Electron |
 | IA | `llama-server.exe` (llama.cpp, build CUDA 12; plan B Vulkan, plan C CPU) como **subproceso** bajo demanda, HTTP en 127.0.0.1, una sola instancia, se cierra tras inactividad |
-| Modelo | Qwen3.5-4B Q4_K_M en GPU; respaldo en CPU Qwen3.5-2B Q4_K_M (peor calidad, inventa más). Contexto 4096. Elegido con la batería de `scripts/probar_modelos.py` |
+| Modelo | Qwen3.5-4B Q4_K_M en GPU; respaldo en CPU Qwen3.5-2B Q4_K_M (peor calidad, inventa más). Contexto 4096. Elegido con la batería de `scripts/probar_modelos.py`. Visión: `mmproj-F16` en CPU, cargado solo al pedir que mire |
 | TTS | Piper como programa externo en `models/piper/venv` + `workers/piper_worker.py` (GPL-3.0), voz por defecto `es_MX-claude-high` |
 | STT | faster-whisper `large-v3-turbo` int8 en CPU (98 % con auriculares, ~8 s por frase; `small` 89 %, 2,4 s), en `models/whisper/venv` + `workers/whisper_worker.py`. Push-to-talk con `Ctrl+Alt+T` (alterna) o botón. Micrófono apagado por defecto |
 | Memoria | SQLite + FTS5, sin embeddings por ahora. Datos en `%LOCALAPPDATA%\KasaneTetoAI\` |
@@ -32,6 +32,8 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 | Mascota | Sprites PNG por estado con "paquetes de personaje"; Live2D solo como mejora futura |
 | Herramientas | Lista blanca + validación. Abre las apps del menú Inicio y del catálogo, salvo consolas, herramientas del sistema, desinstaladores y Cheat Engine. Abrir, cerrar y consultar actúan directamente (decisión de Diego); confirmar es opcional. Órdenes con reglas fijas: el modelo nunca decide acciones. Control de Windows **desactivado por defecto** |
 | Web | Opcional y desactivada por defecto. Música: API pública de VocaDB (`tools/`), con caché y citando la fuente. Fandom solo con su permiso escrito. Búsqueda general (Wikipedia API, DuckDuckGo vía `ddgs`) por decidir |
+| Pantalla y comentarios | Títulos de ventana para el contexto. Captura solo si Diego lo pide, en memoria, nunca con un juego abierto. Comentarios opcionales: en juegos, frases preparadas sin IA |
+| Documentos | Teto solo crea archivos nuevos en `Documentos\Teto`. Sin simular teclado |
 | Empaquetado | PyInstaller `--onedir`; modelos y llama.cpp fuera del ejecutable |
 | Distribución | App de uso personal; código en repositorio **público** de GitHub. Nunca subir datos del equipo, recuerdos, configuración de usuario ni arte de terceros. Distribuir la app exigiría revisar las licencias |
 

@@ -25,6 +25,7 @@ from kasane_teto.personality.emotion_parser import RESPONSE_GRAMMAR  # noqa: E40
 from kasane_teto.personality.prompt_builder import (  # noqa: E402
     knowledge_block,
     load_system_prompt,
+    system_prompt_for,
 )
 
 SEEDS = (1, 2, 3)
@@ -83,9 +84,9 @@ def passes(answer: str, required: list[list[str]], forbidden: list[str]) -> bool
 
 
 @contextmanager
-def local_model() -> Iterator[Callable[[str, int], str]]:
+def local_model(tools_enabled: bool = False) -> Iterator[Callable[[str, int], str]]:
     """Arranca el modelo real y da una función que responde a un mensaje con una semilla."""
-    system = load_system_prompt()
+    system = system_prompt_for(load_system_prompt(), tools_enabled)
     port = free_port()
     process = subprocess.Popen(
         [
@@ -168,7 +169,7 @@ def main() -> int:
     def build_message(question: str) -> str:
         return knowledge_block(knowledge.search(question), wants_opinion(question)) + question
 
-    with local_model() as ask:
+    with local_model(tools_enabled="--con-herramientas" in sys.argv) as ask:
         run_checks(ask, CHECKS, build_message)
     return 0
 

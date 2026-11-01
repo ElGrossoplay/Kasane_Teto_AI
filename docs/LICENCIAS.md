@@ -13,6 +13,9 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 | Librerías CUDA 12.4 de NVIDIA (incluidas en el paquete de llama.cpp) | Aceleración por GPU | Licencia de NVIDIA: revisar antes de distribuir | 2 |
 | Qwen3.5-4B y Qwen3.5-2B (GGUF de unsloth) | Modelos de lenguaje | Apache-2.0 | 2 |
 | Qwen3-4B-Instruct-2507 (GGUF de unsloth) | Modelo de respaldo | Apache-2.0 | 2 |
+| Qwen3.5-4B mmproj-F16 (GGUF de unsloth) | Visión al mirar la pantalla | Apache-2.0 | 5 |
+| python-pptx | Crear presentaciones | MIT | 5 |
+| lxml, XlsxWriter, typing-extensions, Pillow | Dependencias de python-pptx | BSD-3-Clause, BSD-2-Clause, PSF-2.0, MIT-CMU | 5 |
 | httpx, httpcore, idna | Conexión local con la IA | BSD-3-Clause | 2 |
 | anyio, h11 | Dependencias de httpx | MIT | 2 |
 | certifi | Dependencia de httpx | MPL-2.0 | 2 |

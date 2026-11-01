@@ -74,6 +74,11 @@ menú Inicio, salvo consolas y herramientas del sistema; las demás se añaden e
 interactúa con juegos. Si prefieres que pregunte antes de actuar, actívalo en Configuración. Lo que
 hace queda en `logs/actions.log`.
 
+Con el control activo también puedes decir "mira mi pantalla" (nunca con un juego abierto; la imagen
+no se guarda ni sale del equipo), "¿qué tengo abierto?", "escribe un poema en el bloc de notas" o
+"crea una presentación sobre gatos". Los archivos se crean en `Documentos\Teto`. Los comentarios por
+su cuenta se activan aparte en Configuración.
+
 ## Diagnóstico del equipo
 
 Script de solo lectura que muestra CPU, RAM, GPU/VRAM, Python y disco sin modificar nada:

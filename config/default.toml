@@ -20,6 +20,7 @@ stt_model = "large-v3-turbo"  # carpeta dentro de models/whisper; "small" es má
 device = "auto"       # auto, gpu o cpu
 gpu_model = "Qwen3.5-4B-Q4_K_M.gguf"
 cpu_model = "Qwen3.5-2B-Q4_K_M.gguf"
+vision_model = "Qwen3.5-4B-mmproj-F16.gguf"  # solo se carga al pedir que mire la pantalla
 gpu_layers = 99
 gpu_min_free_mib = 3100
 context_size = 4096
@@ -37,7 +38,12 @@ enabled = false       # nada sale a Internet hasta activarlo en Configuración
 enabled = false       # control de Windows: siempre desactivado hasta activarlo en Configuración
 confirm = false       # preguntar antes de cada acción (decisión de Diego: actuar directamente)
 
+[comments]
+enabled = false       # comentarios por su cuenta; se activan en Configuración
+minutes = 10          # minutos sin hablar con Teto antes de comentar
+away_minutes = 5      # sin tocar teclado ni ratón en este tiempo, no comenta: no estás delante
+
 [memory]
-suggest = true       # Teto pregunta si guardar lo que le cuentas; nunca guarda sin confirmación
+suggest = true      # Teto pregunta si guardar lo que le cuentas; nunca guarda sin confirmación
 save_history = false  # guardar las conversaciones completas es opcional
 max_results = 3       # recuerdos que llegan al modelo en cada turno

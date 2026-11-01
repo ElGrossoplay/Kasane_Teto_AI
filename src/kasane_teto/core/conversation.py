@@ -5,8 +5,11 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import zipfile
 from collections.abc import Callable
+from dataclasses import replace
 from functools import partial
+from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
 
@@ -27,13 +30,26 @@ from kasane_teto.memory.proposals import (
 from kasane_teto.memory.store import MemoryStore, MemoryStoreError
 from kasane_teto.personality.emotion_parser import RESPONSE_GRAMMAR, EmotionParser
 from kasane_teto.personality.prompt_builder import (
-    build_messages,
+    COMMENT_PROMPT,
+    DOCUMENT_PROMPTS,
+    DOCUMENT_SYSTEM,
+    SCREEN_PROMPT,
     SEARCH_DONE,
+    build_messages,
     knowledge_block,
     load_system_prompt,
+    system_prompt_for,
 )
-from kasane_teto.tools.commands import Command, parse_command
+from kasane_teto.tools.documents import strip_preamble
+from kasane_teto.tools.commands import (
+    LOOK_AT_SCREEN,
+    WRITE_DOCUMENT,
+    Command,
+    asks_open_things,
+    parse_command,
+)
 from kasane_teto.tools.registry import Action, ActionRejected, ToolRegistry
+from kasane_teto.tools.screen_capture import CaptureError, capture_screen_url
 from kasane_teto.tools.web_lookup import (
     MusicLookup,
     WebQuery,
@@ -63,6 +79,12 @@ ACTION_CANCELLED_REPLY = "Vale, no hago nada."
 ACTION_EXPIRED_REPLY = "Ha pasado demasiado tiempo. Pídemelo otra vez."
 ACTION_FAILED_REPLY = "No he podido hacerlo."
 ACTION_TIMEOUT_SECONDS = 60.0
+SCREEN_GAME_REPLY = "Hay un juego abierto: la pantalla no la miro, para no meterte en líos."
+SCREEN_FAILED_REPLY = "No he podido capturar la pantalla."
+VISION_UNAVAILABLE_MESSAGE = "No pude cargar la visión. Cierra lo que esté usando la GPU y repítelo."
+DOCUMENT_SAVED_REPLY = "Listo, lo he dejado en Documentos, carpeta Teto."
+DOCUMENT_FAILED_REPLY = "Lo he escrito, pero no he podido guardarlo."
+DOCUMENT_MAX_TOKENS = 800
 
 log = logging.getLogger(__name__)
 
@@ -117,9 +139,14 @@ class _GenerationTask(QRunnable):
         cancel: threading.Event,
         web_search: Callable[[], WebResult] | None = None,
         extra_notice: str = "",
+        vision: bool = False,
+        finish: Callable[[str], str] | None = None,
     ) -> None:
         super().__init__()
         self._extra_notice = extra_notice
+        self._vision = vision
+        self._finish = finish
+        self._quiet = finish is not None
         self.signals = _TaskSignals()
         self._resources = resources
         self._compose = compose
@@ -138,9 +165,13 @@ class _GenerationTask(QRunnable):
                     self.signals.finished.emit("")
                     return
             messages = self._compose(web)
-            self.signals.status.emit("Despertando a Teto…")
-            process = self._resources.ensure_loaded()
-            self.signals.status.emit("")
+            self.signals.status.emit("Mirando tu pantalla…" if self._vision else "Despertando a Teto…")
+            process = (
+                self._resources.ensure_loaded(vision=True)
+                if self._vision
+                else self._resources.ensure_loaded()
+            )
+            self.signals.status.emit("Escribiendo…" if self._quiet else "")
             text = self._generate(process.base_url, process.api_key, messages)
             if not text and not self._cancel.is_set():
                 self.signals.failed.emit(EMPTY_ANSWER_MESSAGE)
@@ -149,10 +180,16 @@ class _GenerationTask(QRunnable):
                 self._announce_sources(web)
                 if self._extra_notice:
                     self.signals.notice.emit(self._extra_notice)
+                if self._finish is not None:
+                    self.signals.token.emit(self._finish(text))
             self.signals.finished.emit(text)
         except LLMStartError as exc:
             log.error("La IA no pudo arrancar: %s", exc)
-            self.signals.failed.emit("No pude cargar la IA. Revisa los modelos en la carpeta models.")
+            self.signals.failed.emit(
+                VISION_UNAVAILABLE_MESSAGE
+                if self._vision
+                else "No pude cargar la IA. Revisa los modelos en la carpeta models."
+            )
         except LLMRequestError as exc:
             log.error("Fallo al generar: %s", exc)
             self.signals.failed.emit("Se me cortó la respuesta. ¿Lo intentas de nuevo?")
@@ -183,11 +220,13 @@ class _GenerationTask(QRunnable):
                 self.signals.state.emit(parser.emotion or PetState.SPEAKING)
                 announced = True
             parts.append(text)
-            self.signals.token.emit(text)
+            if not self._quiet:
+                self.signals.token.emit(text)
         tail = parser.finish()
         if tail:
             parts.append(tail)
-            self.signals.token.emit(tail)
+            if not self._quiet:
+                self.signals.token.emit(tail)
         if client.finish_reason == "length":
             self.signals.notice.emit(TRUNCATED_NOTICE)
         return "".join(parts).strip()
@@ -204,9 +243,11 @@ class ConversationService(QObject):
         parent: QObject | None = None,
         memory: MemoryStore | None = None,
         tools: ToolRegistry | None = None,
+        capture: Callable[[], str] = capture_screen_url,
     ) -> None:
         super().__init__(parent)
         self._tools = tools
+        self._capture = capture
         self._pending_action: Action | None = None
         self._action_deadline = 0.0
         self._action_by_button = False
@@ -285,6 +326,15 @@ class ConversationService(QObject):
             self._bus.assistant_token.emit(MEMORY_ASK_REPLY)
             self._bus.assistant_done.emit()
             return
+        self._start_turn(text, proposal)
+
+    def _start_turn(
+        self,
+        text: str,
+        proposal: Proposal | None = None,
+        image_url: str = "",
+        document: Command | None = None,
+    ) -> None:
         self._rest_timer.stop()
         self._history.append({"role": "user", "content": text})
         # Se recorta de golpe: quitar un turno cada vez cambiaría el inicio de la conversación
@@ -294,26 +344,96 @@ class ConversationService(QObject):
         entries = self._relevant_knowledge()
         memories = self._relevant_memories(text)
         self._turn_proposal = proposal
+        special = bool(image_url) or document is not None
         self._cancel = threading.Event()
         self._resources.set_busy(True)
         self._bus.pet_state_requested.emit(PetState.THINKING)
 
         task = _GenerationTask(
             self._resources,
-            partial(self._compose, text, entries, memories),
-            self._params,
+            partial(self._compose, text, entries, memories, image_url, document),
+            replace(self._params, max_tokens=DOCUMENT_MAX_TOKENS) if document else self._params,
             self._cancel,
-            self._web_search_for(text),
-            self._turn_notice(text),
+            None if special else self._web_search_for(text),
+            "" if special else self._turn_notice(text),
+            bool(image_url),
+            partial(self._save_document, document) if document else None,
         )
+        self._launch(task, self._on_finished, self._on_failed)
+
+    def comment(self, title: str) -> bool:
+        """Comentario espontáneo: no entra en la conversación ni guarda nada."""
+        if self.is_busy:
+            return False
+        system = system_prompt_for(self._system_prompt, self.tools_enabled)
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": COMMENT_PROMPT.format(title=title)},
+        ]
+        self._cancel = threading.Event()
+        self._resources.set_busy(True)
+        task = _GenerationTask(self._resources, lambda _web: messages, self._params, self._cancel)
+        self._launch(task, self._on_comment_finished, self._on_comment_failed)
+        return True
+
+    def _launch(
+        self,
+        task: _GenerationTask,
+        finished: Callable[[str], None],
+        failed: Callable[[str], None],
+    ) -> None:
         task.signals.status.connect(self._bus.assistant_status)
         task.signals.state.connect(self._bus.pet_state_requested)
         task.signals.token.connect(self._bus.assistant_token)
         task.signals.notice.connect(self._bus.assistant_notice)
-        task.signals.finished.connect(self._on_finished)
-        task.signals.failed.connect(self._on_failed)
+        task.signals.finished.connect(finished)
+        task.signals.failed.connect(failed)
         self._task_signals = task.signals
         QThreadPool.globalInstance().start(task)
+
+    def _on_comment_finished(self, _text: str) -> None:
+        self._end_turn()
+        self._bus.assistant_done.emit()
+
+    def _on_comment_failed(self, message: str) -> None:
+        log.warning("Comentario descartado: %s", message)
+        self._end_turn()
+
+    def _start_look(self, text: str) -> None:
+        """La imagen solo vive en esta petición: ni historial, ni disco, ni Internet."""
+        assert self._tools is not None
+        if self._tools.game_on_screen():
+            self._tools.record(LOOK_AT_SCREEN, "", "rechazado")
+            self._reply_directly(SCREEN_GAME_REPLY)
+            return
+        try:
+            image_url = self._capture()
+        except CaptureError as exc:
+            log.error("Captura fallida: %s", exc)
+            self._reply_directly(SCREEN_FAILED_REPLY)
+            return
+        self._tools.record(LOOK_AT_SCREEN, "", "hecho")
+        self._start_turn(text, image_url=image_url)
+
+    def _save_document(self, document: Command | None, text: str) -> str:
+        """Corre en el hilo de la tarea: PowerPoint tarda en cargarse la primera vez."""
+        assert self._tools is not None and document is not None
+        try:
+            path = self._tools.save_document(document.folder, strip_preamble(text))
+        except (OSError, ValueError, zipfile.BadZipFile) as exc:
+            log.error("No se pudo crear el documento: %s", exc)
+            self._tools.record(WRITE_DOCUMENT, document.folder, "error")
+            return DOCUMENT_FAILED_REPLY
+        self._tools.record(WRITE_DOCUMENT, path.name, "hecho")
+        return DOCUMENT_SAVED_REPLY
+
+    def _desktop_titles(self, text: str) -> list[str]:
+        """Títulos de ventana, solo si los pide y solo para el modelo local."""
+        if not self.tools_enabled or self._tools is None or not asks_open_things(text):
+            return []
+        current = self._tools.foreground().title
+        others = [title for title in self._tools.open_windows() if title != current]
+        return [title for title in (current, *others) if title]
 
     def _turn_notice(self, text: str) -> str:
         if self._tools is not None and not self.tools_enabled and parse_command(text) is not None:
@@ -331,6 +451,12 @@ class ConversationService(QObject):
         command = parse_command(text)
         if command is None:
             return False
+        if command.kind == LOOK_AT_SCREEN:
+            self._start_look(text)
+            return True
+        if command.kind == WRITE_DOCUMENT:
+            self._start_turn(text, document=command)
+            return True
         ask_first = bool(self._settings.get("tools.confirm", False))
         self._start_action_task(command, ask_first, by_button=False)
         return True
@@ -555,23 +681,50 @@ class ConversationService(QObject):
         return self._web.search(query)
 
     def _compose(
-        self, text: str, entries: list[Entry], memories: list[str], web: WebResult
-    ) -> list[dict[str, str]]:
+        self,
+        text: str,
+        entries: list[Entry],
+        memories: list[str],
+        image_url: str,
+        document: Command | None,
+        web: WebResult,
+    ) -> list[dict[str, Any]]:
         """Corre en el hilo de la tarea: el historial no cambia mientras el turno está activo."""
         self._last_web = web
+        if document is not None:
+            facts = knowledge_block(entries, False)
+            prompt = facts + DOCUMENT_PROMPTS[document.folder] + document.target
+            return [
+                {"role": "system", "content": DOCUMENT_SYSTEM},
+                {"role": "user", "content": prompt},
+            ]
         query = parse_query(text)
         if web.sources and query is not None and not self._knows_topic(query.topic):
             entries = []
-        block = knowledge_block(entries, wants_opinion(text), web.facts, memories)
+        desktop = self._desktop_titles(text)
+        block = knowledge_block(entries, wants_opinion(text), web.facts, memories, desktop)
         if web.sources and asks_to_search(text):
             block += SEARCH_DONE
-        return build_messages(
-            self._system_prompt,
-            self._history,
-            self._context_size,
-            self._params.max_tokens,
-            block,
+        if image_url:
+            block = SCREEN_PROMPT + block
+        messages: list[dict[str, Any]] = list(
+            build_messages(
+                system_prompt_for(self._system_prompt, self.tools_enabled),
+                self._history,
+                self._context_size,
+                self._params.max_tokens,
+                block,
+            )
         )
+        if image_url:
+            messages[-1] = {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": image_url}},
+                    {"type": "text", "text": messages[-1]["content"]},
+                ],
+            }
+        return messages
 
     def _set_web_enabled(self, enabled: bool) -> None:
         self._settings.set("web.enabled", enabled)

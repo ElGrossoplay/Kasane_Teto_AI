@@ -33,6 +33,7 @@ class LLMConfig:
     gpu_layers: int
     threads: int
     load_timeout_seconds: float
+    vision_path: Path | None = None
 
 
 def _free_port() -> int:
@@ -59,8 +60,18 @@ class LLMProcess:
     def is_running(self) -> bool:
         return self._process is not None and self._process.poll() is None
 
+    @property
+    def has_vision(self) -> bool:
+        return self._config.vision_path is not None
+
     def build_args(self, port: int, api_key: str) -> list[str]:
         config = self._config
+        # El módulo de visión va en CPU: en GPU apenas deja 34 MiB libres y tarda 24 s frente a 14.
+        vision = (
+            ["--mmproj", str(config.vision_path), "--no-mmproj-offload"]
+            if config.vision_path is not None
+            else ["--no-mmproj"]
+        )
         return [
             str(config.server_path),
             "-m", str(config.model_path),
@@ -71,7 +82,7 @@ class LLMProcess:
             "-ngl", str(config.gpu_layers),
             "-t", str(config.threads),
             "-np", "1",
-            "--no-mmproj",
+            *vision,
             "--no-webui",
             # Sin mapear el archivo: con el modelo en GPU baja la RAM de ~3,2 GB a ~1,1 GB.
             "--load-mode", "none",
