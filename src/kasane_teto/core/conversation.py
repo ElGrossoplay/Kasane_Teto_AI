@@ -13,7 +13,7 @@ from kasane_teto.character.states import PetState
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.resource_manager import ResourceManager
 from kasane_teto.core.settings import Settings
-from kasane_teto.memory.knowledge import Entry, KnowledgeBase, is_follow_up
+from kasane_teto.memory.knowledge import Entry, KnowledgeBase, is_follow_up, wants_opinion
 from kasane_teto.personality.emotion_parser import RESPONSE_GRAMMAR, EmotionParser
 from kasane_teto.personality.prompt_builder import (
     build_messages,
@@ -147,7 +147,7 @@ class ConversationService(QObject):
             self._history,
             self._context_size,
             self._params.max_tokens,
-            knowledge_block(self._relevant_knowledge()),
+            knowledge_block(self._relevant_knowledge(), wants_opinion(text)),
         )
         self._cancel = threading.Event()
         self._resources.set_busy(True)

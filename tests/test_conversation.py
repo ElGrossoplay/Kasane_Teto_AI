@@ -137,6 +137,22 @@ def test_relevant_knowledge_reaches_the_model(harness, monkeypatch):
     assert "Dato de Miku." not in seen[0][0]["content"]
 
 
+def test_feelings_only_reach_the_model_when_asked(qapp, settings, monkeypatch):
+    seen = install_client(monkeypatch, ["[neutral] Hola"])
+    bus = EventBus()
+    done = []
+    bus.assistant_done.connect(lambda: done.append(True))
+    knowledge = KnowledgeBase([Entry("miku", ("miku",), "Dato.", "Es tu rival.")])
+    service = conversation.ConversationService(bus, FakeResources(), settings, knowledge)
+    bus.user_message.emit("¿Quién es Miku?")
+    pump(lambda: len(done) == 1)
+    bus.user_message.emit("¿Qué opinas de Miku?")
+    pump(lambda: len(done) == 2)
+    assert "Es tu rival." not in seen[0][-1]["content"]
+    assert "Es tu rival." in seen[1][-1]["content"]
+    assert service is not None
+
+
 def test_knowledge_stays_out_of_history(harness, monkeypatch):
     seen = install_client(monkeypatch, ["[neutral] Hola"])
     bus, _, _, record = harness()

@@ -10,7 +10,7 @@ from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
 from kasane_teto.character.states import PetState
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.settings import Settings
-from kasane_teto.voice.audio import RECORD_RATE, is_silence
+from kasane_teto.voice.audio import Recording, is_silence
 from kasane_teto.voice.worker_process import VoiceError
 
 MAX_RECORDING_MS = 30_000
@@ -20,13 +20,13 @@ log = logging.getLogger(__name__)
 
 
 class Recognizer(Protocol):
-    def transcribe(self, pcm: bytes) -> str: ...
+    def transcribe(self, recording: Recording) -> str: ...
     def unload(self) -> None: ...
 
 
 class Recorder(Protocol):
     def start(self) -> None: ...
-    def stop(self) -> bytes: ...
+    def stop(self) -> Recording: ...
 
 
 class _Signals(QObject):
@@ -35,15 +35,15 @@ class _Signals(QObject):
 
 
 class _Task(QRunnable):
-    def __init__(self, engine: Recognizer, pcm: bytes) -> None:
+    def __init__(self, engine: Recognizer, recording: Recording) -> None:
         super().__init__()
         self.signals = _Signals()
         self._engine = engine
-        self._pcm = pcm
+        self._recording = recording
 
     def run(self) -> None:
         try:
-            self.signals.finished.emit(self._engine.transcribe(self._pcm))
+            self.signals.finished.emit(self._engine.transcribe(self._recording))
         except VoiceError as exc:
             log.error("Reconocimiento no disponible: %s", exc)
             self.signals.failed.emit("No pude cargar el reconocimiento de voz.")
@@ -128,14 +128,13 @@ class ListenService(QObject):
             return
         self._recording = False
         self._limit.stop()
-        pcm = self._recorder.stop()
-        seconds = len(pcm) / 2 / RECORD_RATE
-        if seconds < MIN_RECORDING_SECONDS or is_silence(pcm):
+        recording = self._recorder.stop()
+        if recording.seconds < MIN_RECORDING_SECONDS or is_silence(recording.pcm):
             self._finish("No te he oído.")
             return
         self._bus.pet_state_requested.emit(PetState.THINKING)
         self._bus.voice_status.emit("Entendiendo…")
-        task = _Task(self._engine, pcm)
+        task = _Task(self._engine, recording)
         task.signals.finished.connect(self._on_transcribed)
         task.signals.failed.connect(self._on_failed)
         self._task_signals = task.signals

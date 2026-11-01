@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 from kasane_teto.core.paths import knowledge_root, models_dir  # noqa: E402
-from kasane_teto.memory.knowledge import KnowledgeBase, normalize  # noqa: E402
+from kasane_teto.memory.knowledge import KnowledgeBase, normalize, wants_opinion  # noqa: E402
 from kasane_teto.personality.emotion_parser import RESPONSE_GRAMMAR  # noqa: E402
 from kasane_teto.personality.prompt_builder import (  # noqa: E402
     knowledge_block,
@@ -28,8 +28,10 @@ from kasane_teto.personality.prompt_builder import (  # noqa: E402
 SEEDS = (1, 2, 3)
 MODEL = "Qwen3.5-4B-Q4_K_M.gguf"
 
+OWN_TOPICS = ["mesmerizer", "broma", "2channel", "quimera", "31 anos", "baguette", "utau"]
+
 # (pregunta, cada grupo necesita al menos uno de sus textos, textos prohibidos)
-CHECKS: list[tuple[str, list[list[str]], list[str]]] = [
+CHECKS:list[tuple[str, list[list[str]], list[str]]] = [
     ("¿Quién le da la voz a Hatsune Miku?", [["saki fujita"]], []),
     ("¿Cuándo salió Hatsune Miku?", [["2007"]], []),
     ("¿Qué significa el nombre de Miku?", [["primer sonido"]], []),
@@ -50,6 +52,18 @@ CHECKS: list[tuple[str, list[list[str]], list[str]]] = [
     ("¿Cuál es la capital de Japón?", [["tokio", "tokyo"]], []),
     ("¿Quién escribió Don Quijote?", [["cervantes"]], []),
     ("¿Cuánto es 17 por 6?", [["102"]], []),
+    # Mensaje mal transcrito de verdad: no debe irse a hablar de su origen.
+    ("alabeme serebere vocaloid", [["yamaha", "sintetiz", "software", "repit"]], OWN_TOPICS),
+    # Fuera de tema: Teto no debe hablar de sí misma.
+    ("¡Hola Teto! ¿Cómo estás hoy?", [], OWN_TOPICS),
+    ("Estoy cansado, hoy el trabajo fue horrible.", [], OWN_TOPICS),
+    ("¿Qué me recomiendas hacer un domingo lluvioso?", [], OWN_TOPICS),
+    ("Cuéntame un chiste corto.", [], OWN_TOPICS),
+    ("Gané mi partida de hoy, ¡estoy feliz!", [], OWN_TOPICS),
+    ("Explícame en una frase qué es la RAM.", [["memoria"]], OWN_TOPICS),
+    ("¿Qué es Vocaloid?", [["yamaha", "sintetiz", "software"]], ["broma", "mesmerizer", "2channel"]),
+    ("¿Quién hizo Melt?", [["ryo"]], ["mesmerizer", "2channel", "quimera"]),
+    ("Dame tres consejos para dormir mejor.", [], OWN_TOPICS),
 ]
 
 
@@ -99,7 +113,8 @@ def main() -> int:
                 except httpx.TransportError:
                     time.sleep(0.3)
             for question, required, forbidden in CHECKS:
-                message = knowledge_block(knowledge.search(question)) + question
+                entries = knowledge.search(question)
+                message = knowledge_block(entries, wants_opinion(question)) + question
                 results = []
                 for seed in SEEDS:
                     reply = client.post(

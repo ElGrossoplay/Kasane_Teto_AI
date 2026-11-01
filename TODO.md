@@ -98,8 +98,14 @@ Limitaciones conocidas:
 - [x] 3.6 Atajo global `Ctrl+Alt+T` con `RegisterHotKey` (pulsar para empezar y para terminar) y
       botón "Hablar" en el chat (mantener pulsado)
 - [x] 3.7 Configuración: voz, volumen, micrófono (apagado por defecto)
-- [ ] 3.8 **Diego:** elegir voz en `models/piper/muestras/` y probar con el micrófono real: la
-      grabación real es lo único que no se ha podido verificar
+- [~] 3.8 **Diego:** eligió la voz Daniela. Primera prueba: había que hablar por sílabas y la
+      personalidad resultaba forzada; corregido en parte
+- [ ] 3.9 **Diego:** ejecutar `scripts/probar_microfono.py` para medir el reconocimiento con su voz
+      y decidir si hace falta el modelo `small` (461 MB)
+- [x] 3.10 Captura por WASAPI a calidad nativa (48 kHz) con conversión correcta, normalización,
+      filtro de silencio y vocabulario como `hotwords`
+- [x] 3.11 Personalidad menos forzada: datos de Teto en una ficha que solo se usa si preguntan por
+      ella, reacciones solo si piden su opinión, prompt con ejemplos de tono natural
 
 Medido (2026-10-31): Piper 0,15–0,33 s por frase (carga 4 s), 310 MB de RAM, 0 de VRAM. Whisper
 0,9–1,8 s por frase con audio sintético (< 2 s), ~195 MB. Reposo 78 MB y 0,01 % de CPU. Interfaz sin
@@ -107,8 +113,9 @@ congelarse en todo el ciclo (pausa máxima 172 ms). RAM con todo activo ~1,74 GB
 ~1,5 GB solo mientras Piper y Whisper siguen cargados.
 
 Limitaciones conocidas:
-- El reconocimiento falla en palabras sueltas ("chiste" → "ciste") y Teto divaga cuando ocurre.
-  Falta medirlo con voz humana real.
+- El reconocimiento falla en palabras sueltas ("chiste" → "ciste") y Teto puede inventar cuando
+  ocurre. El modelo `base` llega a 72 % con voz sintética; falta medirlo con voz real.
+- Una mala transcripción con un nombre real puede hacerle inventar ("SereReRe").
 - La voz es genérica: no suena como Teto. RVC queda como mejora (ver ideas).
 - La primera respuesta de voz puede tardar 40 s si el modelo no está en la caché de Windows.
 - El atajo global no detecta soltar la tecla: es una limitación de `RegisterHotKey`, que se usa por
@@ -157,3 +164,5 @@ Limitaciones conocidas:
   la base de conocimiento de Vocaloid y música virtual. Fase 2 cerrada y subida a GitHub.
 - **2026-10-31:** Fase 3 implementada: Piper, faster-whisper, atajo global y botón de hablar.
   Pendiente la prueba con micrófono real y la elección de voz.
+- **2026-11-01:** tras la prueba de Diego, corregida la captura del micrófono y la personalidad
+  forzada. `probar_conocimiento.py` amplió a 30 preguntas (87/90 respuestas correctas).

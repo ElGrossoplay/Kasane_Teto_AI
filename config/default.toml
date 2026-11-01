@@ -14,6 +14,7 @@ volume = 80           # de 0 a 100
 mic_enabled = false   # el micrófono empieza apagado
 idle_minutes = 5      # se cierran los procesos de voz tras este tiempo sin uso
 stt_threads = 4
+stt_model = "base"    # carpeta dentro de models/whisper
 
 [ai]
 device = "auto"       # auto, gpu o cpu

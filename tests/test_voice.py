@@ -8,7 +8,7 @@ from PySide6.QtCore import QCoreApplication, QElapsedTimer
 from kasane_teto.character.states import PetState
 from kasane_teto.core.events import EventBus
 from kasane_teto.memory.knowledge import Entry, KnowledgeBase
-from kasane_teto.voice.audio import SILENCE_PEAK, apply_volume, is_silence
+from kasane_teto.voice.audio import SILENCE_PEAK, Recording, apply_volume, is_silence
 from kasane_teto.voice.listening import ListenService
 from kasane_teto.voice.speech import SentenceSplitter, SpeechService, clean_for_speech
 from kasane_teto.voice.worker_process import VoiceError, WorkerProcess
@@ -53,6 +53,11 @@ def test_volume_scales_samples():
     pcm = array.array("h", [1000, -1000]).tobytes()
     assert array.array("h", apply_volume(pcm, 50)).tolist() == [500, -500]
     assert apply_volume(pcm, 100) == pcm
+
+
+def test_recording_duration_accounts_for_channels():
+    pcm = bytes(48000 * 2 * 2)
+    assert Recording(pcm, 48000, 2).seconds == 1.0
 
 
 def test_silence_detection():
@@ -196,7 +201,7 @@ class FakeRecorder:
         self.started += 1
 
     def stop(self):
-        return self.pcm
+        return Recording(self.pcm, 16000, 1)
 
 
 class FakeSTT:
@@ -206,8 +211,8 @@ class FakeSTT:
         self.audio = []
         self.unloaded = 0
 
-    def transcribe(self, pcm):
-        self.audio.append(pcm)
+    def transcribe(self, recording):
+        self.audio.append(recording)
         if self.error:
             raise self.error
         return self.text

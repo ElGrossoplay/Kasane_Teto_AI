@@ -4,13 +4,27 @@ from __future__ import annotations
 
 import array
 import threading
+from dataclasses import dataclass
 from typing import Any
 
 from kasane_teto.voice.worker_process import VoiceError
 
-RECORD_RATE = 16000
+MAX_RECORD_CHANNELS = 2
 PLAY_BLOCK_BYTES = 4096
 SILENCE_PEAK = 500
+
+
+@dataclass(frozen=True)
+class Recording:
+    """Audio PCM de 16 bits tal como lo entrega el micrófono."""
+
+    pcm: bytes
+    rate: int
+    channels: int
+
+    @property
+    def seconds(self) -> float:
+        return len(self.pcm) / 2 / self.channels / self.rate
 
 
 def apply_volume(pcm: bytes, volume: int) -> bytes:
@@ -54,10 +68,22 @@ class AudioPlayer:
             stream.close()
 
 
+def _input_device(sounddevice: Any) -> dict[str, Any]:
+    """Prefiere WASAPI: entrega el audio nativo, sin el remuestreo de baja calidad de MME."""
+    for api in sounddevice.query_hostapis():
+        if api["name"] == "Windows WASAPI" and api["default_input_device"] >= 0:
+            index = api["default_input_device"]
+            return {"index": index, **sounddevice.query_devices(index)}
+    index = sounddevice.default.device[0]
+    return {"index": index, **sounddevice.query_devices(index)}
+
+
 class AudioRecorder:
     def __init__(self) -> None:
         self._stream: Any = None
         self._chunks: list[bytes] = []
+        self._rate = 16000
+        self._channels = 1
 
     def _on_audio(self, data: Any, frames: int, time: Any, status: Any) -> None:
         self._chunks.append(bytes(data))
@@ -67,17 +93,24 @@ class AudioRecorder:
 
         self._chunks = []
         try:
+            device = _input_device(sounddevice)
+            self._rate = int(device["default_samplerate"])
+            self._channels = min(MAX_RECORD_CHANNELS, int(device["max_input_channels"]))
             self._stream = sounddevice.RawInputStream(
-                RECORD_RATE, channels=1, dtype="int16", callback=self._on_audio
+                self._rate,
+                device=device["index"],
+                channels=self._channels,
+                dtype="int16",
+                callback=self._on_audio,
             )
             self._stream.start()
-        except sounddevice.PortAudioError as exc:
+        except (sounddevice.PortAudioError, ValueError) as exc:
             self._stream = None
             raise VoiceError(f"No se pudo abrir el micrófono: {exc}") from exc
 
-    def stop(self) -> bytes:
+    def stop(self) -> Recording:
         if self._stream is not None:
             stream, self._stream = self._stream, None
             stream.stop()
             stream.close()
-        return b"".join(self._chunks)
+        return Recording(b"".join(self._chunks), self._rate, self._channels)

@@ -19,7 +19,7 @@ STOPWORDS = frozenset(
     "esos esas tiene tienen sabes dime cuentame opinas piensas sera eres sois hola "
     "cancion canciones cantante cantantes personaje personajes vocaloid famosa famoso "
     "famosas famosos mejor mejores mucho muchos todo todos algo alguna alguno "
-    "hace hizo creo creado voz voces nombre nombres significa significado".split()
+    "hace hizo creo creado voz voces nombre nombres significa significado teto kasane".split()
 )
 
 MAX_FOLLOW_UP_WORDS = 5
@@ -27,6 +27,11 @@ _FOLLOW_UP_START = re.compile(r"y\s")
 _FOLLOW_UP_WORDS = re.compile(r"\b(ella|ellas|ellos|esa|ese|aquella|aquel|sus?)\b")
 _FOLLOW_UP_VERBS = re.compile(
     r"\b(tiene|tienen|salio|nacio|canta|cantan|hizo|opinas|sientes|piensas|cuando|donde)\b"
+)
+
+_OPINION = re.compile(
+    r"\b(opinas?|opinion|piensas|sientes|crees|te (cae|caen|gusta|gustan|parece|parecen|llevas)"
+    r"|favorit[oa]s?|rival|prefieres|que tal)\b"
 )
 
 log = logging.getLogger(__name__)
@@ -49,6 +54,11 @@ def normalize(text: str) -> str:
     decomposed = unicodedata.normalize("NFD", text.casefold())
     kept = "".join(c for c in decomposed if unicodedata.category(c) != "Mn")
     return unicodedata.normalize("NFC", kept)
+
+
+def wants_opinion(text: str) -> bool:
+    """Las reacciones de Teto solo se usan si le preguntan qué siente o qué le parece."""
+    return bool(_OPINION.search(normalize(text)))
 
 
 def is_follow_up(text: str) -> bool:
@@ -113,7 +123,7 @@ class KnowledgeBase:
     def __len__(self) -> int:
         return len(self._entries)
 
-    def vocabulary(self, max_chars: int = 500) -> str:
+    def vocabulary(self, max_chars: int = 250) -> str:
         """Nombres propios para que el reconocimiento de voz los entienda mejor."""
         words = ["Kasane Teto"]
         size = len(words[0])

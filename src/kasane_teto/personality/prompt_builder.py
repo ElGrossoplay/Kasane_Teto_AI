@@ -14,14 +14,14 @@ def load_system_prompt() -> str:
     return path.read_text(encoding="utf-8")
 
 
-def knowledge_block(entries: list[Entry]) -> str:
+def knowledge_block(entries: list[Entry], include_feelings: bool = True) -> str:
     """Texto de las fichas relevantes para anteponer al mensaje del usuario."""
     if not entries:
         return ""
     lines = ["Consulta (el usuario no la ve; el tema de su mensaje está aquí):"]
     for entry in entries:
         line = f"- {entry.names[0]}. Hechos: {entry.facts}"
-        if entry.reaction:
+        if include_feelings and entry.reaction:
             line += f" Lo que sientes tú: {entry.reaction}"
         lines.append(line)
     return "\n".join(lines) + "\n\nMensaje del usuario: "

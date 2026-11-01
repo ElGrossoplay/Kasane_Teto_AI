@@ -10,9 +10,11 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from kasane_teto.ai.windows_job import KillOnCloseJob
+from kasane_teto.voice.audio import Recording
 from kasane_teto.voice.worker_process import VoiceError, WorkerProcess
 
 _LENGTH = struct.Struct("<I")
+_AUDIO_HEADER = struct.Struct("<III")
 
 log = logging.getLogger(__name__)
 _job_lock = threading.Lock()
@@ -79,10 +81,12 @@ class TTSEngine:
 
 
 class STTEngine:
-    def __init__(self, models: Path, workers: Path, threads: int, vocabulary: str) -> None:
+    def __init__(
+        self, models: Path, workers: Path, threads: int, vocabulary: str, model: str = "base"
+    ) -> None:
         self._python = _venv_python(models, "whisper")
         self._worker = workers / "whisper_worker.py"
-        self._model = models / "whisper" / "base"
+        self._model = models / "whisper" / model
         self._threads = threads
         self._vocabulary = vocabulary
         self._process: WorkerProcess | None = None
@@ -106,11 +110,12 @@ class STTEngine:
         process.start()
         self._process = process
 
-    def transcribe(self, pcm: bytes) -> str:
+    def transcribe(self, recording: Recording) -> str:
         self.load()
         assert self._process is not None
+        header = _AUDIO_HEADER.pack(len(recording.pcm), recording.rate, recording.channels)
         try:
-            self._process.stdin.write(_LENGTH.pack(len(pcm)) + pcm)
+            self._process.stdin.write(header + recording.pcm)
             self._process.stdin.flush()
             line = self._process.stdout.readline()
         except OSError as exc:

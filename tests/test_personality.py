@@ -52,6 +52,12 @@ def test_later_brackets_stay_in_text():
     assert parse(["[neutral] Mira [esto]"]) == ("Mira [esto]", PetState.SPEAKING)
 
 
+def test_system_prompt_stays_free_of_her_biography():
+    prompt = load_system_prompt()
+    for word in ("Mesmerizer", "2channel", "quimera"):
+        assert word not in prompt
+
+
 def test_system_prompt_lists_every_emotion():
     prompt = load_system_prompt()
     for tag in ("neutral", "feliz", "sorprendida", "confundida", "enfadada", "aburrida"):

@@ -7,6 +7,7 @@ from kasane_teto.memory.knowledge import (
     KnowledgeError,
     is_follow_up,
     normalize,
+    wants_opinion,
 )
 from kasane_teto.personality.prompt_builder import estimate_tokens, knowledge_block
 
@@ -95,6 +96,35 @@ def test_follow_up_questions_are_detected(text):
 )
 def test_new_topics_are_not_follow_ups(text):
     assert not is_follow_up(text)
+
+
+@pytest.mark.parametrize(
+    "text", ["¿Qué opinas de Miku?", "¿Te cae bien Luka?", "¿Te llevas bien con Rin?", "¿Cuál es tu favorita?"]
+)
+def test_opinion_questions_are_detected(text):
+    assert wants_opinion(text)
+
+
+@pytest.mark.parametrize("text", ["¿Quién es Hatsune Miku?", "Háblame de Vocaloid", "¿Cuándo salió?"])
+def test_factual_questions_are_not_opinions(text):
+    assert not wants_opinion(text)
+
+
+def test_block_can_omit_feelings():
+    block = knowledge_block([Entry("a", ("N",), "Hecho.", "Opinión.")], include_feelings=False)
+    assert "Opinión." not in block
+
+
+@pytest.mark.parametrize(
+    "text", ["¿Quién eres?", "¿Cuántos años tienes?", "¿Cuáles son tus canciones?", "¿Quién es Kasane Teto?"]
+)
+def test_questions_about_her_use_her_entry(base, text):
+    assert "teto" in ids(base.search(text))
+
+
+@pytest.mark.parametrize("text", ["¡Hola Teto!", "Teto, cuéntame un chiste", "¿Qué tal, Teto?"])
+def test_saying_her_name_does_not_load_her_entry(base, text):
+    assert "teto" not in ids(base.search(text))
 
 
 def test_real_vocabulary_uses_proper_capitals(base):

@@ -74,7 +74,8 @@ class TetoApp(QObject):
             models_dir(),
             workers_dir(),
             int(settings.get("voice.stt_threads", 4)),
-            f"Conversación con Teto. {knowledge.vocabulary()}.",
+            knowledge.vocabulary(),
+            str(settings.get("voice.stt_model", "base")),
         )
         self._listen = ListenService(self._bus, settings, stt, AudioRecorder(), self)
         self._hotkey = GlobalHotkey(lambda: self._bus.listen_toggled.emit())
