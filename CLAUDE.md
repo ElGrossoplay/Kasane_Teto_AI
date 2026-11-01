@@ -26,7 +26,7 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 | IA | `llama-server.exe` (llama.cpp, build CUDA 12; plan B Vulkan, plan C CPU) como **subproceso** bajo demanda, HTTP en 127.0.0.1, una sola instancia, se cierra tras inactividad |
 | Modelo | Qwen3.5-4B Q4_K_M en GPU; respaldo en CPU Qwen3.5-2B Q4_K_M (peor calidad, inventa más). Contexto 4096. Elegido con la batería de `scripts/probar_modelos.py` |
 | TTS | Piper como programa externo en `models/piper/venv` + `workers/piper_worker.py` (GPL-3.0), voz por defecto `es_MX-claude-high` |
-| STT | faster-whisper `small` int8 en CPU (88 % con la voz de Diego; `base`, 59 %), en `models/whisper/venv` + `workers/whisper_worker.py`. Push-to-talk con `Ctrl+Alt+T` (alterna) o botón. Micrófono apagado por defecto |
+| STT | faster-whisper `large-v3-turbo` int8 en CPU (98 % con auriculares, ~8 s por frase; `small` 89 %, 2,4 s), en `models/whisper/venv` + `workers/whisper_worker.py`. Push-to-talk con `Ctrl+Alt+T` (alterna) o botón. Micrófono apagado por defecto |
 | Memoria | SQLite + FTS5, sin embeddings por ahora. Datos en `%LOCALAPPDATA%\KasaneTetoAI\` |
 | Conocimiento | Fichas TOML verificadas en `assets/knowledge/`; solo las relevantes llegan al modelo. Sin datos sin contrastar |
 | Mascota | Sprites PNG por estado con "paquetes de personaje"; Live2D solo como mejora futura |

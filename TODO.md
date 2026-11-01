@@ -187,8 +187,12 @@ Limitaciones conocidas:
   tampoco: el motor rellena siempre hasta 30 s
 - Con las grabaciones con auriculares (12 frases, misma medición con la IA cargada): `large-v3-turbo`
   98 % (8,1 s, 1305 MB), `medium` 93 % (7,0 s, 1452 MB), `small` 89 % (2,4 s, 624 MB) y `base` 72 %.
-  Con el micrófono anterior turbo daba 79 %, así que el resultado depende del audio. Pendiente que
-  Diego elija modelo; la app sigue con `small`
+  Con el micrófono anterior turbo daba 79 %, así que el resultado depende del audio. Diego eligió
+  `large-v3-turbo` (2026-11-01). Medido con todo cargado: 2351 MB sin la ventana, por encima de
+  ~1,5 GB solo mientras sigue cargado (se descarga tras 5 minutos, y baja a 53 MB), ~9,4 s por frase
+  y hasta 32 s la primera tras cargarlo. Si cambia de micrófono, conviene volver a medir
+- Una de las 6 pruebas reales falló una vez y pasó en las 7 repeticiones siguientes. Aquella
+  ejecución no guardó cuál fue: la causa queda sin identificar
 - Python puede liberar objetos Qt desde un hilo que no es el principal. En las pruebas causó cierres
   (7 de 25 ejecuciones, 0 de 20 al limpiar la memoria en el hilo principal). No se ha visto en la app,
   cuyos objetos Qt viven toda la sesión, pero queda vigilar si se cierra sola mientras Teto habla
