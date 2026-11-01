@@ -100,10 +100,10 @@ Limitaciones conocidas:
 - [x] 3.7 Configuración: voz, volumen, micrófono (apagado por defecto)
 - [~] 3.8 **Diego:** eligió la voz Daniela. Primera prueba: había que hablar por sílabas y la
       personalidad resultaba forzada; corregido en parte
-- [~] 3.9 **Diego:** primera medición con su voz: 50 %. Solo el 1,8 % de la energía llega por encima
-      de 1 kHz, posible filtrado de Windows/Realtek. Con el refuerzo de agudos, 53 %: ajustar el
-      software casi no cambia el resultado. Falta revisar las mejoras de audio del micrófono,
-      repetir la prueba y decidir si hace falta el modelo `small` (461 MB)
+- [x] 3.9 **Diego:** medición con su voz: 50 % al principio, 55 % con ajustes de software y 79 % tras
+      revisar la configuración de sonido de Windows (8 frases). El reparto de frecuencias apenas
+      cambió, así que "faltan agudos" queda sin confirmar; el indicio es que dejó de haber un fondo
+      silenciado. Modelo `small` (461 MB) sin descargar: solo si 79 % se queda corto
 - [x] 3.10 Captura por WASAPI a calidad nativa (48 kHz) con conversión correcta, normalización,
       filtro de silencio y vocabulario como `hotwords`
 - [x] 3.11 Personalidad menos forzada: datos de Teto en una ficha que solo se usa si preguntan por
@@ -116,7 +116,7 @@ congelarse en todo el ciclo (pausa máxima 172 ms). RAM con todo activo ~1,74 GB
 
 Limitaciones conocidas:
 - El reconocimiento falla en palabras sueltas ("chiste" → "ciste") y Teto puede inventar cuando
-  ocurre. El modelo `base` llega a 72 % con voz sintética; falta medirlo con voz real.
+  ocurre. El modelo `base` llega a 79 % con la voz de Diego y aún falla en nombres propios.
 - Una mala transcripción con un nombre real puede hacerle inventar ("SereReRe").
 - La voz es genérica: no suena como Teto. RVC queda como mejora (ver ideas).
 - La primera respuesta de voz puede tardar 40 s si el modelo no está en la caché de Windows.
