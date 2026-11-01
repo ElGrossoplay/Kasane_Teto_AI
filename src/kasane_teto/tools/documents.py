@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 import zipfile
 from pathlib import Path
@@ -11,6 +12,7 @@ FORMAT_TEXT = "txt"
 FORMAT_WORD = "docx"
 FORMAT_SLIDES = "pptx"
 MAX_SLIDE_LINES = 7
+_TITLE_LABEL = re.compile(r"^t[ií]tulo\s*:\s*", re.IGNORECASE)
 
 _CONTENT_TYPES = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
@@ -68,7 +70,7 @@ def split_slides(text: str) -> list[tuple[str, list[str]]]:
         lines = [line.strip(" -•*\t") for line in block.splitlines()]
         lines = [line for line in lines if line]
         if lines:
-            slides.append((lines[0], lines[1:MAX_SLIDE_LINES]))
+            slides.append((_TITLE_LABEL.sub("", lines[0]), lines[1:MAX_SLIDE_LINES]))
     return slides
 
 

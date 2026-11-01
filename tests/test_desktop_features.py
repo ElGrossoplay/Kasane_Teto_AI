@@ -147,6 +147,7 @@ def test_document_uses_verified_entries(qapp, settings, tmp_path, monkeypatch):
 def test_slides_are_split_by_blank_lines():
     slides = documents.split_slides("Inicio\n- uno\n- dos\n\nFinal\ntres")
     assert slides == [("Inicio", ["uno", "dos"]), ("Final", ["tres"])]
+    assert documents.split_slides("Título: Origen\nuno")[0][0] == "Origen"
 
 
 def test_presentation_opens_with_its_slides(tmp_path):
