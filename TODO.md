@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-01 · **Fases 1 a 4 y búsqueda en VocaDB completadas · Fase 5 (herramientas) hecha, pendiente de la prueba manual de Diego**
+Última actualización: 2026-11-01 · **Fases 1 a 5 completadas, salvo la búsqueda de conocimiento general · Siguiente: Fase 6 (modo juego y optimización), pendiente de aprobación**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -281,7 +281,7 @@ la confirmación queda como opción en Configuración.
       nombres aproximados y dos niveles de subcarpetas
 - [x] 5.11 Abrir "el navegador" y sitios conocidos ("abre YouTube"). Más formas de decir sí y no, y
       deformaciones de voz como "Sierra Discord" o "carpeta de escargas"
-- [ ] 5.12 **Diego:** repetir la prueba manual
+- [x] 5.12 **Diego:** prueba manual superada con turbo y acciones por voz; aprobó subirlo (2026-11-01)
 
 Medido (2026-11-01): 558 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
 consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En el equipo real: encontró
@@ -357,5 +357,6 @@ Limitaciones conocidas:
   Diego aprobó el cambio: la app pasa a `small`. Prueba por voz superada y subido a GitHub.
 - **2026-11-01:** Fase 4 implementada: recuerdos con confirmación, panel e historial opcional.
   Prueba manual de Diego superada y subida a GitHub.
-- **2026-11-01:** Fase 5 implementada: acciones de Windows con confirmación siempre. Eliminado el
-  recorrido de procesos que incumplía la regla de anticheat. Pendiente la prueba manual.
+- **2026-11-01:** Fase 5 implementada: acciones de Windows, cerrar ventanas y actuar sin confirmar.
+  Eliminado el recorrido de procesos que incumplía la regla de anticheat. Reconocimiento de voz con
+  `large-v3-turbo`. Prueba manual de Diego superada y subida a GitHub.
