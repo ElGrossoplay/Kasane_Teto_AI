@@ -20,6 +20,7 @@ from faster_whisper import WhisperModel
 LANGUAGE = "es"
 TARGET_RATE = 16000
 PROMPT = "Conversación en español con Teto sobre música, Vocaloid y temas del día a día."
+PRE_EMPHASIS = 0.8
 PEAK_TARGET = 0.9
 MIN_PEAK = 0.005
 _HEADER = struct.Struct("<III")
@@ -67,6 +68,8 @@ def main() -> int:
         if pcm is None:
             return 0
         audio = decode(to_wav(pcm, rate, channels))
+        # Refuerza los agudos: en micrófonos apagados es donde se pierden las consonantes.
+        audio = np.append(audio[:1], audio[1:] - PRE_EMPHASIS * audio[:-1])
         peak = float(abs(audio).max()) if audio.size else 0.0
         if peak > MIN_PEAK:
             audio = audio * (PEAK_TARGET / peak)
