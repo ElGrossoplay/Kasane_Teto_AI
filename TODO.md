@@ -183,8 +183,12 @@ Limitaciones conocidas:
   sale "besó"
 - Modelos mayores comparados con las mismas 12 grabaciones y la IA cargada: `small` 88 % (2,7 s por
   frase, 625 MB), `medium` 91 % (9,2 s, 1456 MB), `large-v3-turbo` 79 % (10,9 s, 1307 MB). Con
-  beam 1, `medium` baja a 84 % y sigue en 7,5 s. Más hilos no acelera. Se queda `small`: tres puntos
-  no compensan 9 s de espera por frase. El siguiente salto sería mejor micrófono, sin probar aún
+  beam 1, `medium` baja a 84 % y sigue en 7,5 s. Más hilos no acelera, y acortar la ventana de audio
+  tampoco: el motor rellena siempre hasta 30 s
+- Con las grabaciones con auriculares (12 frases, misma medición con la IA cargada): `large-v3-turbo`
+  98 % (8,1 s, 1305 MB), `medium` 93 % (7,0 s, 1452 MB), `small` 89 % (2,4 s, 624 MB) y `base` 72 %.
+  Con el micrófono anterior turbo daba 79 %, así que el resultado depende del audio. Pendiente que
+  Diego elija modelo; la app sigue con `small`
 - Python puede liberar objetos Qt desde un hilo que no es el principal. En las pruebas causó cierres
   (7 de 25 ejecuciones, 0 de 20 al limpiar la memoria en el hilo principal). No se ha visto en la app,
   cuyos objetos Qt viven toda la sesión, pero queda vigilar si se cierra sola mientras Teto habla
