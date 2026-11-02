@@ -314,6 +314,15 @@ y crear archivos en lugar de simular teclado.
       ni se usa el token de sesión: Discord lo prohíbe y puede cerrar la cuenta
 - [x] P.8 **Diego:** creó la aplicación y lo probó con su Discord real: funcionó (2026-11-01)
 - [x] P.9 Entrar a un canal ya no pregunta, por decisión de Diego: la confirmación daba malentendidos
+- [x] P.10 "Abre el chat de Pablo": contactos con el ID del canal del chat, cifrados en `discord.bin`.
+      Abre por RPC (`SELECT_TEXT_CHANNEL`), o por enlace `discord://` si Discord no responde o está en
+      la bandeja. Con un juego delante no le quita el foco
+- [x] P.11 "Dile a Pablo que llego tarde": redacta con la IA local, abre el chat y copia el mensaje. El
+      envío lo hace siempre Diego, sin simular teclado
+- [ ] P.12 **Diego:** prueba manual con un chat de verdad: pegar el ID, abrir el chat con Teto y
+      comprobar que Discord pasa al frente
+
+Medido (2026-11-01, chats de Discord): 778 pruebas más 6 reales.
 
 Medido (2026-11-01): 676 pruebas más 6 reales. Con la visión en GPU quedan 34 MiB libres y tarda 24 s;
 en CPU quedan 874 MiB y tarda 14 s, y por eso va en CPU. Mirar tarda ~25 s la primera vez, al recargar
@@ -333,6 +342,12 @@ Limitaciones conocidas:
 - Sin confirmación, un error de voz puede meter al usuario en un canal con el micrófono abierto
 - Enviar mensajes no es posible por la vía oficial: el RPC no tiene esa orden, y hacerlo como usuario
   sería un self-bot, prohibido por Discord
+- Probado en el Discord real con un canal de texto, sin chat privado: el RPC y el enlace cambian de
+  canal. Ninguno trae Discord al frente desde otro programa; Teto lo intenta aparte, sin comprobar aún
+- Redacción: de 20 frases, unas 15 salen bien, sin inventar ni invertir el sentido. Quedan frases torpes
+  ("Le debo una", "Si viene hoy a jugar") y un "mensaje largo" sale corto: hay que leerlo antes de enviar
+- "Dile a X que…" con una X que no es contacto responde que no la tiene, aunque fuera una frase normal
+- El mensaje copiado queda en el portapapeles, y en su historial de Windows si está activado
 
 Medido (2026-11-01): 558 pruebas más 6 reales. Se comprobó que se rechazan órdenes fuera de lista,
 consolas, ejecutables, rutas, enlaces inseguros y datos sensibles. En el equipo real: encontró

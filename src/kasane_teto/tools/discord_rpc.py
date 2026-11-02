@@ -10,6 +10,7 @@ import ctypes
 import json
 import logging
 import msvcrt
+import re
 import struct
 import time
 import uuid
@@ -40,7 +41,9 @@ TOKEN_MARGIN_SECONDS = 60.0
 CHANNEL_VOICE = 2
 CHANNEL_STAGE = 13
 ERROR_ALREADY_IN_VOICE = 5003
+CHAT_LINK = "discord://-/channels/@me/{}"
 
+_CHAT_ID = re.compile(r"\d{17,20}")
 _HEADER = struct.Struct("<II")
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
@@ -170,6 +173,18 @@ class VoiceChannel:
     guild: str
 
 
+@dataclass(frozen=True)
+class Contact:
+    """El RPC no da la lista de chats privados: el ID lo apunta el usuario una vez."""
+
+    name: str
+    chat_id: str
+
+
+def chat_link(contact: Contact) -> str:
+    return CHAT_LINK.format(contact.chat_id)
+
+
 def _score(channel: VoiceChannel, target: str) -> float:
     """Admite "general", "minecraft", "general de minecraft" y nombres mal transcritos."""
     key = name_key(target)
@@ -239,7 +254,8 @@ class DiscordVoice:
             )
         finally:
             rpc.close()
-        self._save_tokens({"client_id": client_id, "client_secret": client_secret}, tokens)
+        keys = {"client_id": client_id, "client_secret": client_secret}
+        self._save_tokens({**self._store.load(), **keys}, tokens)
         self._channels_at = float("-inf")
         return len(self.voice_channels())
 
@@ -320,6 +336,55 @@ class DiscordVoice:
         rpc = self._session()
         try:
             rpc.request("SELECT_VOICE_CHANNEL", {"channel_id": None})
+        finally:
+            rpc.close()
+
+    def contacts(self) -> list[Contact]:
+        saved = self._saved_contacts()
+        return [Contact(name, saved[name]) for name in sorted(saved, key=str.casefold)]
+
+    def add_contact(self, name: str, chat: str) -> Contact:
+        """Admite el ID del canal o el enlace al chat. Un nombre repetido se sustituye."""
+        chat_id = _CHAT_ID.search(chat)
+        if not name.strip() or chat_id is None:
+            raise DiscordError("Faltan el nombre o el ID del canal del chat.")
+        key = name_key(name)
+        kept = {k: v for k, v in self._saved_contacts().items() if name_key(k) != key}
+        contact = Contact(name.strip(), chat_id.group())
+        self._save_contacts({**kept, contact.name: contact.chat_id})
+        return contact
+
+    def remove_contact(self, name: str) -> None:
+        self._save_contacts({k: v for k, v in self._saved_contacts().items() if k != name})
+
+    def _saved_contacts(self) -> dict[str, str]:
+        return dict(self._store.load().get("contacts", {}))
+
+    def _save_contacts(self, contacts: dict[str, str]) -> None:
+        self._store.save({**self._store.load(), "contacts": contacts})
+
+    def find_contact(self, target: str) -> Contact:
+        """Por parecido, como los canales: la voz rara vez escribe bien un nombre."""
+        key = name_key(target)
+        scored = [(name_similarity(key, name_key(c.name)), c) for c in self.contacts()]
+        best = max((score for score, _ in scored), default=0.0)
+        found = [contact for score, contact in scored if score == best]
+        if best < MIN_NAME_SIMILARITY:
+            raise DiscordError(f"No tengo a {target} en tus contactos de Discord. Añádelo en Configuración.")
+        if len(found) > 1:
+            names = ", ".join(contact.name for contact in found[:3])
+            raise DiscordError(f"¿A quién te refieres: {names}?")
+        return found[0]
+
+    def open_chat(self, contact: Contact) -> None:
+        """Solo cambia lo que se ve en Discord. El RPC no tiene orden para enviar mensajes."""
+        rpc = self._session()
+        try:
+            rpc.request(
+                "SELECT_TEXT_CHANNEL",
+                {"channel_id": contact.chat_id, "timeout": JOIN_TIMEOUT_SECONDS},
+                JOIN_TIMEOUT_SECONDS + REPLY_TIMEOUT_SECONDS,
+            )
         finally:
             rpc.close()
 

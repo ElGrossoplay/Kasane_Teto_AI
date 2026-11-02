@@ -4,13 +4,22 @@ from pathlib import Path
 import httpx
 import pytest
 from PySide6.QtCore import QCoreApplication, QElapsedTimer
+from PySide6.QtGui import QGuiApplication
 
 import kasane_teto.core.conversation as conversation
 from kasane_teto.core.events import EventBus
 from kasane_teto.interface.discord_window import DiscordWindow
 from kasane_teto.memory.knowledge import KnowledgeBase
 from kasane_teto.tools import discord_rpc
-from kasane_teto.tools.commands import USUAL_CHANNEL, VOICE_JOIN, VOICE_LEAVE, Command, parse_command
+from kasane_teto.tools.commands import (
+    CHAT_MESSAGE,
+    CHAT_OPEN,
+    USUAL_CHANNEL,
+    VOICE_JOIN,
+    VOICE_LEAVE,
+    Command,
+    parse_command,
+)
 from kasane_teto.tools.discord_rpc import (
     OP_CLOSE,
     OP_FRAME,
@@ -18,8 +27,9 @@ from kasane_teto.tools.discord_rpc import (
     DiscordVoice,
     RpcError,
 )
-from kasane_teto.tools.registry import ToolRegistry
+from kasane_teto.tools.registry import ActionRejected, ToolRegistry, WindowsRunner
 from kasane_teto.tools.secure_store import SecureStore, protect, unprotect
+from kasane_teto.tools.windows_control import Foreground, Window
 
 GUILDS = [{"id": "1", "name": "Minecraft"}, {"id": "2", "name": "Amigos"}]
 CHANNELS = {
@@ -379,9 +389,329 @@ def test_window_requires_both_fields(qapp, tmp_path, http):
     window.close()
 
 
+CHAT_ID = "123456789012345678"
+OTHER_CHAT_ID = "223456789012345678"
+
+
+class FakeRunner(WindowsRunner):
+    """Las pruebas no deben tocar el Discord ni las ventanas del equipo real."""
+
+    def __init__(self):
+        self.windows = [Window(7, "Amigos - Discord")]
+        self.current = Foreground("Bloc de notas", False)
+        self.focused = []
+        self.links = []
+
+    def list_windows(self):
+        return self.windows
+
+    def foreground(self):
+        return self.current
+
+    def focus_window(self, handle):
+        self.focused.append(handle)
+
+    def open_link(self, link):
+        self.links.append(link)
+
+
+@pytest.fixture
+def runner():
+    return FakeRunner()
+
+
+@pytest.fixture
+def tools(settings, tmp_path, discord, runner):
+    discord.add_contact("Pablo", CHAT_ID)
+    return ToolRegistry(settings, tmp_path / "a.log", runner, {}, discord)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("Abre el chat de Pablo", Command(CHAT_OPEN, "Pablo")),
+        ("Ábreme mi chat con Pablo Pérez", Command(CHAT_OPEN, "Pablo Pérez")),
+        ("Abre la conversación con mi amigo Pablo", Command(CHAT_OPEN, "Pablo")),
+        ("Métete al chat de Pablo", Command(CHAT_OPEN, "Pablo")),
+        ("Abre el chat de Pablo en Discord.", Command(CHAT_OPEN, "Pablo")),
+        ("Abre mi chat de Discord con Pablo", Command(CHAT_OPEN, "Pablo")),
+        ("Mándale un mensaje a Pablo", Command(CHAT_OPEN, "Pablo")),
+        ("Dile a Pablo que llego tarde", Command(CHAT_MESSAGE, "Pablo", detail="llego tarde")),
+        ("Oye Teto, dile a Pablo Pérez que llego", Command(CHAT_MESSAGE, "Pablo Pérez", detail="llego")),
+        ("Escríbele a mi amiga Ana: hola", Command(CHAT_MESSAGE, "Ana", detail="hola")),
+        ("Dile a Pablo si viene hoy", Command(CHAT_MESSAGE, "Pablo", detail="si viene hoy")),
+        (
+            "Mándale un mensaje a Pablo diciendo que llego tarde",
+            Command(CHAT_MESSAGE, "Pablo", detail="llego tarde"),
+        ),
+        (
+            "Mándale a Pablo un mensaje que diga que llego tarde",
+            Command(CHAT_MESSAGE, "Pablo", detail="llego tarde"),
+        ),
+        (
+            "Quiero que le mandes un mensaje a Pablo que diga hola",
+            Command(CHAT_MESSAGE, "Pablo", detail="hola"),
+        ),
+        (
+            "Escríbele por Discord a Pablo que llego tarde",
+            Command(CHAT_MESSAGE, "Pablo", detail="llego tarde"),
+        ),
+        (
+            "Abre el chat de Pablo y dile que llego tarde",
+            Command(CHAT_MESSAGE, "Pablo", detail="llego tarde"),
+        ),
+    ],
+)
+def test_chat_orders(text, expected):
+    assert parse_command(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Dime un chiste",
+        "Escribe un poema en el bloc de notas",
+        "Escribe una carta a mi abuela en Word",
+        "Abre Discord y dime un chiste",
+        "¿Qué le dirías a Pablo?",
+        "Dile que sí",
+    ],
+)
+def test_other_sentences_are_not_chat_orders(text):
+    command = parse_command(text)
+    assert command is None or command.kind not in (CHAT_OPEN, CHAT_MESSAGE)
+
+
+def test_voice_channels_are_not_chats():
+    assert parse_command("Entra al canal Pablo") == Command(VOICE_JOIN, "Pablo")
+
+
+@pytest.mark.parametrize(
+    "chat",
+    [CHAT_ID, f" {CHAT_ID} ", f"https://discord.com/channels/@me/{CHAT_ID}"],
+)
+def test_contact_accepts_the_id_or_the_link(discord, chat):
+    assert discord.add_contact("Pablo", chat).chat_id == CHAT_ID
+
+
+@pytest.mark.parametrize(("name", "chat"), [("", CHAT_ID), ("Pablo", ""), ("Pablo", "hola"), ("Pablo", "123")])
+def test_bad_contacts_are_refused(discord, name, chat):
+    with pytest.raises(DiscordError, match="Faltan"):
+        discord.add_contact(name, chat)
+    assert discord.contacts() == []
+
+
+def test_same_name_replaces_the_contact(discord):
+    discord.add_contact("Pablo", CHAT_ID)
+    discord.add_contact("pablo", OTHER_CHAT_ID)
+    assert [c.chat_id for c in discord.contacts()] == [OTHER_CHAT_ID]
+
+
+def test_contacts_are_encrypted_on_disk(discord, tmp_path):
+    discord.add_contact("Pablo", CHAT_ID)
+    data = (tmp_path / "discord.bin").read_bytes()
+    assert b"Pablo" not in data
+    assert CHAT_ID.encode() not in data
+
+
+def test_reconnecting_keeps_contacts(discord):
+    discord.add_contact("Pablo", CHAT_ID)
+    discord.authorize("123", "otro")
+    assert [c.name for c in discord.contacts()] == ["Pablo"]
+
+
+def test_forgetting_erases_contacts(discord):
+    discord.add_contact("Pablo", CHAT_ID)
+    discord.forget()
+    assert discord.contacts() == []
+
+
+@pytest.mark.parametrize("target", ["Pablo", "pablo", "Pavlo"])
+def test_contact_is_found_by_how_it_is_said(discord, target):
+    discord.add_contact("Pablo", CHAT_ID)
+    discord.add_contact("Ana", OTHER_CHAT_ID)
+    assert discord.find_contact(target).chat_id == CHAT_ID
+
+
+def test_unknown_contact_is_explained(discord):
+    with pytest.raises(DiscordError, match="No tengo a Zoe"):
+        discord.find_contact("Zoe")
+
+
+def test_similar_contacts_ask_which(discord):
+    discord.add_contact("Marta G", CHAT_ID)
+    discord.add_contact("Marta R", OTHER_CHAT_ID)
+    with pytest.raises(DiscordError, match="A quién"):
+        discord.find_contact("Marta X")
+
+
+def test_opening_a_chat_uses_the_official_command(tools, runner):
+    assert tools.open_chat("Pablo") == "Pablo"
+    args = named("SELECT_TEXT_CHANNEL")[-1]["args"]
+    assert args["channel_id"] == CHAT_ID
+    assert runner.focused == [7]
+    assert runner.links == []
+
+
+def test_browser_tab_is_not_discord(tools, runner):
+    runner.windows = [Window(8, "Discord - Google Chrome")]
+    tools.open_chat("Pablo")
+    assert runner.focused == []
+    assert runner.links == [f"discord://-/channels/@me/{CHAT_ID}"]
+
+
+def test_game_in_front_keeps_the_focus(tools, runner):
+    runner.current = Foreground("Juego", True)
+    tools.open_chat("Pablo")
+    assert named("SELECT_TEXT_CHANNEL")
+    assert runner.focused == []
+    assert runner.links == []
+
+
+def test_discord_hidden_in_the_tray_opens_by_link(tools, runner):
+    runner.windows = []
+    tools.open_chat("Pablo")
+    assert runner.links == [f"discord://-/channels/@me/{CHAT_ID}"]
+
+
+def test_closed_discord_opens_by_link(tools, runner, monkeypatch):
+    def closed():
+        raise DiscordError("Discord no está abierto.")
+
+    monkeypatch.setattr(FakeDiscord, "connect", staticmethod(closed))
+    assert tools.open_chat("Pablo") == "Pablo"
+    assert runner.links == [f"discord://-/channels/@me/{CHAT_ID}"]
+
+
+def test_rejected_chat_id_is_explained(tools, runner):
+    FakeDiscord.errors = {"SELECT_TEXT_CHANNEL": 4005}
+    with pytest.raises(ActionRejected, match="ID del canal"):
+        tools.open_chat("Pablo")
+    assert runner.links == []
+
+
+class FakeProcess:
+    base_url = "http://127.0.0.1:1"
+    api_key = ""
+
+
+class DraftingResources(FakeResources):
+    def ensure_loaded(self, vision=False):
+        return FakeProcess()
+
+
+class FakeClient:
+    finish_reason = "stop"
+    last_messages = None
+    answer = "[neutral] Oye, llego tarde."
+
+    def __init__(self, base_url, api_key):
+        pass
+
+    def stream_chat(self, messages, params, cancel):
+        FakeClient.last_messages = messages
+        yield FakeClient.answer
+
+
+@pytest.fixture
+def chat_service(qapp, settings, tools, monkeypatch):
+    monkeypatch.setattr(conversation, "LLMClient", FakeClient)
+    settings.set("tools.enabled", True)
+    bus = EventBus()
+    record = {"done": 0, "tokens": []}
+    bus.assistant_done.connect(lambda: record.__setitem__("done", record["done"] + 1))
+    bus.assistant_token.connect(record["tokens"].append)
+    item = conversation.ConversationService(
+        bus, DraftingResources(), settings, KnowledgeBase([]), tools=tools
+    )
+    return bus, item, record
+
+
+def test_open_chat_goes_straight_in(chat_service):
+    bus, _, record = chat_service
+    say(bus, record, "Abre el chat de Pablo")
+    assert named("SELECT_TEXT_CHANNEL")[-1]["args"]["channel_id"] == CHAT_ID
+    assert record["tokens"][-1] == "Chat con Pablo abierto."
+
+
+def test_message_is_drafted_copied_and_never_sent(chat_service, qapp):
+    bus, _, record = chat_service
+    QGuiApplication.clipboard().clear()
+    say(bus, record, "Dile a Pablo que llego tarde")
+    pump(lambda: QGuiApplication.clipboard().text() == "Oye, llego tarde.")
+    reply = "".join(record["tokens"])
+    assert "Oye, llego tarde." in reply
+    assert "envíalo tú" in reply
+    assert named("SELECT_TEXT_CHANNEL")[-1]["args"]["channel_id"] == CHAT_ID
+    assert {c["cmd"] for c in commands()} <= {
+        "AUTHORIZE", "AUTHENTICATE", "GET_GUILDS", "GET_CHANNELS", "SELECT_TEXT_CHANNEL"
+    }
+
+
+def test_message_prompt_carries_only_what_was_asked(chat_service):
+    bus, _, record = chat_service
+    say(bus, record, "Dile a Pavlo que llego tarde")
+    prompt = FakeClient.last_messages[-1]["content"]
+    assert "a Pablo por chat" in prompt
+    assert prompt.endswith("llego tarde")
+
+
+def test_quotes_around_the_draft_are_removed(chat_service, monkeypatch):
+    bus, _, record = chat_service
+    monkeypatch.setattr(FakeClient, "answer", '[neutral] Aquí tienes:\n"Hola, Pablo."')
+    say(bus, record, "Dile a Pablo que hola")
+    pump(lambda: QGuiApplication.clipboard().text() == "Hola, Pablo.")
+
+
+def test_unknown_contact_does_not_load_the_model(chat_service, monkeypatch):
+    bus, _, record = chat_service
+    monkeypatch.setattr(FakeClient, "last_messages", None)
+    say(bus, record, "Dile a Zoe que hola")
+    assert "No tengo a Zoe" in record["tokens"][-1]
+    assert FakeClient.last_messages is None
+
+
+def test_chat_failure_still_leaves_the_message_copied(chat_service):
+    bus, _, record = chat_service
+    FakeDiscord.errors = {"SELECT_TEXT_CHANNEL": 4005}
+    say(bus, record, "Dile a Pablo que llego tarde")
+    pump(lambda: QGuiApplication.clipboard().text() == "Oye, llego tarde.")
+    reply = "".join(record["tokens"])
+    assert "no pude abrir el chat" in reply
+    assert "Oye, llego tarde." in reply
+
+
+def test_window_adds_and_removes_contacts(qapp, discord):
+    window = DiscordWindow(discord)
+    window._contact_name.setText("Pablo")
+    window._contact_chat.setText(CHAT_ID)
+    window._add_contact.click()
+    assert window._contacts.count() == 1
+    assert window._contact_chat.text() == ""
+    window._contacts.setCurrentRow(0)
+    window._remove_contact.click()
+    assert window._contacts.count() == 0
+    assert discord.contacts() == []
+    window.close()
+
+
+def test_window_explains_a_bad_contact(qapp, discord):
+    window = DiscordWindow(discord)
+    window._contact_name.setText("Pablo")
+    window._contact_chat.setText("no es un id")
+    window._add_contact.click()
+    assert "Faltan" in window._status.text()
+    assert window._contacts.count() == 0
+    window.close()
+
+
 def test_no_automation_of_the_discord_interface():
     """Regla de Discord: nada de simular clics o teclado, ni usar el token de sesión."""
+    for module in (discord_rpc, conversation):
+        source = Path(module.__file__).read_text(encoding="utf-8")
+        assert "SendInput" not in source
+        assert "keybd_event" not in source
     source = Path(discord_rpc.__file__).read_text(encoding="utf-8")
-    assert "SendInput" not in source
     assert "leveldb" not in source.casefold()
     assert "discord.com/api/v" not in source
+    assert "CREATE_MESSAGE" not in source

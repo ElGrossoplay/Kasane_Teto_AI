@@ -79,9 +79,13 @@ no se guarda ni sale del equipo), "¿qué tengo abierto?", "escribe un poema en 
 "crea una presentación sobre gatos". Los archivos se crean en `Documentos\Teto`. Los comentarios por
 su cuenta se activan aparte en Configuración.
 
-Discord: con "Conectar Discord…" en Configuración y una aplicación propia del portal de Discord,
+Discord: con "Discord y contactos…" en Configuración y una aplicación propia del portal de Discord,
 puedes decir "entra al canal General de Minecraft" o "sal del canal". Usa su sistema oficial y las
 claves quedan cifradas en tu equipo.
+
+Si apuntas a tus amigos en esa ventana con el ID del canal de su chat, puedes decir "abre el chat de
+Pablo" o "dile a Pablo que llego tarde". En el segundo caso Teto redacta el mensaje, abre el chat y lo
+copia: tú lo pegas con Ctrl+V y pulsas Enter. Teto nunca envía mensajes por su cuenta.
 
 ## Diagnóstico del equipo
 

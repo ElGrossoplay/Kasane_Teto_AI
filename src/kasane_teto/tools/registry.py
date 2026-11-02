@@ -28,6 +28,8 @@ from kasane_teto.memory.knowledge import MIN_NAME_SIMILARITY, name_key, name_sim
 from kasane_teto.memory.proposals import has_secret
 from kasane_teto.tools import documents, installed_apps, windows_control
 from kasane_teto.tools.commands import (
+    CHAT_MESSAGE,
+    CHAT_OPEN,
     CLOSE_APP,
     INFO,
     INFO_BATTERY,
@@ -53,7 +55,14 @@ from kasane_teto.tools.commands import (
     WINDOW_KINDS,
     Command,
 )
-from kasane_teto.tools.discord_rpc import DiscordError, DiscordVoice, VoiceChannel
+from kasane_teto.tools.discord_rpc import (
+    Contact,
+    DiscordError,
+    DiscordVoice,
+    RpcError,
+    VoiceChannel,
+    chat_link,
+)
 
 BUILTIN_APPS = {"calculadora": "calc.exe", "bloc de notas": "notepad.exe"}
 # Permitir estas sería permitir cualquier comando, aunque el usuario las añada al catálogo.
@@ -107,6 +116,7 @@ MAX_FILES_SCANNED = 5000
 MAX_FOLDER_DEPTH = 2
 SEARCH_URL = "https://duckduckgo.com/?q="
 MAX_SEARCH_CHARS = 120
+BAD_CHAT_REPLY = "Discord no me deja abrir ese chat. Revisa que guardaste el ID del canal, no el del usuario."
 CPU_SAMPLE_SECONDS = 0.3
 DAYS = ("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
 MONTHS = (
@@ -150,13 +160,16 @@ class SystemRunner(Protocol):
     def list_windows(self) -> list[windows_control.Window]: ...
     def close_window(self, handle: int) -> None: ...
     def show_window(self, handle: int, mode: int) -> None: ...
+    def focus_window(self, handle: int) -> None: ...
     def foreground_window(self) -> int: ...
+    def open_link(self, link: str) -> None: ...
 
 
 class WindowsRunner:
     list_windows = staticmethod(windows_control.list_windows)
     close_window = staticmethod(windows_control.close_window)
     show_window = staticmethod(windows_control.show_window)
+    focus_window = staticmethod(windows_control.focus_window)
     foreground_window = staticmethod(windows_control.foreground_window)
     list_start_apps = staticmethod(installed_apps.read_start_apps)
     foreground = staticmethod(windows_control.foreground)
@@ -188,6 +201,10 @@ class WindowsRunner:
     def open_url(self, url: str) -> None:
         if not webbrowser.open(url):
             raise OSError("El navegador no respondió")
+
+    def open_link(self, link: str) -> None:
+        """Solo enlaces que arma Teto con un ID numérico; el texto del usuario no llega aquí."""
+        os.startfile(link)  # type: ignore[attr-defined]
 
 
 @dataclass(frozen=True)
@@ -327,6 +344,9 @@ class ToolRegistry:
             return self._prepare_voice(command)
         if command.kind == VOICE_LEAVE:
             return Action(command, "Voy a salir del canal de voz")
+        if command.kind == CHAT_OPEN:
+            contact = self._contact(command.target)
+            return Action(command, f"Voy a abrir tu chat con {contact.name}", contact.name)
         raise ActionRejected("Eso no lo puedo hacer.")
 
     def _discord_channel(self, command: Command) -> VoiceChannel:
@@ -355,6 +375,43 @@ class ToolRegistry:
         except DiscordError as exc:
             raise ActionRejected(str(exc)) from exc
         return f"Dentro de {channel.name}."
+
+    def _contact(self, target: str) -> Contact:
+        if self._discord is None:
+            raise ActionRejected("Primero conecta Discord en Configuración.")
+        try:
+            return self._discord.find_contact(target)
+        except DiscordError as exc:
+            raise ActionRejected(str(exc)) from exc
+
+    def contact_name(self, target: str) -> str:
+        return self._contact(target).name
+
+    def open_chat(self, target: str) -> str:
+        """Si el RPC no contesta, el enlace también abre Discord cuando está cerrado."""
+        contact = self._contact(target)
+        assert self._discord is not None
+        try:
+            self._discord.open_chat(contact)
+        except RpcError as exc:
+            raise ActionRejected(BAD_CHAT_REPLY) from exc
+        except DiscordError as exc:
+            log.info("Abriendo el chat por enlace: %s", exc)
+            self._runner.open_link(chat_link(contact))
+            return contact.name
+        self._show_discord(contact)
+        return contact.name
+
+    def _show_discord(self, contact: Contact) -> None:
+        """El RPC no trae Discord al frente. Con un juego delante, no se le quita el foco."""
+        if self._runner.foreground().is_game:
+            return
+        for window in self._runner.list_windows():
+            if _clean_title(window.title).endswith("discord"):
+                self._runner.focus_window(window.handle)
+                return
+        # Oculto en la bandeja no aparece en la lista.
+        self._runner.open_link(chat_link(contact))
 
     def _prepare_search(self, command: Command) -> Action:
         if has_secret(command.target) or len(command.target) > MAX_SEARCH_CHARS:
@@ -521,6 +578,8 @@ class ToolRegistry:
             return self._act_on_windows(checked)
         if command.kind in (VOICE_JOIN, VOICE_LEAVE):
             return self._run_voice(command)
+        if command.kind == CHAT_OPEN:
+            return f"Chat con {self.open_chat(command.target)} abierto."
         if checked.app_id:
             self._runner.start_app(checked.app_id)
         elif command.kind == OPEN_APP:

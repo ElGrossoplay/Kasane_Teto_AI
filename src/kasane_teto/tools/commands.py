@@ -23,6 +23,8 @@ WRITE_DOCUMENT = "write"
 VOICE_JOIN = "voice_join"
 VOICE_LEAVE = "voice_leave"
 USUAL_CHANNEL = "el de siempre"
+CHAT_OPEN = "chat_open"
+CHAT_MESSAGE = "chat_message"
 WEB_SEARCH = "search"
 INFO = "info"
 
@@ -90,6 +92,32 @@ _VOICE_LEAVE = re.compile(
     re.IGNORECASE,
 )
 _USUAL = re.compile(r"\b(?:de\s+siempre|habitual|usual|favorito)\b", re.IGNORECASE)
+_TELL = (
+    r"(?:le\s+)?(?:d[ií]le|dec[ií]rle|digas|escr[ií]b[ea]le|escribirle|escribas|escribe|m[aá]ndale"
+    r"|mandarle|mandes|manda|env[ií]ale|enviarle|env[ií]es|env[ií]a|p[aá]sale|pasarle)"
+)
+_CHAT_OPEN = re.compile(
+    _PREFIX + r"(?:[aá]br[eéa](?:me)?|abrir|m[eé]te(?:te|me)?|entra(?:r)?|ll[eé]vame|ve|ponme)\s+"
+    r"(?:(?:a|al|a\s+la|en|en\s+el|en\s+la)\s+)?(?:(?:el|la|mi)\s+)?(?:chat|conversaci[oó]n)\s+"
+    r"(?:de\s+discord\s+)?(?:de|del|con)\s+(?P<target>.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_CHAT_AND_TELL = re.compile(rf"\s+y\s+{_TELL}\s+(?:que\s+)?(?P<what>.+)$", re.IGNORECASE | re.DOTALL)
+_CHAT_TELL = re.compile(
+    _PREFIX + _TELL + r"\s+(?:por\s+discord\s+)?(?:(?:un\s+)?(?:mensaje|mensajito|texto|algo)\s+)?"
+    r"a\s+(?P<rest>.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_CHAT_SPLIT = re.compile(
+    r"^(?P<name>.+?)(?:\s*[:,]\s*"
+    r"|\s+(?:un\s+mensaje\s+)?(?:(?:diciendo(?:le)?|que\s+(?:le\s+)?diga)(?:\s+que)?|que)\s+"
+    r"|\s+(?=(?:si|sobre|preguntando(?:le)?)\s))(?P<what>.+)$",
+    re.IGNORECASE | re.DOTALL,
+)
+_CHAT_NAME_NOISE = re.compile(
+    r"^(?:(?:mi|el|la)\s+)*(?:amig[oa]\s+)?|\s+(?:en|por|de)\s+discord\b|\s+un\s+mensaje$",
+    re.IGNORECASE,
+)
 _LOOK = re.compile(
     r"\b(?:mira|m[ií]rame|ve|observa|analiza|revisa|describe|lee)\s+(?:a\s+)?(?:mi|la|esta)\s+pantalla\b"
     r"|\bqu[eé]\s+(?:ves|hay|sale|aparece)\s+en\s+(?:mi|la|esta)\s+pantalla\b"
@@ -209,6 +237,7 @@ class Command:
     kind: str
     target: str = ""
     folder: str = ""
+    detail: str = ""
 
 
 def _clean_target(raw: str) -> str:
@@ -286,16 +315,40 @@ def _voice_command(text: str) -> Command | None:
     return Command(VOICE_JOIN, target) if target else None
 
 
+def _chat_command(text: str) -> Command | None:
+    """Abre un chat de Discord o prepara un mensaje; "dile a Pablo" sin más solo abre el chat."""
+    stripped = text.strip()
+    opened = _CHAT_OPEN.match(stripped)
+    if opened is not None:
+        name, what = opened.group("target"), ""
+        also = _CHAT_AND_TELL.search(name)
+        if also is not None:
+            name, what = name[: also.start()], also.group("what")
+    else:
+        told = _CHAT_TELL.match(stripped)
+        if told is None:
+            return None
+        split = _CHAT_SPLIT.match(told.group("rest"))
+        name, what = split.group("name", "what") if split else (told.group("rest"), "")
+    name = _CHAT_NAME_NOISE.sub("", _clean_target(name)).strip()
+    if not name:
+        return None
+    return Command(CHAT_MESSAGE, name, detail=what.strip()) if what.strip() else Command(CHAT_OPEN, name)
+
+
 def parse_command(text: str) -> Command | None:
     """Convierte una orden clara en un comando. Cualquier otra frase es conversación."""
     if _LOOK.search(text):
         return Command(LOOK_AT_SCREEN)
-    voice = _voice_command(text)
-    if voice is not None:
-        return voice
     document = _document_command(text)
     if document is not None:
         return document
+    chat = _chat_command(text)
+    if chat is not None:
+        return chat
+    voice = _voice_command(text)
+    if voice is not None:
+        return voice
     search = _SEARCH.match(text)
     if search is not None:
         target = _clean_target(search.group("target"))

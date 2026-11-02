@@ -140,7 +140,7 @@ class SettingsWindow(QDialog):
         self._comment_minutes.setValue(comments_minutes)
         self._comment_minutes.valueChanged.connect(bus.comments_minutes_requested)
 
-        self._discord_button = QPushButton("Conectar Discord…")
+        self._discord_button = QPushButton("Discord y contactos…")
         self._discord_button.setEnabled(discord is not None)
         self._discord_button.clicked.connect(self._open_discord)
 

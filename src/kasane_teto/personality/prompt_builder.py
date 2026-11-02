@@ -31,6 +31,17 @@ DOCUMENT_PROMPTS = {
         "tres líneas de contenido, y entre diapositivas hay una línea en blanco. El tema es: "
     ),
 }
+MESSAGE_PROMPT = (
+    "Le escribo a {name} por chat. Convierte lo que digo en mi mensaje, hablándole de tú y sin "
+    "añadir planes, motivos ni datos. No lo firmes.\n"
+    "Ejemplos:\n"
+    "«llego tarde» → «Llego tarde.»\n"
+    "«me pase las fotos» → «¿Me pasas las fotos?»\n"
+    "«me llame» → «Llámame.»\n"
+    "«le debo dinero» → «Te debo dinero.»\n"
+    "«se conecte» → «Conéctate.»\n"
+    "Lo que digo: "
+)
 COMMENT_PROMPT = (
     "Tu amigo tiene delante esta ventana: {title}. Suelta un comentario muy corto sobre lo que "
     "está haciendo, en una frase, sin preguntas. No hables de ti.\n"

@@ -185,3 +185,11 @@ def show_window(handle: int, mode: int) -> None:
     if not _user32.ShowWindowAsync(handle, mode):
         ctypes.set_last_error(0)
 
+
+def focus_window(handle: int) -> None:
+    """Windows solo lo admite si el usuario acaba de usar Teto; si no, la ventana sigue detrás."""
+    if _user32.IsIconic(handle):
+        show_window(handle, SW_RESTORE)
+    if not _user32.SetForegroundWindow(handle):
+        ctypes.set_last_error(0)
+

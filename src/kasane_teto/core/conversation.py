@@ -12,6 +12,7 @@ from functools import partial
 from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QGuiApplication
 
 from kasane_teto.ai.llm_client import GenerationParams, LLMClient, LLMRequestError
 from kasane_teto.ai.llm_process import LLMStartError
@@ -33,6 +34,7 @@ from kasane_teto.personality.prompt_builder import (
     COMMENT_PROMPT,
     DOCUMENT_PROMPTS,
     DOCUMENT_SYSTEM,
+    MESSAGE_PROMPT,
     SCREEN_PROMPT,
     SEARCH_DONE,
     build_messages,
@@ -42,6 +44,7 @@ from kasane_teto.personality.prompt_builder import (
 )
 from kasane_teto.tools.documents import strip_preamble
 from kasane_teto.tools.commands import (
+    CHAT_MESSAGE,
     LOOK_AT_SCREEN,
     WRITE_DOCUMENT,
     Command,
@@ -85,8 +88,16 @@ VISION_UNAVAILABLE_MESSAGE = "No pude cargar la visión. Cierra lo que esté usa
 DOCUMENT_SAVED_REPLY = "Listo, lo he dejado en Documentos, carpeta Teto."
 DOCUMENT_FAILED_REPLY = "Lo he escrito, pero no he podido guardarlo."
 DOCUMENT_MAX_TOKENS = 800
+MESSAGE_READY_REPLY = "Chat con {name} abierto y mensaje copiado. Pégalo con Control V y envíalo tú:\n\n{message}"
+MESSAGE_COPIED_REPLY = "Te lo he copiado, pero no pude abrir el chat. {reason}\n\n{message}"
 
 log = logging.getLogger(__name__)
+
+
+def _document_request(document: Command) -> str:
+    if document.kind == CHAT_MESSAGE:
+        return MESSAGE_PROMPT.format(name=document.target) + document.detail
+    return DOCUMENT_PROMPTS[document.folder] + document.target
 
 
 class _TaskSignals(QObject):
@@ -180,7 +191,7 @@ class _GenerationTask(QRunnable):
                 self._announce_sources(web)
                 if self._extra_notice:
                     self.signals.notice.emit(self._extra_notice)
-                if self._finish is not None:
+                if self._finish is not None and not self._cancel.is_set():
                     self.signals.token.emit(self._finish(text))
             self.signals.finished.emit(text)
         except LLMStartError as exc:
@@ -233,6 +244,8 @@ class _GenerationTask(QRunnable):
 
 
 class ConversationService(QObject):
+    _message_ready = Signal(str)
+
     def __init__(
         self,
         bus: EventBus,
@@ -281,6 +294,7 @@ class ConversationService(QObject):
         )
 
         self._speaking = False
+        self._message_ready.connect(self._copy_message)
         bus.user_message.connect(self._on_user_message)
         bus.generation_stop_requested.connect(self._on_stop)
         bus.speech_active.connect(self._on_speech_active)
@@ -349,6 +363,10 @@ class ConversationService(QObject):
         self._resources.set_busy(True)
         self._bus.pet_state_requested.emit(PetState.THINKING)
 
+        finish = None
+        if document is not None:
+            is_message = document.kind == CHAT_MESSAGE
+            finish = partial(self._deliver_message if is_message else self._save_document, document)
         task = _GenerationTask(
             self._resources,
             partial(self._compose, text, entries, memories, image_url, document),
@@ -357,7 +375,7 @@ class ConversationService(QObject):
             None if special else self._web_search_for(text),
             "" if special else self._turn_notice(text),
             bool(image_url),
-            partial(self._save_document, document) if document else None,
+            finish,
         )
         self._launch(task, self._on_finished, self._on_failed)
 
@@ -427,6 +445,34 @@ class ConversationService(QObject):
         self._tools.record(WRITE_DOCUMENT, path.name, "hecho")
         return DOCUMENT_SAVED_REPLY
 
+    def _start_message(self, text: str, command: Command) -> None:
+        """Se comprueba antes de cargar la IA: sin ese contacto no hay nada que redactar."""
+        assert self._tools is not None
+        try:
+            name = self._tools.contact_name(command.target)
+        except ActionRejected as exc:
+            self._tools.record(CHAT_MESSAGE, command.target, "rechazado")
+            self._reply_directly(str(exc))
+            return
+        self._start_turn(text, document=replace(command, target=name))
+
+    def _deliver_message(self, command: Command | None, text: str) -> str:
+        """Corre en el hilo de la tarea. Aquí no se envía nada: enviarlo es cosa del usuario."""
+        assert self._tools is not None and command is not None
+        message = strip_preamble(text).strip("\"«»“”")
+        self._message_ready.emit(message)
+        try:
+            name = self._tools.open_chat(command.target)
+        except (ActionRejected, OSError) as exc:
+            log.error("No se pudo abrir el chat: %s", exc)
+            self._tools.record(CHAT_MESSAGE, command.target, "error")
+            return MESSAGE_COPIED_REPLY.format(reason=exc, message=message)
+        self._tools.record(CHAT_MESSAGE, name, "hecho")
+        return MESSAGE_READY_REPLY.format(name=name, message=message)
+
+    def _copy_message(self, message: str) -> None:
+        QGuiApplication.clipboard().setText(message)
+
     def _desktop_titles(self, text: str) -> list[str]:
         """Títulos de ventana, solo si los pide y solo para el modelo local."""
         if not self.tools_enabled or self._tools is None or not asks_open_things(text):
@@ -456,6 +502,9 @@ class ConversationService(QObject):
             return True
         if command.kind == WRITE_DOCUMENT:
             self._start_turn(text, document=command)
+            return True
+        if command.kind == CHAT_MESSAGE:
+            self._start_message(text, command)
             return True
         ask_first = bool(self._settings.get("tools.confirm", False))
         self._start_action_task(command, ask_first, by_button=False)
@@ -693,7 +742,7 @@ class ConversationService(QObject):
         self._last_web = web
         if document is not None:
             facts = knowledge_block(entries, False)
-            prompt = facts + DOCUMENT_PROMPTS[document.folder] + document.target
+            prompt = facts + _document_request(document)
             return [
                 {"role": "system", "content": DOCUMENT_SYSTEM},
                 {"role": "user", "content": prompt},
