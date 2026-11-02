@@ -33,8 +33,9 @@ _SECRET = re.compile(
     re.IGNORECASE,
 )
 # Una respuesta vale si todas sus palabras son de esta lista: "Sí, hazlo" sí, "Sí que me gusta" no.
+# "ti" es como la voz transcribe a veces "sí".
 _YES_WORDS = frozenset(
-    "si claro vale ok okay dale adelante hazlo de acuerdo por favor guardalo recuerdalo "
+    "si ti claro vale ok okay dale adelante hazlo de acuerdo por favor guardalo recuerdalo "
     "abrelo abrela cierralo cierrala venga perfecto bien".split()
 )
 _YES_FIRST = _YES_WORDS - frozenset("de acuerdo por favor bien".split()) | {"de"}

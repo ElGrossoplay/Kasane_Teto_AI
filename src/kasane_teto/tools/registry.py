@@ -341,8 +341,7 @@ class ToolRegistry:
 
     def _prepare_voice(self, command: Command) -> Action:
         channel = self._discord_channel(command)
-        summary = f"Voy a entrar a {channel.name}, en {channel.guild}, con tu micrófono"
-        return Action(command, summary, channel.name)
+        return Action(command, f"Voy a entrar a {channel.name}, en {channel.guild}", channel.name)
 
     def _run_voice(self, command: Command) -> str:
         if self._discord is None or not self._discord.is_configured:

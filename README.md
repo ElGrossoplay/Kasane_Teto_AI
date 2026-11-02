@@ -80,8 +80,8 @@ no se guarda ni sale del equipo), "¿qué tengo abierto?", "escribe un poema en 
 su cuenta se activan aparte en Configuración.
 
 Discord: con "Conectar Discord…" en Configuración y una aplicación propia del portal de Discord,
-puedes decir "entra al canal General de Minecraft" o "sal del canal". Usa su sistema oficial, las claves
-quedan cifradas en tu equipo y entrar a un canal siempre pide confirmación.
+puedes decir "entra al canal General de Minecraft" o "sal del canal". Usa su sistema oficial y las
+claves quedan cifradas en tu equipo.
 
 ## Diagnóstico del equipo
 

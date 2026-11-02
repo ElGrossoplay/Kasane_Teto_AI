@@ -254,6 +254,7 @@ def test_secrets_are_never_proposed(text):
     ("text", "answer"),
     [
         ("sí", True),
+        ("Ti", True),
         ("Sí, guárdalo.", True),
         ("si por favor", True),
         ("no", False),

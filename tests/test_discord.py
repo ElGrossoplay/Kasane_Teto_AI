@@ -309,23 +309,27 @@ def say(bus, record, text):
     pump(lambda: record["done"] == done + 1)
 
 
-def test_joining_always_asks_even_without_confirmation(service):
+def test_joining_goes_straight_in(service):
     bus, _, _, record = service
     say(bus, record, "Entra al canal Survival")
-    assert "micrófono" in record["actions"][0]
-    assert not [c for c in named("SELECT_VOICE_CHANNEL")]
-
-
-def test_yes_joins_the_channel(service):
-    bus, _, _, record = service
-    say(bus, record, "Entra al canal Survival")
-    say(bus, record, "sí")
+    assert record["actions"] == []
     assert named("SELECT_VOICE_CHANNEL")[-1]["args"]["channel_id"] == "12"
     assert record["tokens"][-1] == "Dentro de Survival."
 
 
-def test_no_stays_out(service):
+def test_joining_asks_if_the_confirmation_option_is_on(service, settings):
     bus, _, _, record = service
+    settings.set("tools.confirm", True)
+    say(bus, record, "Entra al canal Survival")
+    assert record["actions"]
+    assert not named("SELECT_VOICE_CHANNEL")
+    say(bus, record, "ti")
+    assert named("SELECT_VOICE_CHANNEL")[-1]["args"]["channel_id"] == "12"
+
+
+def test_no_stays_out_with_the_confirmation_option(service, settings):
+    bus, _, _, record = service
+    settings.set("tools.confirm", True)
     say(bus, record, "Entra al canal Survival")
     say(bus, record, "no")
     assert not named("SELECT_VOICE_CHANNEL")
