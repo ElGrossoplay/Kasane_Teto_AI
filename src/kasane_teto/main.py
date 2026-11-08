@@ -42,6 +42,7 @@ from kasane_teto.interface.settings_window import SettingsWindow, VoiceOptions
 from kasane_teto.memory.knowledge import KnowledgeBase, KnowledgeError
 from kasane_teto.memory.store import MemoryStore, MemoryStoreError
 from kasane_teto.tools.discord_rpc import DiscordVoice
+from kasane_teto.tools.info_sources import InfoClient, InfoLookup
 from kasane_teto.tools.registry import ToolRegistry
 from kasane_teto.tools.secure_store import SecureStore
 from kasane_teto.tools.vocadb import VocaDBClient
@@ -94,6 +95,7 @@ class TetoApp(QObject):
             self,
             memory=self._memory,
             tools=tools,
+            info=InfoLookup(InfoClient(user_dir / "info_cache.sqlite3")),
         )
         self._comments = CommentService(
             self._bus, settings, tools, self._conversation.comment, self
@@ -262,6 +264,8 @@ class TetoApp(QObject):
             int(self._settings.get("comments.minutes", 10)),
             self._discord,
             self._activity.auto_enabled,
+            self._conversation.general_web_enabled,
+            str(self._settings.get("web.city", "")),
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window

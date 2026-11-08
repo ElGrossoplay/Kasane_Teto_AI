@@ -51,6 +51,13 @@ from kasane_teto.tools.commands import (
     asks_open_things,
     parse_command,
 )
+from kasane_teto.tools.info_sources import (
+    PROVIDERS,
+    WIKI,
+    InfoLookup,
+    InfoQuery,
+    parse_info_query,
+)
 from kasane_teto.tools.registry import Action, ActionRejected, ToolRegistry
 from kasane_teto.tools.screen_capture import CaptureError, capture_screen_url
 from kasane_teto.tools.web_lookup import (
@@ -67,7 +74,13 @@ MAX_HISTORY_MESSAGES = 30
 KEPT_HISTORY_MESSAGES = 11
 EMOTION_HOLD_MS = 4000
 TRUNCATED_NOTICE = "…\n(Respuesta cortada por longitud: pídeme que continúe.)"
-WEB_FAILED_NOTICE = "\n(No pude consultar VocaDB: he respondido sin esos datos.)"
+WEB_FAILED_NOTICE = "\n(No pude consultar {provider}: he respondido sin esos datos.)"
+GENERAL_OFF_NOTICE = (
+    "\n(La búsqueda en Wikipedia y otras fuentes está apagada: actívala en Configuración.)"
+)
+BOTH_UNKNOWN_FACT = (
+    "Ni VocaDB ni Wikipedia tienen datos de {topic}: di que no lo sabes con seguridad y no inventes."
+)
 EMPTY_ANSWER_MESSAGE = "Me he quedado en blanco. ¿Me lo repites?"
 CPU_FALLBACK_NOTICE = (
     "(La GPU tiene poca memoria libre, así que uso el modelo ligero en CPU: iré más lenta y me "
@@ -161,8 +174,10 @@ class _GenerationTask(QRunnable):
         extra_notice: str = "",
         vision: bool = False,
         finish: Callable[[str], str] | None = None,
+        search_label: str = "VocaDB",
     ) -> None:
         super().__init__()
+        self._search_label = search_label
         self._extra_notice = extra_notice
         self._vision = vision
         self._finish = finish
@@ -178,7 +193,7 @@ class _GenerationTask(QRunnable):
         try:
             web = WebResult()
             if self._web_search is not None:
-                self.signals.status.emit("Buscando en VocaDB…")
+                self.signals.status.emit(f"Buscando en {self._search_label}…")
                 web = self._web_search()
                 if self._cancel.is_set():
                     self.signals.status.emit("")
@@ -220,12 +235,13 @@ class _GenerationTask(QRunnable):
             self.signals.failed.emit("Algo salió mal al responder.")
 
     def _announce_sources(self, web: WebResult) -> None:
-        """La licencia de VocaDB pide atribución con enlace; va solo al chat, no a la voz."""
+        """Las licencias piden atribución con enlace; va solo al chat, no a la voz."""
+        provider = web.provider.split(" (")[0]
         if web.failed:
-            self.signals.notice.emit(WEB_FAILED_NOTICE)
+            self.signals.notice.emit(WEB_FAILED_NOTICE.format(provider=provider))
         elif web.sources:
             note = f"{web.note} " if web.note else ""
-            self.signals.notice.emit(f"\n({note}Datos de VocaDB: {' · '.join(web.sources)})")
+            self.signals.notice.emit(f"\n({note}Datos de {web.provider}: {' · '.join(web.sources)})")
 
     def _generate(
         self, base_url: str, api_key: str, messages: list[dict[str, str]]
@@ -268,9 +284,14 @@ class ConversationService(QObject):
         memory: MemoryStore | None = None,
         tools: ToolRegistry | None = None,
         capture: Callable[[], str] = capture_screen_url,
+        info: InfoLookup | None = None,
     ) -> None:
         super().__init__(parent)
         self._tools = tools
+        self._info = info
+        self._search_label = "VocaDB"
+        if info is not None:
+            info.home_city = str(settings.get("web.city", ""))
         self._capture = capture
         self._pending_action: Action | None = None
         self._action_deadline = 0.0
@@ -310,6 +331,8 @@ class ConversationService(QObject):
         bus.generation_stop_requested.connect(self._on_stop)
         bus.speech_active.connect(self._on_speech_active)
         bus.web_enabled_requested.connect(self._set_web_enabled)
+        bus.general_web_enabled_requested.connect(self._set_general_web_enabled)
+        bus.web_city_requested.connect(self._set_web_city)
         bus.memory_answered.connect(self._on_memory_answered)
         bus.history_enabled_requested.connect(self._set_history_enabled)
         bus.memory_suggestions_requested.connect(self._set_suggestions_enabled)
@@ -329,6 +352,10 @@ class ConversationService(QObject):
     @property
     def web_enabled(self) -> bool:
         return self._web is not None and bool(self._settings.get("web.enabled", False))
+
+    @property
+    def general_web_enabled(self) -> bool:
+        return self._info is not None and bool(self._settings.get("web.general", False))
 
     @property
     def history_enabled(self) -> bool:
@@ -387,6 +414,7 @@ class ConversationService(QObject):
             "" if special else self._turn_notice(text),
             bool(image_url),
             finish,
+            self._search_label,
         )
         self._launch(task, self._on_finished, self._on_failed)
 
@@ -499,7 +527,9 @@ class ConversationService(QObject):
     def _turn_notice(self, text: str) -> str:
         if self._tools is not None and not self.tools_enabled and parse_command(text) is not None:
             return TOOLS_OFF_NOTICE
-        return WEB_OFF_NOTICE if self._search_would_help(text) else ""
+        if self._search_would_help(text):
+            return WEB_OFF_NOTICE
+        return GENERAL_OFF_NOTICE if self._general_would_help(text) else ""
 
     def _reply_directly(self, reply: str) -> None:
         self._bus.assistant_token.emit(reply)
@@ -703,7 +733,7 @@ class ConversationService(QObject):
     def _continues_web_topic(self, text: str) -> bool:
         """Una pregunta de seguimiento no debe activar fichas por una palabra suelta."""
         return (
-            self.web_enabled
+            (self.web_enabled or self.general_web_enabled)
             and bool(self._last_web.facts)
             and is_follow_up(text)
             and parse_query(text) is None
@@ -716,33 +746,66 @@ class ConversationService(QObject):
         return search_again_query(text, previous) or parse_query(text)
 
     def _web_search_for(self, text: str) -> Callable[[], WebResult] | None:
-        """Las fichas locales mandan: a Internet solo va lo que ellas no resuelven."""
-        if not self.web_enabled or self._web is None:
-            return None
-        query = self._web_query(text)
+        """Las fichas locales mandan: a Internet solo va lo que ellas no resuelven.
+
+        El tiempo, las monedas, las palabras, el anime y los libros tienen su fuente. Para lo
+        demás se prueba VocaDB y, si no lo conoce, Wikipedia.
+        """
+        self._search_label = "VocaDB"
+        info = parse_info_query(text) if self.general_web_enabled else None
+        if info is not None and info.kind != WIKI:
+            self._search_label = PROVIDERS[info.kind].split(" (")[0]
+            return partial(self._search_info, info)
+        query = self._web_query(text) if (self.web_enabled or self.general_web_enabled) else None
         if query is None:
-            if not self._continues_web_topic(text):
+            if info is not None and not self._knows_topic(info.topic):
+                self._search_label = "Wikipedia"
+                return partial(self._search_info, info)
+            if not (self.web_enabled or self.general_web_enabled) or not self._continues_web_topic(text):
                 return None
             last = self._last_web
             return lambda: last
         if not (query.wants_songs or query.explicit) and self._knows_topic(query.topic):
             return None
+        if not self.web_enabled:
+            self._search_label = "Wikipedia"
+            return partial(self._search_info, InfoQuery(WIKI, query.topic))
+        if self.general_web_enabled and not query.wants_songs:
+            self._search_label = "VocaDB y Wikipedia"
         return partial(self._search_web, query)
 
     def _search_would_help(self, text: str) -> bool:
         """Sin este aviso, con la búsqueda apagada parece que Teto no conoce a nadie."""
-        if self._web is None or self.web_enabled:
+        if self._web is None or self.web_enabled or self.general_web_enabled:
             return False
         query = parse_query(text)
         return query is not None and (query.wants_songs or not self._knows_topic(query.topic))
+
+    def _general_would_help(self, text: str) -> bool:
+        if self._info is None or self.general_web_enabled:
+            return False
+        info = parse_info_query(text)
+        return info is not None and (info.kind != WIKI or not self._knows_topic(info.topic))
+
+    def _search_info(self, query: InfoQuery) -> WebResult:
+        assert self._info is not None
+        return self._info.search(query)
 
     def _knows_topic(self, topic: str) -> bool:
         """Decide el nombre preguntado: "Kikuo, el de Vocaloid" no va sobre Vocaloid."""
         return bool(self._knowledge.by_name(topic) or self._knowledge.by_similar_name(topic))
 
     def _search_web(self, query: WebQuery) -> WebResult:
+        """Si VocaDB no conoce el nombre, puede ser cultura general: entonces va Wikipedia."""
         assert self._web is not None
-        return self._web.search(query)
+        result = self._web.search(query)
+        if result.sources or result.failed or query.wants_songs or not self.general_web_enabled:
+            return result
+        assert self._info is not None
+        found = self._info.wiki(query.topic)
+        if found.sources or found.failed:
+            return found
+        return WebResult((BOTH_UNKNOWN_FACT.format(topic=query.topic),))
 
     def _compose(
         self,
@@ -793,6 +856,16 @@ class ConversationService(QObject):
     def _set_web_enabled(self, enabled: bool) -> None:
         self._settings.set("web.enabled", enabled)
         self._last_web = WebResult()
+
+    def _set_general_web_enabled(self, enabled: bool) -> None:
+        self._settings.set("web.general", enabled)
+        self._last_web = WebResult()
+
+    def _set_web_city(self, city: str) -> None:
+        """Solo se envía a Open-Meteo al preguntar por el tiempo sin decir la ciudad."""
+        self._settings.set("web.city", city.strip())
+        if self._info is not None:
+            self._info.home_city = city.strip()
 
     def _on_stop(self) -> None:
         if self._pending_action is not None:

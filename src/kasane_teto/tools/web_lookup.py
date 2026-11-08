@@ -116,9 +116,10 @@ class WebResult:
     sources: tuple[str, ...] = ()
     failed: bool = False
     note: str = ""
+    provider: str = "VocaDB"
 
 
-def _clean_topic(raw: str) -> str | None:
+def clean_topic(raw: str) -> str | None:
     """Deja solo el nombre buscado; lo que parezca personal no sale del equipo."""
     quoted = _QUOTED.search(raw)
     topic = quoted.group(1) if quoted else _CLAUSE_END.split(raw, maxsplit=1)[0]
@@ -146,25 +147,25 @@ def parse_query(text: str) -> WebQuery | None:
     """Reconoce preguntas por artistas o canciones. Lo demás no se busca."""
     refers = _REFERS_TO.search(text)
     if refers is not None:
-        topic = _clean_topic(refers.group("topic"))
+        topic = clean_topic(refers.group("topic"))
         return WebQuery(topic) if topic is not None else None
     songs = _SONGS.search(text)
     if songs is not None and _AUTHOR.search(text) is None:
-        topic = _clean_topic(songs.group("topic"))
+        topic = clean_topic(songs.group("topic"))
         if topic is not None:
             return WebQuery(topic, wants_songs=True, count=_song_count(text))
     person = _PERSON.search(text)
     if person is not None:
-        topic = _clean_topic(person.group("topic"))
+        topic = clean_topic(person.group("topic"))
         return WebQuery(topic, people_only=True) if topic is not None else None
     search = _SEARCH.search(text)
     if search is not None:
-        topic = _clean_topic(search.group("topic"))
+        topic = clean_topic(search.group("topic"))
         return WebQuery(topic, explicit=True) if topic is not None else None
     info = _INFO.search(text)
     if info is None:
         return None
-    topic = _clean_topic(info.group("topic"))
+    topic = clean_topic(info.group("topic"))
     return WebQuery(topic) if topic is not None else None
 
 
@@ -172,7 +173,7 @@ def bare_topic(text: str) -> str | None:
     """Un mensaje que solo es un nombre, como cuando se corrige lo que entendió la voz."""
     if len(text.split()) > MAX_BARE_TOPIC_WORDS:
         return None
-    return _clean_topic(text)
+    return clean_topic(text)
 
 
 def asks_to_search(text: str) -> bool:

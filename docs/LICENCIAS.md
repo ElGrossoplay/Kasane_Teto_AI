@@ -28,6 +28,12 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 | Modelo faster-whisper-large-v3-turbo (conversión de mobiuslabsgmbh) | Reconocimiento de voz | MIT | 5 |
 | Modelo faster-whisper-small | Respaldo más rápido, la app no lo usa por defecto | MIT | 3 |
 | sounddevice | Audio | MIT | 3 |
+| Wikipedia en español (API de MediaWiki) | Cultura general | CC BY-SA 4.0, con enlace al artículo en cada respuesta. Se usa un resumen, no el texto entero | 5 |
+| Wikcionario en español | Significado de palabras | CC BY-SA 4.0, con enlace | 5 |
+| Open-Meteo (geocodificación y previsión) | El tiempo | CC BY 4.0, con enlace a open-meteo.com; API gratuita solo para uso no comercial, menos de 10 000 consultas al día | 5 |
+| Frankfurter | Tipos de cambio de bancos centrales | Gratuita y de código abierto, sin clave | 5 |
+| AniList (API GraphQL) | Anime y manga | Gratuita para uso no comercial; prohíbe usarla como almacén o acumular datos (caché de un día) | 5 |
+| Open Library | Autores de libros | Pide identificar la app en el User-Agent y no descargar en masa | 5 |
 | Datos de VocaDB (API pública) | Búsqueda de artistas y canciones | Creative Commons Attribution, con enlace a VocaDB en cada respuesta. Sin letras, imágenes ni audio, que no cubre esa licencia | 5 |
 
 ## Recursos propios

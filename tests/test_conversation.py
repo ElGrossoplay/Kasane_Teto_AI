@@ -454,7 +454,7 @@ def test_failed_search_warns_and_still_answers(web_harness):
     bus, _, _, _, record = web_harness(WebResult(failed=True))
     bus.user_message.emit("¿Quién es Kikuo?")
     pump(lambda: record["done"] == 1)
-    assert record["notices"] == [conversation.WEB_FAILED_NOTICE]
+    assert record["notices"] == [conversation.WEB_FAILED_NOTICE.format(provider="VocaDB")]
 
 
 def test_stop_during_search_skips_the_model(web_harness):

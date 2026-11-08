@@ -34,6 +34,8 @@ load_timeout_seconds = 120
 
 [web]
 enabled = false       # nada sale a Internet hasta activarlo en Configuración
+general = false       # Wikipedia, Wikcionario, Open-Meteo, Frankfurter, AniList y Open Library
+city = ""             # ciudad para "¿qué tiempo hace?" sin decirla; solo se envía a Open-Meteo
 
 [tools]
 enabled = false       # control de Windows: siempre desactivado hasta activarlo en Configuración

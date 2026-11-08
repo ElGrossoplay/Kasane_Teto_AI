@@ -378,7 +378,26 @@ Limitaciones conocidas:
 
 ## Fases siguientes (detalle al aprobar cada una)
 
-- [ ] Búsqueda de conocimiento general (Fase 5): fuente por decidir
+## Conocimiento general en Internet (Diego pidió más fuentes que Wikipedia, 2026-11-08)
+
+- [x] G.1 `tools/info_sources.py`: Wikipedia, Wikcionario, Open-Meteo, Frankfurter, AniList y Open
+      Library. APIs oficiales, gratuitas y sin clave; condiciones leídas el 2026-11-08 (ver
+      `docs/LICENCIAS.md`). Caché por fuente y máximo de 300 consultas al día entre todas
+- [x] G.2 Reglas fijas para el tiempo, monedas, significados, anime, manga, libros y "qué es", "cuándo
+      nació", "dónde está" o "capital de". Lo personal no sale del equipo (mismo filtro que VocaDB)
+- [x] G.3 Lo que VocaDB no conoce se busca en Wikipedia; si ninguna lo tiene, Teto dice que no lo sabe
+- [x] G.4 Interruptor propio, apagado por defecto, y ciudad opcional para el tiempo en Configuración
+- [ ] G.5 Prueba con el modelo real (pendiente: Diego estaba jugando)
+- [ ] G.6 **Diego:** prueba manual
+
+Medido (2026-11-08): 838 pruebas más 7 reales contra las seis APIs, todas correctas, en 10 s.
+Descartados: la API de DuckDuckGo (solo resúmenes de Wikipedia) y `ddgs` (no es oficial).
+
+Limitaciones conocidas:
+- Solo reconoce frases concretas. "¿Qué es…?" busca casi cualquier cosa, salvo lo personal
+- La sinopsis de AniList llega en inglés y el modelo la resume en español
+- "Peso" a secas se toma por el mexicano
+- Wikipedia da un resumen: el modelo aún puede deformar detalles
 - [ ] Fase 7 — Final: corrección de errores, PyInstaller, instalador (aprobada por Diego, 2026-11-08)
 
 ## Fase 6 — Optimización (aprobada por Diego, 2026-11-08)

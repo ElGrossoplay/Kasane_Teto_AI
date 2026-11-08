@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -59,6 +60,8 @@ class SettingsWindow(QDialog):
         comments_minutes: int = 10,
         discord: DiscordVoice | None = None,
         game_mode_auto: bool = True,
+        general_web: bool = False,
+        city: str = "",
     ) -> None:
         super().__init__()
         self._discord = discord
@@ -109,6 +112,20 @@ class SettingsWindow(QDialog):
         )
         self._web.setChecked(web_enabled)
         self._web.toggled.connect(bus.web_enabled_requested)
+
+        self._general_web = QCheckBox(
+            "Buscar en Wikipedia, el tiempo, monedas, anime y libros en Internet"
+        )
+        self._general_web.setToolTip(
+            "Wikipedia, Wikcionario, Open-Meteo, Frankfurter, AniList y Open Library. Solo se "
+            "envía lo que buscas, nunca la conversación ni tus recuerdos."
+        )
+        self._general_web.setChecked(general_web)
+        self._general_web.toggled.connect(bus.general_web_enabled_requested)
+        self._city = QLineEdit(city)
+        self._city.setPlaceholderText("Para «¿qué tiempo hace?» sin decir la ciudad")
+        self._city.setToolTip("Solo se envía a Open-Meteo cuando preguntas por el tiempo.")
+        self._city.editingFinished.connect(lambda: bus.web_city_requested.emit(self._city.text()))
 
         self._suggest = QCheckBox("Teto pregunta si recordar lo que le cuentas")
         self._suggest.setToolTip("Nunca guarda nada sin que digas que sí.")
@@ -164,6 +181,8 @@ class SettingsWindow(QDialog):
         form.addRow("Volumen", self._volume)
         form.addRow(self._mic)
         form.addRow(self._web)
+        form.addRow(self._general_web)
+        form.addRow("Tu ciudad", self._city)
         form.addRow(self._suggest)
         form.addRow(self._history)
         form.addRow(self._tools)

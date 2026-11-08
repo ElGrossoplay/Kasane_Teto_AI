@@ -37,6 +37,8 @@ class EventBus(QObject):
     volume_requested = Signal(int)
     voice_model_requested = Signal(str)
     web_enabled_requested = Signal(bool)
+    general_web_enabled_requested = Signal(bool)
+    web_city_requested = Signal(str)
     history_enabled_requested = Signal(bool)
     memory_suggestions_requested = Signal(bool)
     memory_panel_requested = Signal()

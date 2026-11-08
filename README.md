@@ -59,9 +59,12 @@ Pruebas: `.\.venv\Scripts\python.exe -m pytest` (con modelos reales, añade `-m 
 Uso de la mascota: arrastrar con el botón izquierdo, rueda del ratón para cambiar el tamaño y clic
 derecho (o el icono de la bandeja) para el menú.
 
-La búsqueda en Internet viene apagada y se activa en Configuración. Consulta
-[VocaDB](https://vocadb.net), envía solo el nombre del artista o la canción y cita la fuente en el
-chat. Sus datos están bajo licencia Creative Commons Attribution.
+La búsqueda en Internet viene apagada y se activa en Configuración, con dos interruptores. La de
+música consulta [VocaDB](https://vocadb.net). La general responde "¿quién es Messi?" o "¿qué es la
+fotosíntesis?" con Wikipedia, "¿qué significa efímero?" con Wikcionario, "¿qué tiempo hace en
+Madrid?" con Open-Meteo, "¿cuánto son 20 dólares en euros?" con Frankfurter, "háblame del anime
+Frieren" con AniList y "el libro Cien años de soledad" con Open Library. Solo envía lo que buscas,
+nunca la conversación ni los recuerdos, y cita la fuente en el chat.
 
 Memoria: di "recuerda que…" y confirma con los botones o diciendo "sí". Nada se guarda sin tu
 confirmación. En el menú, "Memoria…" permite ver, editar y borrar lo guardado, todo en tu equipo. El
