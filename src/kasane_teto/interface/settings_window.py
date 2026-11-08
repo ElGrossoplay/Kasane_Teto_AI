@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QFileDialog,
     QFormLayout,
     QLabel,
     QLineEdit,
@@ -62,6 +63,7 @@ class SettingsWindow(QDialog):
         game_mode_auto: bool = True,
         general_web: bool = False,
         city: str = "",
+        live2d_model: str = "",
     ) -> None:
         super().__init__()
         self._discord = discord
@@ -85,6 +87,13 @@ class SettingsWindow(QDialog):
         self._pack.addItems(packs)
         self._pack.setCurrentText(current_pack)
         self._pack.currentTextChanged.connect(bus.pack_requested)
+        self._live2d_button = QPushButton(
+            Path(live2d_model).parent.name if live2d_model else "Elegir modelo Live2D…"
+        )
+        self._live2d_button.setToolTip(
+            live2d_model or "Archivo .model3.json. Se lee donde está: no se copia ni se sube."
+        )
+        self._live2d_button.clicked.connect(self._choose_live2d)
 
         self._tts = QCheckBox("Teto habla en voz alta")
         self._tts.setChecked(voice.tts_enabled)
@@ -176,6 +185,7 @@ class SettingsWindow(QDialog):
         form.addRow(self._always_on_top)
         form.addRow("Tamaño", self._scale)
         form.addRow("Personaje", self._pack)
+        form.addRow("Modelo Live2D", self._live2d_button)
         form.addRow(self._tts)
         form.addRow("Voz", self._voice)
         form.addRow("Volumen", self._volume)
@@ -210,6 +220,18 @@ class SettingsWindow(QDialog):
 
     def _open_apps(self) -> None:
         AppsWindow(self._bus, self._allowed_apps, self).exec()
+
+    def _choose_live2d(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Modelo Live2D", "", "Modelo Live2D (*.model3.json)"
+        )
+        if not path:
+            return
+        self._live2d_button.setText(Path(path).parent.name)
+        self._live2d_button.setToolTip(path)
+        self._bus.live2d_model_requested.emit(path)
+        if self._pack.findText("live2d") < 0:
+            self._pack.addItem("live2d")
 
     def _open_discord(self) -> None:
         if self._discord is not None:

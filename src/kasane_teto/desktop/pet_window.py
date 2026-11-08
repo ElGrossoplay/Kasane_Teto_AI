@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, QTimer
 from PySide6.QtGui import (
     QContextMenuEvent,
+    QCursor,
     QGuiApplication,
     QHideEvent,
     QMouseEvent,
@@ -20,6 +21,7 @@ from PySide6.QtWidgets import QWidget
 from kasane_teto.core.events import EventBus
 from kasane_teto.core.settings import Settings
 from kasane_teto.desktop.animator import SpriteAnimator
+from kasane_teto.desktop.live2d_animator import Live2DAnimator
 
 MIN_SCALE = 25
 MAX_SCALE = 300
@@ -34,7 +36,9 @@ def clamp_scale(scale: int) -> int:
 
 
 class PetWindow(QWidget):
-    def __init__(self, animator: SpriteAnimator, settings: Settings, bus: EventBus) -> None:
+    def __init__(
+        self, animator: SpriteAnimator | Live2DAnimator, settings: Settings, bus: EventBus
+    ) -> None:
         super().__init__()
         self._animator = animator
         self._settings = settings
@@ -55,9 +59,37 @@ class PetWindow(QWidget):
         self._save_timer.setInterval(SAVE_POSITION_DELAY_MS)
         self._save_timer.timeout.connect(self.save_position)
 
-        animator.frame_changed.connect(self.update)
+        self._connect(animator)
         self._apply_size()
         self._restore_position()
+
+    @property
+    def animator(self) -> SpriteAnimator | Live2DAnimator:
+        return self._animator
+
+    def set_animator(self, animator: SpriteAnimator | Live2DAnimator) -> None:
+        """Cambia entre sprites y Live2D sin cerrar la ventana ni perder su sitio."""
+        old = self._animator
+        old.frame_changed.disconnect(self.update)
+        old.base_changed.disconnect(self.refresh_size)
+        old.stop()
+        self._animator = animator
+        self._connect(animator)
+        bottom_center = QPoint(self.geometry().center().x(), self.geometry().bottom())
+        self._apply_size()
+        self.move(bottom_center.x() - self.width() // 2, bottom_center.y() - self.height() + 1)
+        self._keep_on_screen()
+        if self.isVisible():
+            animator.start()
+        self.update()
+
+    def _connect(self, animator: SpriteAnimator | Live2DAnimator) -> None:
+        animator.frame_changed.connect(self.update)
+        animator.base_changed.connect(self.refresh_size)
+
+    def cursor_in_pixels(self) -> QPointF:
+        """Posición del ratón respecto a la mascota, en píxeles de la imagen."""
+        return QPointF(self.mapFromGlobal(QCursor.pos())) * self.devicePixelRatioF()
 
     @property
     def scale_percent(self) -> int:
@@ -118,11 +150,12 @@ class PetWindow(QWidget):
         self._settings.set("pet.y", self.y())
 
     def _apply_size(self) -> None:
-        base = self._animator.current_pixmap().size()
+        base = self._animator.base_size()
         self.setFixedSize(
             max(1, base.width() * self._scale // 100), max(1, base.height() * self._scale // 100)
         )
         self._scaled.clear()
+        self._animator.set_render_size(self.size() * self.devicePixelRatioF())
 
     def _keep_on_screen(self) -> None:
         screen = QGuiApplication.screenAt(self.geometry().center()) or self.screen()
@@ -154,6 +187,9 @@ class PetWindow(QWidget):
     def _scaled_pixmap(self) -> QPixmap:
         source = self._animator.current_pixmap()
         ratio = self.devicePixelRatioF()
+        if source.size() == self.size() * ratio:
+            source.setDevicePixelRatio(ratio)
+            return source
         target = (self.size(), ratio)
         if target != self._scaled_target or len(self._scaled) >= MAX_CACHED_FRAMES:
             self._scaled.clear()

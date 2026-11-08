@@ -6,6 +6,7 @@ pack = "provisional"
 scale = 100           # porcentaje, de 25 a 300
 always_on_top = true
 idle_minutes = 5      # sin usar a Teto este tiempo, anima con menos fotogramas
+live2d_model = ""     # ruta a un .model3.json; con pack = "live2d" se usa en vez de los sprites
 
 [voice]
 tts_enabled = true

@@ -35,6 +35,7 @@ from kasane_teto.core.single_instance import SingleInstance
 from kasane_teto.core.updates import code_changed_since, relaunch
 from kasane_teto.desktop.animator import SpriteAnimator
 from kasane_teto.desktop.hotkey import HOTKEY_LABEL, GlobalHotkey
+from kasane_teto.desktop.live2d_animator import Live2DAnimator
 from kasane_teto.desktop.pet_window import PetWindow
 from kasane_teto.desktop.tray import TrayIcon
 from kasane_teto.interface.chat_window import ChatWindow
@@ -55,6 +56,7 @@ from kasane_teto.voice.speech import SpeechService
 from kasane_teto.voice.transcript import fix_transcript
 
 FALLBACK_PACK = "provisional"
+LIVE2D_PACK = "live2d"
 IDLE_MAX_FPS = 2
 GAME_LISTEN_REASON = "En modo juego no te escucho, para no quitarle CPU al juego."
 
@@ -77,6 +79,8 @@ class TetoApp(QObject):
         self._tray = TrayIcon(
             QIcon(self._animator.current_pixmap()), self._pet.always_on_top, self._bus, self
         )
+        if settings.get("pet.pack") == LIVE2D_PACK:
+            self._use_live2d()
         self._resources = ResourceManager(
             settings, models_dir(), user_dir / "logs" / "llama-server.log", self
         )
@@ -129,7 +133,9 @@ class TetoApp(QObject):
         self._bus.volume_requested.connect(lambda v: settings.set("voice.volume", v))
         self._bus.voice_model_requested.connect(self._change_voice)
 
-        self._bus.pet_state_requested.connect(self._animator.set_state)
+        self._bus.pet_state_requested.connect(lambda state: self._pet.animator.set_state(state))
+        self._bus.speech_active.connect(lambda active: self._pet.animator.set_talking(active))
+        self._bus.live2d_model_requested.connect(self._change_live2d_model)
         self._bus.pet_visibility_toggled.connect(self._pet.toggle_visibility)
         self._bus.always_on_top_requested.connect(self._pet.set_always_on_top)
         self._bus.scale_requested.connect(self._pet.set_scale)
@@ -169,7 +175,7 @@ class TetoApp(QObject):
         suspended = state is Activity.SUSPENDED
         self._resources.set_game_mode(game)
         self._pet.set_game_mode(game)
-        self._animator.set_pace(
+        self._pet.animator.set_pace(
             still=game or suspended, max_fps=IDLE_MAX_FPS if state is Activity.IDLE else None
         )
         self._listen.set_blocked(GAME_LISTEN_REASON if game else "")
@@ -216,8 +222,43 @@ class TetoApp(QObject):
             log.exception("Conocimiento no válido; Teto sigue sin fichas")
             return KnowledgeBase([])
 
+    def _live2d_model(self) -> Path | None:
+        path = Path(str(self._settings.get("pet.live2d_model", "") or ""))
+        return path if path.name.endswith(".model3.json") and path.is_file() else None
+
+    def _use_live2d(self) -> bool:
+        """Los sprites quedan de respaldo: si el modelo falla, la mascota no desaparece."""
+        model = self._live2d_model()
+        if model is None:
+            log.warning("No hay modelo Live2D configurado: se usan los sprites")
+            return False
+        animator = Live2DAnimator(
+            model, self._user_dir / "live2d_cache", self, cursor=self._pet.cursor_in_pixels
+        )
+        animator.failed.connect(self._on_live2d_failed)
+        self._pet.set_animator(animator)
+        self._pack_id = LIVE2D_PACK
+        return True
+
+    def _on_live2d_failed(self, reason: str) -> None:
+        log.error("Live2D desactivado en esta sesión: %s", reason)
+        failed = self._pet.animator
+        if failed is self._animator:
+            return
+        self._pet.set_animator(self._animator)
+        failed.shutdown()
+        failed.deleteLater()
+        self._tray.notify("No pude mostrar el modelo Live2D: uso los sprites. Mira el registro.")
+
+    def _change_live2d_model(self, path: str) -> None:
+        self._settings.set("pet.live2d_model", path)
+        if self._pack_id == LIVE2D_PACK:
+            self._change_pack(LIVE2D_PACK)
+
     def _load_configured_pack(self) -> CharacterPack:
         pack_id = str(self._settings.get("pet.pack", FALLBACK_PACK))
+        if pack_id == LIVE2D_PACK:
+            pack_id = FALLBACK_PACK
         try:
             return load_pack(character_root() / pack_id)
         except PackError:
@@ -225,27 +266,45 @@ class TetoApp(QObject):
             return load_pack(character_root() / FALLBACK_PACK)
 
     def _change_pack(self, pack_id: str) -> None:
-        try:
-            pack = load_pack(character_root() / pack_id)
-            self._animator.set_pack(pack)
-        except PackError as exc:
-            log.exception("No se pudo cargar el paquete '%s'", pack_id)
-            QMessageBox.warning(None, "Personaje", f"No se pudo cargar el personaje.\n{exc}")
-            return
-        self._pack_id = pack.id
-        self._settings.set("pet.pack", pack.id)
-        self._pet.refresh_size()
+        current = self._pet.animator
+        if pack_id == LIVE2D_PACK:
+            if not self._use_live2d():
+                QMessageBox.warning(
+                    None, "Personaje", "Elige primero el archivo .model3.json del modelo Live2D."
+                )
+                return
+            self._settings.set("pet.pack", LIVE2D_PACK)
+        else:
+            try:
+                pack = load_pack(character_root() / pack_id)
+                self._animator.set_pack(pack)
+            except PackError as exc:
+                log.exception("No se pudo cargar el paquete '%s'", pack_id)
+                QMessageBox.warning(None, "Personaje", f"No se pudo cargar el personaje.\n{exc}")
+                return
+            self._pack_id = pack.id
+            self._settings.set("pet.pack", pack.id)
+            if current is not self._animator:
+                self._pet.set_animator(self._animator)
+            self._pet.refresh_size()
+        if current is not self._animator and current is not self._pet.animator:
+            current.shutdown()
+            current.deleteLater()
+        self._apply_activity(self._activity.state)
 
     def _open_settings(self) -> None:
         if self._settings_window is not None:
             self._settings_window.raise_()
             self._settings_window.activateWindow()
             return
+        packs = list_packs(character_root())
+        if self._live2d_model() is not None:
+            packs.append(LIVE2D_PACK)
         window = SettingsWindow(
             self._bus,
             self._pet.always_on_top,
             self._pet.scale_percent,
-            list_packs(character_root()),
+            packs,
             self._pack_id,
             self._user_dir,
             VoiceOptions(
@@ -267,6 +326,7 @@ class TetoApp(QObject):
             self._activity.auto_enabled,
             self._conversation.general_web_enabled,
             str(self._settings.get("web.city", "")),
+            str(self._settings.get("pet.live2d_model", "") or ""),
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window
@@ -285,6 +345,7 @@ class TetoApp(QObject):
         self._listen.shutdown()
         self._speech.shutdown()
         self._resources.shutdown()
+        self._pet.animator.shutdown()
 
 
 def main() -> int:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QObject, Qt, QTimer, Signal
+from PySide6.QtCore import QObject, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QPixmap
 
 from kasane_teto.character.pack import CharacterPack, PackError
@@ -11,6 +11,7 @@ from kasane_teto.character.states import PetState
 
 class SpriteAnimator(QObject):
     frame_changed = Signal()
+    base_changed = Signal()
 
     def __init__(self, pack: CharacterPack, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -41,6 +42,19 @@ class SpriteAnimator(QObject):
         }
         self._pack = pack
         self._restart()
+        self.base_changed.emit()
+
+    def base_size(self) -> QSize:
+        return self.current_pixmap().size()
+
+    def set_render_size(self, size: QSize) -> None:
+        """Los sprites los escala la ventana; Live2D dibuja ya al tamaño pedido."""
+
+    def set_talking(self, talking: bool) -> None:
+        """Los sprites tienen su propio estado de hablar."""
+
+    def shutdown(self) -> None:
+        self.stop()
 
     def set_state(self, state: PetState) -> None:
         if state is self._state:

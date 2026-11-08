@@ -41,6 +41,7 @@ def main() -> int:
         "--add-data", data(ROOT / "assets" / "character" / "provisional", "assets/character/provisional"),
         "--add-data", data(package / "personality" / "prompts", "kasane_teto/personality/prompts"),
         "--collect-data", "pptx",
+        "--collect-data", "live2d",  # sombreadores que live2d-py carga desde su carpeta
         "--exclude-module", "pytest",
         "--exclude-module", "PyInstaller",
     ])

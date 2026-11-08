@@ -17,6 +17,9 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 | Qwen3-4B-Instruct-2507 (GGUF de unsloth) | Modelo de respaldo | Apache-2.0 | 2 |
 | Qwen3.5-4B mmproj-F16 (GGUF de unsloth) | Visión al mirar la pantalla | Apache-2.0 | 5 |
 | python-pptx | Crear presentaciones | MIT | 5 |
+| live2d-py 1.0.0 | Dibujar la mascota Live2D | MIT (biblioteca no oficial) | 6 |
+| Live2D Cubism Core 5-r.5 (incluido en live2d-py) | Motor de Live2D | Live2D Proprietary Software License: gratuito para particulares; distribuir una app exigiría revisar la Cubism SDK Release License | 6 |
+| PyOpenGL 3.1.10, numpy 2.5.4 | Dependencias de live2d-py | BSD-3-Clause y similares | 6 |
 | lxml, XlsxWriter, typing-extensions, Pillow | Dependencias de python-pptx | BSD-3-Clause, BSD-2-Clause, PSF-2.0, MIT-CMU | 5 |
 | httpx, httpcore, idna | Conexión local con la IA | BSD-3-Clause | 2 |
 | anyio, h11 | Dependencias de httpx | MIT | 2 |
@@ -53,3 +56,9 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 Kasane Teto pertenece a TWINDRILL. El repositorio no incluye arte, voz ni modelos del personaje.
 Cualquier paquete de personaje con arte de terceros se guarda solo en local y requiere el permiso de
 su autor.
+
+Modelo Live2D de Diego (ilustración de NaCl_chica, rigging de Missingperson04, con licencia de
+TWINDRILL): gratuito para fans, sin uso comercial, sin revender, copiar ni redistribuir. La app lo
+lee desde la carpeta donde lo tiene Diego y nunca lo copia al proyecto ni al repositorio. Solo guarda
+texturas reducidas en `%LOCALAPPDATA%\KasaneTetoAI\live2d_cache`, para uso local. La marca de agua
+se quita con la expresión que incluye el propio modelo para ello.

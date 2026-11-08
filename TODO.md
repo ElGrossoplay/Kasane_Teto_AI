@@ -398,6 +398,36 @@ Limitaciones conocidas:
 - La sinopsis de AniList llega en inglés y el modelo la resume en español
 - "Peso" a secas se toma por el mexicano
 - Wikipedia da un resumen: el modelo aún puede deformar detalles
+## Mascota Live2D (pedido por Diego, 2026-11-08)
+
+Diego aportó un modelo Live2D de Teto (`E:\重音テト`, gratuito para fans y sin uso comercial).
+Aprobó instalar live2d-py y reducir las texturas a 2048 px en la caché local.
+
+- [x] L.1 live2d-py 1.0.0, PyOpenGL y numpy en el `.venv`
+- [x] L.2 `desktop/live2d_animator.py`: dibuja fuera de pantalla y entrega cada fotograma a la
+      ventana de siempre (arrastrar, tamaño, menú, siempre encima y modo juego funcionan igual)
+- [x] L.3 Expresiones por estado (feliz: rubor; sorpresa: ojos de estrella; confusión: mareo;
+      enfado: cara oscura; aburrimiento: ojos entrecerrados), boca al hablar y ojos que siguen al
+      ratón. Sin marca de agua, con la expresión que trae el modelo para ello
+- [x] L.4 En modo juego o suspendida se libera de la GPU y queda la última imagen. Si el modelo falla,
+      vuelve a los sprites y avisa
+- [x] L.5 Configuración: "Modelo Live2D" para elegir el `.model3.json` y personaje "live2d"
+- [ ] L.6 **Diego:** prueba manual
+
+Medido (2026-11-08) con la app real: carga en 4,2 s la primera vez (reduce las texturas) y en 1,0 s
+después. Animando a 30 fps: 4,7 % de CPU y ~235–275 MB de RAM; en modo juego, 0,9 % de CPU sin
+memoria gráfica. 851 pruebas más la real con el modelo.
+
+Limitaciones conocidas:
+- Live2D usa la GTX 1650 (Windows la elige para OpenGL), no la gráfica integrada. Por eso se libera
+  en modo juego; junto a la IA deja menos margen de VRAM
+- Con Live2D la app supera el objetivo de reposo (< 200 MB y < 1 % de CPU) mientras anima. Inactiva
+  baja a 12 fps; quieta solo en modo juego o suspendida. Los sprites siguen cumpliéndolo
+- La boca abre y cierra a ritmo de habla, pero no sigue cada sílaba de la voz
+- Reducir las texturas mezclando píxeles dibujaba halos (el modelo guarda color en zonas invisibles):
+  se reducen tomando un píxel de cada dos
+- Salir del modo juego recarga el modelo en el hilo de la interfaz: ~1 s en que la mascota no responde
+
 ## Fase 7 — Final (aprobada por Diego, 2026-11-08)
 
 Elegido por Diego: solo PyInstaller, sin instalador; los accesos directos los crea un script.

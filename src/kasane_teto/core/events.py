@@ -15,6 +15,7 @@ class EventBus(QObject):
     scale_requested = Signal(int)
     scale_changed = Signal(int)
     pack_requested = Signal(str)
+    live2d_model_requested = Signal(str)
     context_menu_requested = Signal(QPoint)
     settings_requested = Signal()
     quit_requested = Signal()

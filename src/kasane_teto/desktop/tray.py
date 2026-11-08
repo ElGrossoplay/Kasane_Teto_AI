@@ -69,6 +69,9 @@ class TrayIcon(QObject):
     def hide(self) -> None:
         self._tray.hide()
 
+    def notify(self, text: str) -> None:
+        self._tray.showMessage("Kasane Teto AI", text, QSystemTrayIcon.MessageIcon.Warning)
+
     def set_activity(self, label: str, game: bool, suspended: bool) -> None:
         """Refleja el estado, también cuando el modo juego se activa solo."""
         self._game_mode.setChecked(game)
