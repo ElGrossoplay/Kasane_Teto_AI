@@ -417,9 +417,13 @@ Limitaciones conocidas:
       68 turnos, 42 respuestas, 0 errores y 0 avisos en el registro; llama-server cerrado al salir.
       App (sin la IA): mediana 269 MB activa, 268 MB inactiva, 248 MB suspendida y 251 MB en modo
       juego; máximo 334 MB. CPU de la app: mediana 2,6 % activa y 1,1 % en reposo. La IA en GPU
-      ocupó ~1,47 GB de RAM aparte. Pendiente: la RAM en reposo crece despacio (247 → 285 MB en 8 h,
-      ~5 MB/h) y los handles saltaron una vez de 819 a 1465 en el minuto 429, sin nada en el registro,
-      y luego se mantuvieron estables
+      ocupó ~1,47 GB de RAM aparte. La RAM en reposo pasó de 247 a 285 MB en 8 h y los handles saltaron
+      una vez de 819 a 1465 en el minuto 429, sin nada en el registro, y luego se mantuvieron estables.
+      Revisado: no es una fuga. 30 000 fotogramas de Live2D seguidos no suben la RAM; la primera
+      recarga de Live2D deja ~35 MB del controlador de OpenGL y las siguientes no añaden nada. Clientes
+      HTTP, consulta de VRAM y audio repetidos cientos de veces tampoco. Una prueba de 40 min con un
+      turno cada 20 s (51 respuestas y 34 cambios de estado) y `tracemalloc`: Python no crece y la RAM
+      se queda plana (265 → 270 MB) tras la primera recarga
 - [ ] 6.7 **Diego:** prueba manual del modo juego
 
 Medido (2026-11-08): 798 pruebas. Con la app real y League of Legends abierto de verdad (partida en
@@ -539,8 +543,9 @@ Limitaciones conocidas:
 - **2026-11-08:** proyecto movido a E:\Carpeta de teto. Aviso al caer al modelo de CPU. Fase 6: estados,
   modo juego (probado con League of Legends abierto de verdad) y visión más fiable. Conocimiento
   general con seis fuentes oficiales. Mascota Live2D con el modelo de Diego. Fase 7: ejecutable con
-  PyInstaller, accesos directos y diagnóstico. Prueba de 8 h con Live2D superada (0 errores; la RAM
-  en reposo crece ~5 MB/h, pendiente de revisar). Pendientes las pruebas manuales.
+  PyInstaller, accesos directos y diagnóstico. Prueba de 8 h con Live2D superada (0 errores; la
+  subida de RAM es un escalón de OpenGL en la primera recarga, no una fuga). Pendientes las pruebas
+  manuales.
 - **2026-11-08:** probadas cuatro voces RVC de Teto sobre Piper (en `models/rvc/`, fuera de git): se
   entienden, pero en CPU tardan ~5 s por frase y usan más de 2 GB de RAM. No integradas; la
   alternativa estudiada es entrenar una voz Piper con audio convertido por RVC.
