@@ -57,6 +57,7 @@ from kasane_teto.voice.transcript import fix_transcript
 
 FALLBACK_PACK = "provisional"
 LIVE2D_PACK = "live2d"
+DIAGNOSTICS_FLAG = "--diagnostico"
 IDLE_MAX_FPS = 2
 GAME_LISTEN_REASON = "En modo juego no te escucho, para no quitarle CPU al juego."
 
@@ -354,6 +355,12 @@ def main() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName("Kasane Teto AI")
     app.setQuitOnLastWindowClosed(False)
+
+    if DIAGNOSTICS_FLAG in sys.argv:
+        from kasane_teto.core import diagnostics
+
+        settings = Settings(default_config_path(), user_dir / "settings.json")
+        return 0 if diagnostics.run(settings, user_dir) else 1
 
     instance = SingleInstance(user_dir)
     if not instance.acquire():
