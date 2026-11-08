@@ -320,6 +320,15 @@ def test_unknown_to_vocadb_falls_back_to_wikipedia(chat):
     assert "Buscando en VocaDB y Wikipedia…" in record["status"]
 
 
+def test_vocadb_down_still_uses_wikipedia(chat):
+    bus, _, info, seen, record = chat(WebResult(("VocaDB no respondió.",), failed=True))
+    bus.user_message.emit("¿Quién es Messi?")
+    pump(lambda: record["done"] == 1)
+    assert [q.topic for q in info.queries] == ["Messi"]
+    assert "futbolista" in seen[0][-1]["content"]
+    assert "VocaDB no respondió. Datos de Wikipedia" in record["notices"][0]
+
+
 def test_known_to_vocadb_does_not_use_wikipedia(chat):
     found = WebResult(("VocaDB, artista: Kikuo.",), ("https://vocadb.net/Ar/470",))
     bus, _, info, _, record = chat(found)

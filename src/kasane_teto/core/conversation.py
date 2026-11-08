@@ -811,12 +811,14 @@ class ConversationService(QObject):
         """Si VocaDB no conoce el nombre, puede ser cultura general: entonces va Wikipedia."""
         assert self._web is not None
         result = self._web.search(query)
-        if result.sources or result.failed or query.wants_songs or not self.general_web_enabled:
+        if result.sources or query.wants_songs or not self.general_web_enabled:
             return result
         assert self._info is not None
         found = self._info.wiki(query.topic)
-        if found.sources or found.failed:
-            return found
+        if found.sources:
+            return replace(found, note="VocaDB no respondió." if result.failed else found.note)
+        if result.failed or found.failed:
+            return result if result.failed else found
         return WebResult((BOTH_UNKNOWN_FACT.format(topic=query.topic),))
 
     def _compose(
