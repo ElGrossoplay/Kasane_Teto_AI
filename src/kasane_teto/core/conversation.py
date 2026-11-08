@@ -69,6 +69,11 @@ EMOTION_HOLD_MS = 4000
 TRUNCATED_NOTICE = "…\n(Respuesta cortada por longitud: pídeme que continúe.)"
 WEB_FAILED_NOTICE = "\n(No pude consultar VocaDB: he respondido sin esos datos.)"
 EMPTY_ANSWER_MESSAGE = "Me he quedado en blanco. ¿Me lo repites?"
+CPU_FALLBACK_NOTICE = (
+    "(La GPU tiene poca memoria libre, así que uso el modelo ligero en CPU: iré más lenta y me "
+    "equivocaré más. Para volver a la GPU, cierra lo que la esté usando y pulsa «Liberar memoria "
+    "de la IA» en el menú.)\n\n"
+)
 WEB_OFF_NOTICE = "\n(La búsqueda en VocaDB está apagada: actívala en Configuración.)"
 MEMORY_ASK_REPLY = "¿Lo guardo? Dime sí o no, o usa los botones."
 MEMORY_SAVED_REPLY = "Hecho, lo recordaré."
@@ -183,6 +188,8 @@ class _GenerationTask(QRunnable):
                 else self._resources.ensure_loaded()
             )
             self.signals.status.emit("Escribiendo…" if self._quiet else "")
+            if self._resources.take_cpu_notice():
+                self.signals.notice.emit(CPU_FALLBACK_NOTICE)
             text = self._generate(process.base_url, process.api_key, messages)
             if not text and not self._cancel.is_set():
                 self.signals.failed.emit(EMPTY_ANSWER_MESSAGE)

@@ -76,6 +76,7 @@ class ResourceManager(QObject):
         self._process: LLMProcess | None = None
         self._lock = threading.Lock()
         self._busy = False
+        self._cpu_notice = False
 
         self._idle_timer = QTimer(self)
         self._idle_timer.setSingleShot(True)
@@ -137,9 +138,16 @@ class ResourceManager(QObject):
                     last_error = exc
                     continue
                 log.info("IA cargada con el perfil %s", profile.name)
+                self._cpu_notice = profile.name == "cpu" and self._settings.get("ai.device") != "cpu"
                 self._process = process
                 return process
             raise last_error or LLMStartError("No hay ningún perfil de IA disponible")
+
+    def take_cpu_notice(self) -> bool:
+        """True una sola vez tras caer al modelo de CPU sin que el usuario lo eligiera."""
+        with self._lock:
+            pending, self._cpu_notice = self._cpu_notice, False
+            return pending
 
     def request_unload(self) -> None:
         """Cierra la IA en segundo plano si no está generando."""

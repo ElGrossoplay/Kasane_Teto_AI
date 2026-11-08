@@ -297,6 +297,9 @@ class FakeResources:
     def set_busy(self, busy):
         pass
 
+    def take_cpu_notice(self):
+        return False
+
 
 @pytest.fixture
 def service(qapp, settings, tmp_path, discord):

@@ -20,9 +20,10 @@ class FakeProcess:
 
 
 class FakeResources:
-    def __init__(self, error=None):
+    def __init__(self, error=None, cpu_notice=False):
         self.error = error
         self.busy_calls = []
+        self.cpu_notice = cpu_notice
 
     def ensure_loaded(self):
         if self.error:
@@ -31,6 +32,10 @@ class FakeResources:
 
     def set_busy(self, busy):
         self.busy_calls.append(busy)
+
+    def take_cpu_notice(self):
+        pending, self.cpu_notice = self.cpu_notice, False
+        return pending
 
 
 def install_client(monkeypatch, chunks=(), error=None, pause=0.0, finish="stop"):
@@ -106,6 +111,17 @@ def test_truncated_answer_warns_but_notice_stays_out_of_history(harness, monkeyp
     bus.user_message.emit("dos")
     pump(lambda: record["done"] == 2)
     assert seen[1][2]["content"] == "Hola"
+
+
+def test_cpu_fallback_is_announced_once(harness, monkeypatch):
+    install_client(monkeypatch, ["[neutral] Hola"])
+    bus, _, _, record = harness(FakeResources(cpu_notice=True))
+    bus.user_message.emit("uno")
+    pump(lambda: record["done"] == 1)
+    bus.user_message.emit("dos")
+    pump(lambda: record["done"] == 2)
+    assert record["notices"] == [conversation.CPU_FALLBACK_NOTICE]
+    assert "Hola" not in conversation.CPU_FALLBACK_NOTICE
 
 
 def test_complete_answer_has_no_notice(harness, monkeypatch):
@@ -758,3 +774,34 @@ CPU = AiProfile("cpu", "c", 0)
 )
 def test_choose_profiles(device, free, expected):
     assert choose_profiles(device, GPU, CPU, free, 3100) == expected
+
+
+@pytest.mark.parametrize(("device", "gpu_starts", "notice"), [
+    ("auto", False, True),
+    ("auto", True, False),
+    ("cpu", False, False),
+])
+def test_cpu_notice_only_when_falling_back(qapp, settings, tmp_path, monkeypatch, device, gpu_starts, notice):
+    import kasane_teto.core.resource_manager as rm
+
+    class FakeLLMProcess:
+        is_running = True
+        has_vision = False
+
+        def __init__(self, config, log_path):
+            self.cpu = config.gpu_layers == 0
+
+        def start(self):
+            if not self.cpu and not gpu_starts:
+                raise LLMStartError("sin VRAM")
+
+        def stop(self):
+            pass
+
+    monkeypatch.setattr(rm, "LLMProcess", FakeLLMProcess)
+    monkeypatch.setattr(rm, "free_vram_mib", lambda: 4000)
+    settings.set("ai.device", device)
+    manager = rm.ResourceManager(settings, tmp_path, tmp_path / "llama.log")
+    manager.ensure_loaded()
+    assert manager.take_cpu_notice() is notice
+    assert manager.take_cpu_notice() is False

@@ -191,6 +191,9 @@ class FakeResources:
     def set_busy(self, busy):
         pass
 
+    def take_cpu_notice(self):
+        return False
+
 
 def pump(condition, timeout_ms=3000):
     timer = QElapsedTimer()
