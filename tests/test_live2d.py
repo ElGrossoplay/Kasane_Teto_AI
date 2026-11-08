@@ -31,8 +31,9 @@ def test_textures_are_reduced_into_the_local_cache_only(tmp_path):
     model = fake_model(tmp_path / "modelo", side=64)
     paths = reduced_textures(model, tmp_path / "cache", side=32)
     assert Path(paths[0]).is_relative_to(tmp_path / "cache")
-    assert Image.open(paths[0]).size == (32, 32)
-    assert Image.open(model.parent / "tex" / "texture_00.png").size == (64, 64)
+    with Image.open(paths[0]) as reduced, Image.open(model.parent / "tex" / "texture_00.png") as original:
+        assert reduced.size == (32, 32)
+        assert original.size == (64, 64)
 
 
 def test_reduced_textures_are_reused_and_redone_when_the_model_changes(tmp_path):
@@ -50,8 +51,8 @@ def test_reduction_does_not_mix_hidden_colours(tmp_path):
     image = Image.new("RGBA", (4, 4), (0, 255, 0, 0))
     image.putpixel((0, 0), (255, 0, 0, 255))
     image.save(folder / "tex" / "texture_00.png")
-    reduced = Image.open(reduced_textures(model, tmp_path / "cache", side=2)[0])
-    assert set(reduced.getdata()) <= {(255, 0, 0, 255), (0, 255, 0, 0)}
+    with Image.open(reduced_textures(model, tmp_path / "cache", side=2)[0]) as reduced:
+        assert set(reduced.getdata()) <= {(255, 0, 0, 255), (0, 255, 0, 0)}
 
 
 def test_mouth_moves_within_range():

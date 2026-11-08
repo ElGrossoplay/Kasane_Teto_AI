@@ -5,9 +5,10 @@ que vive en tu escritorio, conversa en español con una IA que corre **en tu pro
 hablar y escucharte, recuerda lo que tú le autorices y realiza acciones sencillas de Windows bajo
 tu control.
 
-> **Estado:** Fases 1 a 5 completadas. Funcionan la mascota con sprites provisionales, el chat con IA
-> local, la voz, los recuerdos, la búsqueda de música y las acciones de Windows. El progreso está en [`TODO.md`](TODO.md) y el diseño en
-> [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
+> **Estado:** Fases 1 a 7 implementadas, a falta de la prueba manual de Diego. Funcionan la mascota
+> (sprites o Live2D), el chat con IA local, la voz, los recuerdos, la búsqueda en Internet, las
+> acciones de Windows, el modo juego y el ejecutable. El progreso está en [`TODO.md`](TODO.md) y el
+> diseño en [`docs/PROPUESTA_TECNICA.md`](docs/PROPUESTA_TECNICA.md).
 
 ## Principios
 
@@ -27,10 +28,11 @@ tu control.
 | Chat con IA local y personalidad de Teto | 2 | Hecho |
 | Voz (TTS) y push-to-talk (STT) | 3 | Hecho |
 | Memoria persistente con panel de administración | 4 | Hecho |
-| Búsqueda opcional de artistas y canciones en VocaDB | 5 | Hecho |
+| Búsqueda opcional en VocaDB, Wikipedia y otras fuentes | 5 | Hecho |
 | Acciones de Windows controladas | 5 | Hecho |
-| Modo juego y estados de consumo | 6 | Pendiente |
-| Instalador para Windows | 7 | Pendiente |
+| Modo juego y estados de consumo | 6 | Hecho |
+| Mascota Live2D con un modelo propio | 6 | Hecho |
+| Ejecutable y accesos directos | 7 | Hecho |
 
 ## Requisitos
 
@@ -89,6 +91,25 @@ claves quedan cifradas en tu equipo.
 Si apuntas a tus amigos en esa ventana con el ID del canal de su chat, puedes decir "abre el chat de
 Pablo" o "dile a Pablo que llego tarde". En el segundo caso Teto redacta el mensaje, abre el chat y lo
 copia: tú lo pegas con Ctrl+V y pulsas Enter. Teto nunca envía mensajes por su cuenta.
+
+Modo juego: Teto lo activa sola cuando ve un juego en primer plano (solo lee el título de la
+ventana) o a mano desde la bandeja. Libera la GPU, apaga el oído y el atajo, se queda quieta y deja
+de estar encima del juego. Desde la bandeja también se puede suspender: descarga todo hasta que le
+hables.
+
+Live2D: en Configuración, "Modelo Live2D" elige el archivo `.model3.json` y el personaje "live2d" lo
+activa. El modelo se lee desde su carpeta, no se copia ni se sube al repositorio. Cambia de
+expresión con las emociones, mueve la boca al hablar y sigue el ratón con la mirada.
+
+## Ejecutable
+
+```powershell
+.\.venv\Scripts\python.exe scripts\empaquetar.py      # crea dist\KasaneTetoAI\KasaneTetoAI.exe
+.\.venv\Scripts\python.exe scripts\crear_accesos.py   # menú Inicio y escritorio (--quitar los borra)
+dist\KasaneTetoAI\KasaneTetoAI.exe --diagnostico      # informe en %LOCALAPPDATA%\KasaneTetoAI
+```
+
+Los modelos no van dentro del ejecutable: los busca en la carpeta `models` del proyecto.
 
 ## Diagnóstico del equipo
 

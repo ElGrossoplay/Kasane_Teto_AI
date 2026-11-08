@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-01 · **Fases 1 a 5 completadas, salvo la búsqueda de conocimiento general · Pantalla, documentos y comentarios hechos, pendientes de la prueba manual de Diego · Siguiente: Fase 6**
+Última actualización: 2026-11-08 · **Fases 1 a 7 implementadas · Pendientes: la prueba de estabilidad de 8 h (en curso) y las pruebas manuales de Diego (5.18, P.12, 6.7, G.6, L.6, 7.5)**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -376,8 +376,6 @@ Limitaciones conocidas:
 - "Abre X" con una X desconocida responde que no está en la lista, aunque fuera una frase normal
 - Sin Job Object (si Windows no lo crea), el servidor podría sobrevivir a un cierre forzado de la app
 
-## Fases siguientes (detalle al aprobar cada una)
-
 ## Conocimiento general en Internet (Diego pidió más fuentes que Wikipedia, 2026-11-08)
 
 - [x] G.1 `tools/info_sources.py`: Wikipedia, Wikcionario, Open-Meteo, Frankfurter, AniList y Open
@@ -387,7 +385,8 @@ Limitaciones conocidas:
       nació", "dónde está" o "capital de". Lo personal no sale del equipo (mismo filtro que VocaDB)
 - [x] G.3 Lo que VocaDB no conoce se busca en Wikipedia; si ninguna lo tiene, Teto dice que no lo sabe
 - [x] G.4 Interruptor propio, apagado por defecto, y ciudad opcional para el tiempo en Configuración
-- [ ] G.5 Prueba con el modelo real (pendiente: Diego estaba jugando)
+- [x] G.5 Prueba con el modelo real: 9 preguntas, las seis fuentes bien citadas, 4–6 s por respuesta.
+      VocaDB tardaba ~12 s y se cortaba; ahora entonces se busca en Wikipedia
 - [ ] G.6 **Diego:** prueba manual
 
 Medido (2026-11-08): 838 pruebas más 7 reales contra las seis APIs, todas correctas, en 10 s.
@@ -398,6 +397,37 @@ Limitaciones conocidas:
 - La sinopsis de AniList llega en inglés y el modelo la resume en español
 - "Peso" a secas se toma por el mexicano
 - Wikipedia da un resumen: el modelo aún puede deformar detalles
+## Fase 6 — Optimización (aprobada por Diego, 2026-11-08)
+
+- [x] 6.1 `core/activity.py`: estados activa, inactiva, suspendida y modo juego. Para detectar juegos
+      solo lee el título y la clase de la ventana activa cada 5 s; nunca procesos ni capturas
+- [x] 6.2 Modo juego automático (desactivable en Configuración) o a mano desde la bandeja. Entra tras
+      dos lecturas seguidas y sale 30 s después de dejar de ver el juego. Títulos extra en
+      `game_mode.titles`
+- [x] 6.3 En modo juego: descarga la IA (GPU o CPU); si le hablas, carga en CPU con 3 hilos. Sin
+      oído ni atajo, mascota quieta y sin "siempre encima". No mira la pantalla
+- [x] 6.4 Suspendida: descarga IA y voz y no comenta. Hablarle o abrir el chat la despierta.
+      Inactiva tras 5 min sin uso: anima a 2 fotogramas por segundo como mucho
+- [x] 6.5 Aviso en el chat si la IA cae al modelo de CPU por falta de VRAM
+- [x] 6.6b Visión: títulos de ventana como contexto, instrucción de no leer texto pequeño, y las
+      ventanas de Teto fuera de la captura. En una ventana de prueba, el prompt anterior inventó un
+      nombre de usuario ("@dego_junata_4521"); el nuevo dijo que no lo distinguía. ~20 s por mirada
+      con el modelo cargado (65 s la primera). Una prueba de cada caso
+- [~] 6.6 Prueba de estabilidad de 8 h con Live2D (`scripts/prueba_estabilidad.py`), en curso
+- [ ] 6.7 **Diego:** prueba manual del modo juego
+
+Medido (2026-11-08): 798 pruebas. Con la app real y League of Legends abierto de verdad (partida en
+curso, Vanguard activo), Teto detectó el juego sola por su clase de ventana y pasó al modo juego: sin
+"siempre encima", sin animación y sin atajo. App en reposo 81 MB; suspendida 94 MB sin procesos
+hijos. El juego ocupaba ~2,6 GB de VRAM, así que la IA cargó en CPU desde el principio.
+
+Limitaciones conocidas:
+- En esa prueba la IA siguió cargada en CPU (1,8 GB) durante el modo juego; corregido después: ahora
+  se descarga al entrar. Falta repetir la prueba con un juego abierto
+- Lo que ocupe la pantalla entera sin ser web cuenta como juego: un vídeo en VLC o una presentación
+  también activan el modo juego
+- Si le hablas en modo juego, la IA en CPU usa RAM y CPU del juego mientras responde
+
 ## Mascota Live2D (pedido por Diego, 2026-11-08)
 
 Diego aportó un modelo Live2D de Teto (`E:\重音テト`, gratuito para fans y sin uso comercial).
@@ -416,7 +446,7 @@ Aprobó instalar live2d-py y reducir las texturas a 2048 px en la caché local.
 
 Medido (2026-11-08) con la app real: carga en 4,2 s la primera vez (reduce las texturas) y en 1,0 s
 después. Animando a 30 fps: 4,7 % de CPU y ~235–275 MB de RAM; en modo juego, 0,9 % de CPU sin
-memoria gráfica. 851 pruebas más la real con el modelo.
+memoria gráfica. 852 pruebas más la real con el modelo.
 
 Limitaciones conocidas:
 - Live2D usa la GTX 1650 (Windows la elige para OpenGL), no la gráfica integrada. Por eso se libera
@@ -437,7 +467,8 @@ Elegido por Diego: solo PyInstaller, sin instalador; los accesos directos los cr
       Modelos, llama.cpp y voz fuera: se buscan en la carpeta del proyecto. Personajes y fichas
       también, si existen, para no tener que empaquetar de nuevo
 - [x] 7.3 `scripts/crear_accesos.py`: menú Inicio y escritorio (`--quitar` los borra). Sin registro
-- [ ] 7.4 Probar el ejecutable con IA, voz y visión (pendiente: Diego estaba jugando)
+- [x] 7.4 `--diagnostico`: comprueba modelos, voz, Live2D y plantillas y pide una respuesta a la IA.
+      Desde el ejecutable: todo correcto, IA en GPU en 5,1 s
 - [ ] 7.5 **Diego:** prueba manual desde el acceso directo
 
 Medido (2026-11-08): empaquetar tarda ~110 s; la carpeta ocupa 129 MB y 238 archivos. El ejecutable
@@ -447,40 +478,12 @@ Limitaciones conocidas:
 - Hay que volver a empaquetar tras cambiar el código; la versión de `ejecutar.pyw` sigue sirviendo
 - Sin archivo de licencia ni firma: Windows SmartScreen puede avisar al abrirlo la primera vez
 
-## Fase 6 — Optimización (aprobada por Diego, 2026-11-08)
-
-- [x] 6.1 `core/activity.py`: estados activa, inactiva, suspendida y modo juego. Para detectar juegos
-      solo lee el título y la clase de la ventana activa cada 5 s; nunca procesos ni capturas
-- [x] 6.2 Modo juego automático (desactivable en Configuración) o a mano desde la bandeja. Entra tras
-      dos lecturas seguidas y sale 30 s después de dejar de ver el juego. Títulos extra en
-      `game_mode.titles`
-- [x] 6.3 En modo juego: descarga la IA (GPU o CPU); si le hablas, carga en CPU con 3 hilos. Sin
-      oído ni atajo, mascota quieta y sin "siempre encima". No mira la pantalla
-- [x] 6.4 Suspendida: descarga IA y voz y no comenta. Hablarle o abrir el chat la despierta.
-      Inactiva tras 5 min sin uso: anima a 2 fotogramas por segundo como mucho
-- [x] 6.5 Aviso en el chat si la IA cae al modelo de CPU por falta de VRAM
-- [ ] 6.6 Prueba de estabilidad de 8 h
-- [ ] 6.7 **Diego:** prueba manual del modo juego
-
-Medido (2026-11-08): 798 pruebas. Con la app real y League of Legends abierto de verdad (partida en
-curso, Vanguard activo), Teto detectó el juego sola por su clase de ventana y pasó al modo juego: sin
-"siempre encima", sin animación y sin atajo. App en reposo 81 MB; suspendida 94 MB sin procesos
-hijos. El juego ocupaba ~2,6 GB de VRAM, así que la IA cargó en CPU desde el principio.
-
-Limitaciones conocidas:
-- En esa prueba la IA siguió cargada en CPU (1,8 GB) durante el modo juego; corregido después: ahora
-  se descarga al entrar. Falta repetir la prueba con un juego abierto
-- Lo que ocupe la pantalla entera sin ser web cuenta como juego: un vídeo en VLC o una presentación
-  también activan el modo juego
-- Si le hablas en modo juego, la IA en CPU usa RAM y CPU del juego mientras responde
-
 ## Ideas para el futuro (fuera del alcance actual)
 
 - Voz de Teto con RVC (aprobado para después de Piper, 2026-10-31): solo modelo entrenado por Diego
   con la biblioteca oficial de UTAU, para uso personal y sin distribuirlo; nunca modelos ajenos.
   Antes hay que medir CPU y VRAM, y ajustar la regla "No clonar la voz oficial" de CLAUDE.md
 - Palabra de activación "Teto" y reconocimiento continuo
-- Modelo Live2D (con arte licenciado)
 - Búsqueda semántica en memoria (embeddings)
 - Comentarios espontáneos
 
@@ -527,3 +530,7 @@ Limitaciones conocidas:
 - **2026-11-01:** Fase 5 implementada: acciones de Windows, cerrar ventanas y actuar sin confirmar.
   Eliminado el recorrido de procesos que incumplía la regla de anticheat. Reconocimiento de voz con
   `large-v3-turbo`. Prueba manual de Diego superada y subida a GitHub.
+- **2026-11-08:** proyecto movido a E:\Carpeta de teto. Aviso al caer al modelo de CPU. Fase 6: estados,
+  modo juego (probado con League of Legends abierto de verdad) y visión más fiable. Conocimiento
+  general con seis fuentes oficiales. Mascota Live2D con el modelo de Diego. Fase 7: ejecutable con
+  PyInstaller, accesos directos y diagnóstico. Prueba de 8 h en curso. Pendientes las pruebas manuales.

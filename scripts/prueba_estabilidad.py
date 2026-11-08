@@ -48,13 +48,15 @@ def main() -> int:
     parser.add_argument("--horas", type=float, default=8)
     parser.add_argument("--minutos-entre-turnos", type=float, default=7)
     parser.add_argument("--salida", type=Path, default=Path("estabilidad.csv"))
+    parser.add_argument("--live2d", type=Path, help="ruta a un .model3.json para probar Live2D")
     args = parser.parse_args()
 
     data = Path(tempfile.mkdtemp(prefix="teto_estabilidad_"))
     os.environ["KASANE_TETO_DATA"] = str(data)
-    (data / "settings.json").write_text(
-        json.dumps({"voice": {"volume": 0, "mic_enabled": False}}), encoding="utf-8"
-    )
+    settings: dict[str, dict[str, object]] = {"voice": {"volume": 0, "mic_enabled": False}}
+    if args.live2d:
+        settings["pet"] = {"pack": "live2d", "live2d_model": str(args.live2d), "scale": 50}
+    (data / "settings.json").write_text(json.dumps(settings), encoding="utf-8")
 
     from kasane_teto.core.activity import Activity
     from kasane_teto.core.logging_setup import setup_logging
