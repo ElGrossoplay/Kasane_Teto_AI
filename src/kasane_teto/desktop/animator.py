@@ -20,6 +20,8 @@ class SpriteAnimator(QObject):
         self._state = PetState.IDLE
         self._index = 0
         self._running = False
+        self._still = False
+        self._max_fps: float | None = None
         self._frames: dict[PetState, list[QPixmap]] = {}
         self._pack = pack
         self.set_pack(pack)
@@ -54,6 +56,18 @@ class SpriteAnimator(QObject):
         self._running = False
         self._timer.stop()
 
+    @property
+    def is_animating(self) -> bool:
+        return self._timer.isActive()
+
+    def set_pace(self, still: bool = False, max_fps: float | None = None) -> None:
+        """Quieta en modo juego o suspendida; con menos fotogramas cuando nadie la usa."""
+        if (still, max_fps) == (self._still, self._max_fps):
+            return
+        self._still = still
+        self._max_fps = max_fps
+        self._restart()
+
     def current_pixmap(self) -> QPixmap:
         frames = self._frames.get(self._state, self._frames[PetState.IDLE])
         return frames[self._index]
@@ -69,8 +83,9 @@ class SpriteAnimator(QObject):
         self._index = 0
         self._timer.stop()
         animation = self._pack.animation(self._state)
-        if self._running and len(animation.frames) > 1:
-            self._timer.start(round(1000 / animation.fps))
+        if self._running and not self._still and len(animation.frames) > 1:
+            fps = min(animation.fps, self._max_fps or animation.fps)
+            self._timer.start(round(1000 / fps))
         self.frame_changed.emit()
 
     def _advance(self) -> None:

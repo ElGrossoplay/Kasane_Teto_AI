@@ -77,6 +77,8 @@ class ResourceManager(QObject):
         self._lock = threading.Lock()
         self._busy = False
         self._cpu_notice = False
+        self._game_mode = False
+        self._profile_name = ""
 
         self._idle_timer = QTimer(self)
         self._idle_timer.setSingleShot(True)
@@ -88,6 +90,9 @@ class ResourceManager(QObject):
         gpu = AiProfile("gpu", get("ai.gpu_model"), int(get("ai.gpu_layers", 99)))
         cpu = AiProfile("cpu", get("ai.cpu_model"), 0)
         device = str(get("ai.device", "auto"))
+        if self._game_mode:
+            log.info("Modo juego: la IA usa la CPU para no quitarle VRAM al juego")
+            return [cpu]
         required = int(get("ai.gpu_min_free_mib", 3300))
         free = None if device == "cpu" else free_vram_mib()
         log.info("VRAM libre: %s MiB; dispositivo: %s", free, device)
@@ -102,7 +107,7 @@ class ResourceManager(QObject):
             model_path=self._models_dir / "gguf" / profile.model_file,
             context_size=int(get("ai.context_size", 4096)),
             gpu_layers=profile.gpu_layers,
-            threads=int(get("ai.threads", 6)),
+            threads=int(get("game_mode.ai_threads", 3) if self._game_mode else get("ai.threads", 6)),
             load_timeout_seconds=float(get("ai.load_timeout_seconds", 120)),
         )
 
@@ -111,8 +116,21 @@ class ResourceManager(QObject):
         self._busy = busy
         if busy:
             self._idle_timer.stop()
+        elif self._game_mode and self._profile_name == "gpu":
+            self.request_unload()
         else:
             self._idle_timer.start()
+
+    @property
+    def game_mode(self) -> bool:
+        return self._game_mode
+
+    def set_game_mode(self, enabled: bool) -> None:
+        """En modo juego la GPU y la RAM son del juego: se libera ya, y si le hablas carga en CPU."""
+        if enabled and not self._game_mode and self._profile_name:
+            self._game_mode = enabled
+            self.request_unload()
+        self._game_mode = enabled
 
     def ensure_loaded(self, vision: bool = False) -> LLMProcess:
         """Bloquea hasta que la IA esté lista; llamar solo desde un hilo de trabajo.
@@ -122,7 +140,10 @@ class ResourceManager(QObject):
         """
         with self._lock:
             process = self._process
-            if process is not None and process.is_running and (process.has_vision or not vision):
+            reusable = process is not None and process.is_running and not (
+                self._game_mode and self._profile_name == "gpu"
+            )
+            if reusable and (process.has_vision or not vision):
                 return process
             if process is not None:
                 process.stop()
@@ -138,7 +159,12 @@ class ResourceManager(QObject):
                     last_error = exc
                     continue
                 log.info("IA cargada con el perfil %s", profile.name)
-                self._cpu_notice = profile.name == "cpu" and self._settings.get("ai.device") != "cpu"
+                self._cpu_notice = (
+                    profile.name == "cpu"
+                    and not self._game_mode
+                    and self._settings.get("ai.device") != "cpu"
+                )
+                self._profile_name = profile.name
                 self._process = process
                 return process
             raise last_error or LLMStartError("No hay ningún perfil de IA disponible")
@@ -166,6 +192,7 @@ class ResourceManager(QObject):
                 return
             self._process.stop()
             self._process = None
+            self._profile_name = ""
         self.unloaded.emit()
 
     def shutdown(self) -> None:

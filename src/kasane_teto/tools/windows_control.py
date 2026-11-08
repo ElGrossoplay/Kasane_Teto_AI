@@ -26,6 +26,8 @@ GAME_CLASSES = frozenset(
 )
 # Navegadores, Discord y similares: una pestaña sobre un juego no es el juego.
 WEB_CLASSES = frozenset(("Chrome_WidgetWin_1", "MozillaWindowClass"))
+# El escritorio y la barra de tareas ocupan la pantalla entera, pero no son juegos.
+SHELL_CLASSES = frozenset(("Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"))
 GAME_TITLES = (
     "valorant", "league of legends", "riot client", "fortnite", "counter-strike", "apex legends",
     "overwatch", "minecraft", "genshin impact", "roblox",
@@ -141,6 +143,8 @@ def foreground() -> Foreground:
     if not hwnd:
         return Foreground("", False)
     title, kind = _title(hwnd), _class_name(hwnd)
+    if kind in SHELL_CLASSES:
+        return Foreground(title, False)
     fullscreen = not _user32.IsZoomed(hwnd) and _is_fullscreen(hwnd)
     return Foreground(title, is_game_window(kind, title) or (fullscreen and kind not in WEB_CLASSES))
 

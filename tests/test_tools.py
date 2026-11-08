@@ -515,6 +515,8 @@ def test_real_program_starts_on_this_system():
 
 
 class FakeResources:
+    game_mode = False
+
     def ensure_loaded(self):
         return type("Process", (), {"base_url": "http://fake", "api_key": "k"})()
 

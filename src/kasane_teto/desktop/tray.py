@@ -37,6 +37,13 @@ class TrayIcon(QObject):
             )
 
         self._menu.addSeparator()
+        self._game_mode = QAction("Modo juego", self._menu, checkable=True)
+        self._game_mode.setToolTip("Libera la GPU, apaga el oído y deja quieta a Teto.")
+        self._game_mode.triggered.connect(bus.game_mode_requested)
+        self._menu.addAction(self._game_mode)
+        self._suspend = QAction("Suspender", self._menu, checkable=True)
+        self._suspend.triggered.connect(bus.suspend_requested)
+        self._menu.addAction(self._suspend)
         self._menu.addAction("Liberar memoria de la IA").triggered.connect(
             lambda: bus.ai_unload_requested.emit()
         )
@@ -61,6 +68,12 @@ class TrayIcon(QObject):
 
     def hide(self) -> None:
         self._tray.hide()
+
+    def set_activity(self, label: str, game: bool, suspended: bool) -> None:
+        """Refleja el estado, también cuando el modo juego se activa solo."""
+        self._game_mode.setChecked(game)
+        self._suspend.setChecked(suspended)
+        self._tray.setToolTip(f"Kasane Teto AI ({label})")
 
     def _show_menu(self, position: QPoint) -> None:
         self._menu.popup(position)

@@ -142,6 +142,13 @@ class SpeechService(QObject):
         if self._active:
             self._on_active_changed(False)
 
+    def release(self) -> None:
+        """Corta y cierra el proceso de voz ya; vuelve a cargarse en la siguiente frase."""
+        self.stop()
+        self._idle_timer.stop()
+        if self._thread is not None:
+            self._queue.put((0, _UNLOAD))
+
     def shutdown(self) -> None:
         self.stop()
         self._idle_timer.stop()

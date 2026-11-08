@@ -42,12 +42,11 @@ class PetWindow(QWidget):
         self._scale = clamp_scale(int(settings.get("pet.scale", 100)))
         self._scaled_target: tuple[QSize, float] | None = None
         self._scaled: dict[int, QPixmap] = {}
+        self._in_game = False
 
         self.setWindowTitle("Kasane Teto AI")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
-        self.setWindowFlag(
-            Qt.WindowType.WindowStaysOnTopHint, bool(settings.get("pet.always_on_top", True))
-        )
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, self.always_on_top)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_ShowWithoutActivating)
 
@@ -66,6 +65,11 @@ class PetWindow(QWidget):
 
     @property
     def always_on_top(self) -> bool:
+        """La preferencia del usuario; en modo juego la ventana no se pone encima aunque esté activa."""
+        return bool(self._settings.get("pet.always_on_top", True))
+
+    @property
+    def is_on_top(self) -> bool:
         return bool(self.windowFlags() & Qt.WindowType.WindowStaysOnTopHint)
 
     def set_scale(self, scale: int) -> None:
@@ -83,12 +87,23 @@ class PetWindow(QWidget):
     def set_always_on_top(self, enabled: bool) -> None:
         if enabled == self.always_on_top:
             return
+        self._settings.set("pet.always_on_top", enabled)
+        self._apply_on_top()
+        self._bus.always_on_top_changed.emit(enabled)
+
+    def set_game_mode(self, enabled: bool) -> None:
+        """Nunca se fuerza encima de un juego: la regla de anticheat lo prohíbe."""
+        self._in_game = enabled
+        self._apply_on_top()
+
+    def _apply_on_top(self) -> None:
+        wanted = self.always_on_top and not self._in_game
+        if wanted == self.is_on_top:
+            return
         was_visible = self.isVisible()
-        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, enabled)
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, wanted)
         if was_visible:
             self.show()
-        self._settings.set("pet.always_on_top", enabled)
-        self._bus.always_on_top_changed.emit(enabled)
 
     def refresh_size(self) -> None:
         """Ajusta la ventana tras cambiar de paquete de personaje."""

@@ -33,6 +33,22 @@ def test_timer_only_runs_after_start(qapp, pack):
     assert not animator._timer.isActive()
 
 
+def test_pace_stills_and_slows_the_animation(qapp, pack):
+    animator = SpriteAnimator(pack)
+    animator.start()
+    normal = animator._timer.interval()
+    animator.set_pace(max_fps=1)
+    assert animator._timer.interval() == 1000 >= normal
+    animator.set_pace(still=True)
+    assert not animator.is_animating
+    animator.set_state(PetState.HAPPY)
+    assert not animator.is_animating
+    assert not animator.current_pixmap().isNull()
+    animator.set_state(PetState.IDLE)
+    animator.set_pace()
+    assert animator._timer.interval() == normal
+
+
 def test_every_state_loads_a_pixmap(qapp, pack):
     animator = SpriteAnimator(pack)
     for state in PetState:

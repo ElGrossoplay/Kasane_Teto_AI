@@ -379,9 +379,34 @@ Limitaciones conocidas:
 ## Fases siguientes (detalle al aprobar cada una)
 
 - [ ] Búsqueda de conocimiento general (Fase 5): fuente por decidir
-- [ ] Fase 6 — Optimización: modo juego (sin interactuar con juegos ni anticheat), estados, prueba de
-      estabilidad de 8 h
-- [ ] Fase 7 — Final: corrección de errores, PyInstaller, instalador
+- [ ] Fase 7 — Final: corrección de errores, PyInstaller, instalador (aprobada por Diego, 2026-11-08)
+
+## Fase 6 — Optimización (aprobada por Diego, 2026-11-08)
+
+- [x] 6.1 `core/activity.py`: estados activa, inactiva, suspendida y modo juego. Para detectar juegos
+      solo lee el título y la clase de la ventana activa cada 5 s; nunca procesos ni capturas
+- [x] 6.2 Modo juego automático (desactivable en Configuración) o a mano desde la bandeja. Entra tras
+      dos lecturas seguidas y sale 30 s después de dejar de ver el juego. Títulos extra en
+      `game_mode.titles`
+- [x] 6.3 En modo juego: descarga la IA (GPU o CPU); si le hablas, carga en CPU con 3 hilos. Sin
+      oído ni atajo, mascota quieta y sin "siempre encima". No mira la pantalla
+- [x] 6.4 Suspendida: descarga IA y voz y no comenta. Hablarle o abrir el chat la despierta.
+      Inactiva tras 5 min sin uso: anima a 2 fotogramas por segundo como mucho
+- [x] 6.5 Aviso en el chat si la IA cae al modelo de CPU por falta de VRAM
+- [ ] 6.6 Prueba de estabilidad de 8 h
+- [ ] 6.7 **Diego:** prueba manual del modo juego
+
+Medido (2026-11-08): 798 pruebas. Con la app real y League of Legends abierto de verdad (partida en
+curso, Vanguard activo), Teto detectó el juego sola por su clase de ventana y pasó al modo juego: sin
+"siempre encima", sin animación y sin atajo. App en reposo 81 MB; suspendida 94 MB sin procesos
+hijos. El juego ocupaba ~2,6 GB de VRAM, así que la IA cargó en CPU desde el principio.
+
+Limitaciones conocidas:
+- En esa prueba la IA siguió cargada en CPU (1,8 GB) durante el modo juego; corregido después: ahora
+  se descarga al entrar. Falta repetir la prueba con un juego abierto
+- Lo que ocupe la pantalla entera sin ser web cuenta como juego: un vídeo en VLC o una presentación
+  también activan el modo juego
+- Si le hablas en modo juego, la IA en CPU usa RAM y CPU del juego mientras responde
 
 ## Ideas para el futuro (fuera del alcance actual)
 

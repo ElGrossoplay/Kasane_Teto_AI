@@ -58,6 +58,7 @@ class SettingsWindow(QDialog):
         comments_enabled: bool = False,
         comments_minutes: int = 10,
         discord: DiscordVoice | None = None,
+        game_mode_auto: bool = True,
     ) -> None:
         super().__init__()
         self._discord = discord
@@ -140,6 +141,13 @@ class SettingsWindow(QDialog):
         self._comment_minutes.setValue(comments_minutes)
         self._comment_minutes.valueChanged.connect(bus.comments_minutes_requested)
 
+        self._game_auto = QCheckBox("Pasar al modo juego al detectar un juego")
+        self._game_auto.setToolTip(
+            "Solo mira el título de la ventana activa. Libera la GPU y apaga el oído mientras juegas."
+        )
+        self._game_auto.setChecked(game_mode_auto)
+        self._game_auto.toggled.connect(bus.game_mode_auto_requested)
+
         self._discord_button = QPushButton("Discord y contactos…")
         self._discord_button.setEnabled(discord is not None)
         self._discord_button.clicked.connect(self._open_discord)
@@ -163,6 +171,7 @@ class SettingsWindow(QDialog):
         form.addRow(self._apps_button)
         form.addRow(self._comments)
         form.addRow("Tiempo sin hablar", self._comment_minutes)
+        form.addRow(self._game_auto)
         form.addRow(self._discord_button)
         form.addRow("Datos", data_label)
 

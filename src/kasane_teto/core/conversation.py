@@ -89,6 +89,10 @@ ACTION_FAILED_REPLY = "No he podido hacerlo."
 ACTION_TIMEOUT_SECONDS = 60.0
 SCREEN_GAME_REPLY = "Hay un juego abierto: la pantalla no la miro, para no meterte en líos."
 SCREEN_FAILED_REPLY = "No he podido capturar la pantalla."
+SCREEN_GAME_MODE_REPLY = (
+    "Estoy en modo juego: no cargo la visión para no quitarle GPU al juego. Quítalo en el menú "
+    "si quieres que mire."
+)
 VISION_UNAVAILABLE_MESSAGE = "No pude cargar la visión. Cierra lo que esté usando la GPU y repítelo."
 DOCUMENT_SAVED_REPLY = "Listo, lo he dejado en Documentos, carpeta Teto."
 DOCUMENT_FAILED_REPLY = "Lo he escrito, pero no he podido guardarlo."
@@ -430,6 +434,10 @@ class ConversationService(QObject):
         if self._tools.game_on_screen():
             self._tools.record(LOOK_AT_SCREEN, "", "rechazado")
             self._reply_directly(SCREEN_GAME_REPLY)
+            return
+        if self._resources.game_mode:
+            self._tools.record(LOOK_AT_SCREEN, "", "rechazado")
+            self._reply_directly(SCREEN_GAME_MODE_REPLY)
             return
         try:
             image_url = self._capture()

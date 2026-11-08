@@ -20,6 +20,8 @@ class FakeProcess:
 
 
 class FakeResources:
+    game_mode = False
+
     def __init__(self, error=None, cpu_notice=False):
         self.error = error
         self.busy_calls = []
@@ -805,3 +807,44 @@ def test_cpu_notice_only_when_falling_back(qapp, settings, tmp_path, monkeypatch
     manager.ensure_loaded()
     assert manager.take_cpu_notice() is notice
     assert manager.take_cpu_notice() is False
+
+
+def test_game_mode_frees_the_gpu_and_loads_on_cpu(qapp, settings, tmp_path, monkeypatch):
+    from PySide6.QtCore import QThreadPool
+
+    import kasane_teto.core.resource_manager as rm
+
+    started, stopped, threads = [], [], []
+
+    class FakeLLMProcess:
+        is_running = True
+        has_vision = False
+
+        def __init__(self, config, log_path):
+            self.kind = "cpu" if config.gpu_layers == 0 else "gpu"
+            self.threads = config.threads
+
+        def start(self):
+            started.append(self.kind)
+            threads.append(self.threads)
+
+        def stop(self):
+            stopped.append(self.kind)
+
+    monkeypatch.setattr(rm, "LLMProcess", FakeLLMProcess)
+    monkeypatch.setattr(rm, "free_vram_mib", lambda: 4000)
+    manager = rm.ResourceManager(settings, tmp_path, tmp_path / "llama.log")
+    manager.ensure_loaded()
+    manager.set_game_mode(True)
+    QThreadPool.globalInstance().waitForDone()
+    assert stopped == ["gpu"]
+    manager.ensure_loaded()
+    assert started == ["gpu", "cpu"]
+    assert threads == [6, 3]
+    assert manager.take_cpu_notice() is False
+    manager.set_game_mode(False)
+    manager.ensure_loaded()
+    assert started == ["gpu", "cpu"]  # la de CPU sirve hasta que se descargue
+    manager.set_game_mode(True)
+    QThreadPool.globalInstance().waitForDone()
+    assert stopped == ["gpu", "cpu"]  # en CPU también ocupa RAM que el juego necesita

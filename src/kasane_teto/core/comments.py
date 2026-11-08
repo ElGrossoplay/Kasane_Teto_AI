@@ -46,6 +46,7 @@ class CommentService(QObject):
         self._clock = clock
         self._last_activity = clock()
         self._last_title = ""
+        self._paused = False
         self._lines = load_game_lines()
 
         for signal in (bus.user_message, bus.assistant_done):
@@ -74,6 +75,12 @@ class CommentService(QObject):
         else:
             self._timer.stop()
 
+    def set_paused(self, paused: bool) -> None:
+        """Suspendida no comenta; al volver cuenta el tiempo de nuevo."""
+        self._paused = paused
+        if not paused:
+            self._mark_activity()
+
     def _set_minutes(self, minutes: int) -> None:
         self._settings.set("comments.minutes", minutes)
 
@@ -86,7 +93,7 @@ class CommentService(QObject):
 
     def check(self) -> None:
         """Se comenta una vez por ventana: repetir lo mismo cada rato cansa."""
-        if not self.enabled or not self._is_due():
+        if not self.enabled or self._paused or not self._is_due():
             return
         current = self._tools.foreground()
         if not current.title or current.title == self._last_title:

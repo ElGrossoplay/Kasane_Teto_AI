@@ -5,6 +5,7 @@
 pack = "provisional"
 scale = 100           # porcentaje, de 25 a 300
 always_on_top = true
+idle_minutes = 5      # sin usar a Teto este tiempo, anima con menos fotogramas
 
 [voice]
 tts_enabled = true
@@ -42,6 +43,13 @@ confirm = false       # preguntar antes de cada acción (decisión de Diego: act
 enabled = false       # comentarios por su cuenta; se activan en Configuración
 minutes = 10          # minutos sin hablar con Teto antes de comentar
 away_minutes = 5      # sin tocar teclado ni ratón en este tiempo, no comenta: no estás delante
+
+[game_mode]
+auto = true           # pasa al modo juego al ver un juego en primer plano (solo lee su título)
+check_seconds = 5     # cada cuánto mira la ventana activa
+exit_seconds = 30     # tiempo sin ver el juego delante antes de salir del modo juego
+titles = []           # títulos de juegos que no se detecten solos, p. ej. ["Hollow Knight"]
+ai_threads = 3        # si le hablas jugando, la IA va en CPU con pocos hilos para no frenar el juego
 
 [memory]
 suggest = true      # Teto pregunta si guardar lo que le cuentas; nunca guarda sin confirmación

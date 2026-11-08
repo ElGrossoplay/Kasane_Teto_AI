@@ -68,6 +68,7 @@ class ListenService(QObject):
         self._fix_text = fix_text
         self._recording = False
         self._task_signals: _Signals | None = None
+        self._blocked_reason = ""
 
         self._limit = QTimer(self)
         self._limit.setSingleShot(True)
@@ -94,12 +95,26 @@ class ListenService(QObject):
     def _set_enabled(self, enabled: bool) -> None:
         self._settings.set("voice.mic_enabled", enabled)
         if not enabled:
-            if self._recording:
-                self._recording = False
-                self._limit.stop()
-                self._recorder.stop()
-                self._bus.pet_state_requested.emit(PetState.IDLE)
+            self._drop_recording()
             self._unload()
+
+    def set_blocked(self, reason: str) -> None:
+        """Con motivo, no escucha y libera el reconocedor (modo juego o suspendida)."""
+        self._blocked_reason = reason
+        if reason:
+            self.release()
+
+    def release(self) -> None:
+        """Libera el reconocedor ya; se vuelve a cargar al hablar."""
+        self._drop_recording()
+        self._unload()
+
+    def _drop_recording(self) -> None:
+        if self._recording:
+            self._recording = False
+            self._limit.stop()
+            self._recorder.stop()
+            self._bus.pet_state_requested.emit(PetState.IDLE)
 
     def toggle(self) -> None:
         if self._recording:
@@ -112,6 +127,9 @@ class ListenService(QObject):
             return
         if not self.enabled:
             self._bus.voice_status.emit("El micrófono está apagado: actívalo en Configuración.")
+            return
+        if self._blocked_reason:
+            self._bus.voice_status.emit(self._blocked_reason)
             return
         self._bus.speech_stop_requested.emit()
         try:

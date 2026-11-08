@@ -49,6 +49,16 @@ def test_always_on_top_persists(window, settings):
     assert settings.get("pet.always_on_top") is False
 
 
+def test_game_mode_drops_on_top_without_changing_the_preference(window, settings):
+    window.set_always_on_top(True)
+    window.set_game_mode(True)
+    assert not window.is_on_top
+    assert window.always_on_top
+    assert settings.get("pet.always_on_top") is True
+    window.set_game_mode(False)
+    assert window.is_on_top
+
+
 def test_position_is_restored(qapp, pack, settings):
     settings.set("pet.x", 100)
     settings.set("pet.y", 120)

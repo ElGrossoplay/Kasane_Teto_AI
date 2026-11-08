@@ -301,6 +301,28 @@ def test_recognizer_failure_returns_to_idle(listen):
     assert log["text"] == []
 
 
+def test_game_mode_blocks_listening_and_unloads(listen):
+    bus, service, stt, recorder, log = listen()
+    bus.listen_started.emit()
+    service.set_blocked("En modo juego no te escucho.")
+    assert not service.is_recording
+    pump(lambda: stt.unloaded == 1)
+    bus.listen_started.emit()
+    assert recorder.started == 1
+    assert log["status"][-1] == "En modo juego no te escucho."
+    service.set_blocked("")
+    bus.listen_started.emit()
+    assert service.is_recording
+
+
+def test_release_frees_the_voice_process_right_away(speech):
+    bus, service, engine, _ = speech()
+    bus.assistant_token.emit("Hola. ")
+    pump(lambda: engine.said == ["Hola."])
+    service.release()
+    pump(lambda: engine.unloaded == 1)
+
+
 def test_turning_off_microphone_stops_recording_and_unloads(listen):
     bus, service, stt, _, _ = listen()
     bus.listen_started.emit()

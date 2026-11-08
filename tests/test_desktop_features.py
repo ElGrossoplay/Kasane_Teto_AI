@@ -181,6 +181,8 @@ class FakeRunner:
 
 
 class FakeResources:
+    game_mode = False
+
     def __init__(self):
         self.vision_calls = 0
 
@@ -441,6 +443,18 @@ def test_turning_comments_off_stops_them(comments):
     clock.now += 601
     service.check()
     assert said == []
+
+
+def test_suspended_teto_does_not_comment(comments):
+    _, service, runner, said, _, clock = comments
+    runner.current = Foreground("Vídeo - YouTube", False)
+    service.set_paused(True)
+    clock.now += 601
+    service.check()
+    assert said == []
+    service.set_paused(False)
+    service.check()
+    assert said == []  # al despertar vuelve a esperar
 
 
 def test_game_lines_format_with_the_name():

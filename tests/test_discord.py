@@ -294,6 +294,8 @@ def pump(condition, timeout_ms=3000):
 
 
 class FakeResources:
+    game_mode = False
+
     def set_busy(self, busy):
         pass
 

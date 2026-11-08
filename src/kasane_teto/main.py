@@ -14,6 +14,7 @@ from PySide6.QtWidgets import QApplication, QMessageBox
 
 from kasane_teto.character.pack import CharacterPack, PackError, list_packs, load_pack
 from kasane_teto.character.states import PetState
+from kasane_teto.core.activity import Activity, ActivityService
 from kasane_teto.core.comments import CommentService
 from kasane_teto.core.conversation import ConversationService
 from kasane_teto.core.events import EventBus
@@ -52,6 +53,8 @@ from kasane_teto.voice.speech import SpeechService
 from kasane_teto.voice.transcript import fix_transcript
 
 FALLBACK_PACK = "provisional"
+IDLE_MAX_FPS = 2
+GAME_LISTEN_REASON = "En modo juego no te escucho, para no quitarle CPU al juego."
 
 log = logging.getLogger(__name__)
 
@@ -117,6 +120,8 @@ class TetoApp(QObject):
         self._hotkey = GlobalHotkey(lambda: self._bus.listen_toggled.emit())
         if self._listen.enabled:
             self._hotkey.register()
+        self._activity = ActivityService(self._bus, settings, self)
+        self._activity.changed.connect(self._apply_activity)
         self._bus.mic_enabled_requested.connect(self._on_mic_enabled)
         self._bus.volume_requested.connect(lambda v: settings.set("voice.volume", v))
         self._bus.voice_model_requested.connect(self._change_voice)
@@ -150,10 +155,31 @@ class TetoApp(QObject):
         self._speech.set_engine(self._new_tts())
 
     def _on_mic_enabled(self, enabled: bool) -> None:
-        if not enabled:
+        if not enabled or self._activity.state is Activity.GAME:
             self._hotkey.unregister()
         elif not self._hotkey.register():
             self._bus.voice_status.emit(f"El atajo {HOTKEY_LABEL} no está disponible.")
+
+    def _apply_activity(self, state: Activity) -> None:
+        """Modo juego: GPU libre, sin oído ni atajo, quieta y nunca encima del juego."""
+        game = state is Activity.GAME
+        suspended = state is Activity.SUSPENDED
+        self._resources.set_game_mode(game)
+        self._pet.set_game_mode(game)
+        self._animator.set_pace(
+            still=game or suspended, max_fps=IDLE_MAX_FPS if state is Activity.IDLE else None
+        )
+        self._listen.set_blocked(GAME_LISTEN_REASON if game else "")
+        if game:
+            self._hotkey.unregister()
+        elif self._listen.enabled:
+            self._hotkey.register()
+        if suspended:
+            self._resources.request_unload()
+            self._listen.release()
+            self._speech.release()
+        self._comments.set_paused(suspended)
+        self._tray.set_activity(state.value, game, suspended)
 
     @staticmethod
     def _open_memory_store(user_dir: Path) -> MemoryStore | None:
@@ -235,6 +261,7 @@ class TetoApp(QObject):
             self._comments.enabled,
             int(self._settings.get("comments.minutes", 10)),
             self._discord,
+            self._activity.auto_enabled,
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window
@@ -248,6 +275,7 @@ class TetoApp(QObject):
         self._pet.save_position()
         self._tray.hide()
         self._hotkey.unregister()
+        self._activity.shutdown()
         self._comments.shutdown()
         self._listen.shutdown()
         self._speech.shutdown()
