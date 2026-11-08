@@ -36,6 +36,7 @@ from kasane_teto.personality.prompt_builder import (
     DOCUMENT_SYSTEM,
     MESSAGE_PROMPT,
     SCREEN_PROMPT,
+    SCREEN_WINDOWS,
     SEARCH_DONE,
     build_messages,
     knowledge_block,
@@ -102,6 +103,11 @@ ACTION_FAILED_REPLY = "No he podido hacerlo."
 ACTION_TIMEOUT_SECONDS = 60.0
 SCREEN_GAME_REPLY = "Hay un juego abierto: la pantalla no la miro, para no meterte en líos."
 SCREEN_FAILED_REPLY = "No he podido capturar la pantalla."
+SCREEN_WINDOW_TITLES = 5
+OWN_WINDOW_TITLES = (
+    "Kasane Teto AI", "Hablar con Teto", "Memoria de Teto", "Configuración",
+    "Aplicaciones permitidas",
+)
 SCREEN_GAME_MODE_REPLY = (
     "Estoy en modo juego: no cargo la visión para no quitarle GPU al juego. Quítalo en el menú "
     "si quieres que mire."
@@ -290,6 +296,7 @@ class ConversationService(QObject):
         self._tools = tools
         self._info = info
         self._search_label = "VocaDB"
+        self._screen_windows: list[str] = []
         if info is not None:
             info.home_city = str(settings.get("web.city", ""))
         self._capture = capture
@@ -473,6 +480,11 @@ class ConversationService(QObject):
             log.error("Captura fallida: %s", exc)
             self._reply_directly(SCREEN_FAILED_REPLY)
             return
+        # Los títulos son texto fiable: anclan la descripción y evitan que invente el programa.
+        own = set(OWN_WINDOW_TITLES)
+        self._screen_windows = [t for t in self._tools.open_windows() if t not in own][
+            :SCREEN_WINDOW_TITLES
+        ]
         self._tools.record(LOOK_AT_SCREEN, "", "hecho")
         self._start_turn(text, image_url=image_url)
 
@@ -833,7 +845,9 @@ class ConversationService(QObject):
         if web.sources and asks_to_search(text):
             block += SEARCH_DONE
         if image_url:
-            block = SCREEN_PROMPT + block
+            titles = "; ".join(self._screen_windows)
+            windows = SCREEN_WINDOWS.format(titles=titles) if titles else ""
+            block = SCREEN_PROMPT.format(windows=windows) + block
         messages: list[dict[str, Any]] = list(
             build_messages(
                 system_prompt_for(self._system_prompt, self.tools_enabled),

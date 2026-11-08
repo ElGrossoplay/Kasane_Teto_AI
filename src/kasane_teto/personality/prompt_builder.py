@@ -13,9 +13,12 @@ CHARS_PER_TOKEN = 3
 SEARCH_DONE = "Ya has buscado lo que te pide: cuenta lo que has encontrado. "
 DESKTOP_HEADING = "Ventanas que el usuario tiene abiertas ahora, la primera es la que tiene delante:"
 SCREEN_PROMPT = (
-    "Esto es una captura de la pantalla del usuario. Mírala y responde a su mensaje en español, "
-    "breve y con naturalidad. Si no distingues algo, dilo. "
+    "Esto es una captura de la pantalla del usuario.{windows} Responde a su mensaje en español, "
+    "breve y con naturalidad. Habla solo de lo que se ve con claridad: el programa, lo que ocupa "
+    "más sitio y el texto grande. No leas nombres de usuario, texto pequeño ni cifras que no veas "
+    "bien, y no inventes detalles: si algo no se distingue, dilo. "
 )
+SCREEN_WINDOWS = " Ventanas abiertas, de la de delante a la de detrás: {titles}."
 # Sin personalidad ni reglas de Teto: con ellas el modelo se negaba a crear el documento.
 DOCUMENT_SYSTEM = (
     "Eres una redactora. Escribes en español exactamente el texto pedido, completo, sin "

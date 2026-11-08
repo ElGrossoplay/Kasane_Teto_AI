@@ -254,6 +254,25 @@ def test_look_sends_the_image_to_the_local_model_only(desktop):
     assert captures == [True]
 
 
+def test_look_names_the_open_windows_but_not_teto_s_own(desktop):
+    bus, _, runner, seen, record, *_ = desktop
+    runner.windows = [Window(1, "Hablar con Teto"), Window(2, "main.py - Visual Studio Code")]
+    bus.user_message.emit("Mira mi pantalla")
+    pump(lambda: record["done"] == 1)
+    text = seen[0][0][-1]["content"][1]["text"]
+    assert "main.py - Visual Studio Code" in text
+    assert "Hablar con Teto" not in text
+    assert "no inventes" in text
+
+
+def test_game_mode_never_looks(desktop):
+    bus, _, _, seen, record, resources, captures, _ = desktop
+    resources.game_mode = True
+    bus.user_message.emit("Mira mi pantalla")
+    assert record["tokens"] == [conversation.SCREEN_GAME_MODE_REPLY]
+    assert captures == [] and seen == []
+
+
 def test_image_stays_out_of_history(desktop):
     bus, _, _, seen, record, *_ = desktop
     bus.user_message.emit("Mira mi pantalla")
