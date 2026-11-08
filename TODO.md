@@ -398,7 +398,24 @@ Limitaciones conocidas:
 - La sinopsis de AniList llega en inglés y el modelo la resume en español
 - "Peso" a secas se toma por el mexicano
 - Wikipedia da un resumen: el modelo aún puede deformar detalles
-- [ ] Fase 7 — Final: corrección de errores, PyInstaller, instalador (aprobada por Diego, 2026-11-08)
+## Fase 7 — Final (aprobada por Diego, 2026-11-08)
+
+Elegido por Diego: solo PyInstaller, sin instalador; los accesos directos los crea un script.
+
+- [x] 7.1 PyInstaller 6.22.3 en el `.venv` (con caché de pip en D:)
+- [x] 7.2 `scripts/empaquetar.py`: `dist\KasaneTetoAI\KasaneTetoAI.exe`, sin consola, `--onedir`.
+      Modelos, llama.cpp y voz fuera: se buscan en la carpeta del proyecto. Personajes y fichas
+      también, si existen, para no tener que empaquetar de nuevo
+- [x] 7.3 `scripts/crear_accesos.py`: menú Inicio y escritorio (`--quitar` los borra). Sin registro
+- [ ] 7.4 Probar el ejecutable con IA, voz y visión (pendiente: Diego estaba jugando)
+- [ ] 7.5 **Diego:** prueba manual desde el acceso directo
+
+Medido (2026-11-08): empaquetar tarda ~110 s; la carpeta ocupa 129 MB y 238 archivos. El ejecutable
+arranca, carga las 44 fichas y en reposo ocupa 77 MB. 843 pruebas.
+
+Limitaciones conocidas:
+- Hay que volver a empaquetar tras cambiar el código; la versión de `ejecutar.pyw` sigue sirviendo
+- Sin archivo de licencia ni firma: Windows SmartScreen puede avisar al abrirlo la primera vez
 
 ## Fase 6 — Optimización (aprobada por Diego, 2026-11-08)
 

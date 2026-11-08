@@ -26,9 +26,11 @@ def code_changed_since(moment: float, root: Path) -> bool:
 
 def relaunch(root: Path) -> None:
     """Sin consola y sin depender de esta app, que está a punto de cerrarse."""
+    frozen = bool(getattr(sys, "frozen", False))
+    args = [sys.executable] if frozen else [sys.executable, str(root / "ejecutar.pyw")]
     try:
         subprocess.Popen(
-            [sys.executable, str(root / "ejecutar.pyw")],
+            args,
             cwd=root,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,

@@ -23,6 +23,7 @@ from kasane_teto.core.paths import (
     character_root,
     data_dir,
     default_config_path,
+    is_frozen,
     knowledge_root,
     models_dir,
     project_root,
@@ -310,7 +311,7 @@ def main() -> int:
     restart = {"requested": False}
 
     def on_activated() -> None:
-        if code_changed_since(started_at, project_root()):
+        if not is_frozen() and code_changed_since(started_at, project_root()):
             log.info("Hay código nuevo: se reinicia la app")
             restart["requested"] = True
             app.quit()
