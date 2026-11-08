@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-08 · **Fases 1 a 7 implementadas · Pendientes: la prueba de estabilidad de 8 h (en curso) y las pruebas manuales de Diego (5.18, P.12, 6.7, G.6, L.6, 7.5)**
+Última actualización: 2026-11-08 · **Fases 1 a 7 implementadas · Prueba de 8 h superada · Pendientes: las pruebas manuales de Diego (5.18, P.12, 6.7, G.6, L.6, 7.5)**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -413,7 +413,13 @@ Limitaciones conocidas:
       ventanas de Teto fuera de la captura. En una ventana de prueba, el prompt anterior inventó un
       nombre de usuario ("@dego_junata_4521"); el nuevo dijo que no lo distinguía. ~20 s por mirada
       con el modelo cargado (65 s la primera). Una prueba de cada caso
-- [~] 6.6 Prueba de estabilidad de 8 h con Live2D (`scripts/prueba_estabilidad.py`), en curso
+- [x] 6.6 Prueba de estabilidad de 8 h con Live2D (`scripts/prueba_estabilidad.py`, 2026-11-08):
+      68 turnos, 42 respuestas, 0 errores y 0 avisos en el registro; llama-server cerrado al salir.
+      App (sin la IA): mediana 269 MB activa, 268 MB inactiva, 248 MB suspendida y 251 MB en modo
+      juego; máximo 334 MB. CPU de la app: mediana 2,6 % activa y 1,1 % en reposo. La IA en GPU
+      ocupó ~1,47 GB de RAM aparte. Pendiente: la RAM en reposo crece despacio (247 → 285 MB en 8 h,
+      ~5 MB/h) y los handles saltaron una vez de 819 a 1465 en el minuto 429, sin nada en el registro,
+      y luego se mantuvieron estables
 - [ ] 6.7 **Diego:** prueba manual del modo juego
 
 Medido (2026-11-08): 798 pruebas. Con la app real y League of Legends abierto de verdad (partida en
@@ -533,4 +539,8 @@ Limitaciones conocidas:
 - **2026-11-08:** proyecto movido a E:\Carpeta de teto. Aviso al caer al modelo de CPU. Fase 6: estados,
   modo juego (probado con League of Legends abierto de verdad) y visión más fiable. Conocimiento
   general con seis fuentes oficiales. Mascota Live2D con el modelo de Diego. Fase 7: ejecutable con
-  PyInstaller, accesos directos y diagnóstico. Prueba de 8 h en curso. Pendientes las pruebas manuales.
+  PyInstaller, accesos directos y diagnóstico. Prueba de 8 h con Live2D superada (0 errores; la RAM
+  en reposo crece ~5 MB/h, pendiente de revisar). Pendientes las pruebas manuales.
+- **2026-11-08:** probadas cuatro voces RVC de Teto sobre Piper (en `models/rvc/`, fuera de git): se
+  entienden, pero en CPU tardan ~5 s por frase y usan más de 2 GB de RAM. No integradas; la
+  alternativa estudiada es entrenar una voz Piper con audio convertido por RVC.
