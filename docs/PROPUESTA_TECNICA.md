@@ -328,8 +328,8 @@ Python del sistema. Se instala junto a cualquier otra versión, sin sustituirla.
 | ddgs, trafilatura | Búsqueda web | < 30 MB | Sí | 5 |
 | PyInstaller | Empaquetado | ~20 MB | Sí | 7 |
 
-Total en disco estimado al final: **~4–6 GB** (la mayor parte, modelos). El proyecto, `.venv`, los
-modelos y las cachés de pip y Hugging Face van en D:; en C: solo Python 3.12 y los datos del usuario
+Total en disco estimado al final: **~4–6 GB** (la mayor parte, modelos). El proyecto, `.venv` y los
+modelos van en E:, y las cachés de pip y Hugging Face en D:; en C: solo Python 3.12 y los datos del usuario
 en `%LOCALAPPDATA%`.
 
 ---

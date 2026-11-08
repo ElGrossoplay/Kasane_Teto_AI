@@ -13,8 +13,8 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 
 - i5-11400H (6C/12T), 16 GB RAM (a menudo ya muy ocupada), **GTX 1650 con 4 GB de VRAM dedicada**,
   Intel UHD. La "memoria GPU compartida" es RAM, **no** VRAM.
-- Proyecto, `.venv`, modelos y cachés siempre en D:. Datos medidos: `docs/privado/EQUIPO_LOCAL.md`
-  (local, no se sube).
+- Proyecto, `.venv` y modelos en `E:\Carpeta de teto` (disco por USB); cachés de pip y Hugging Face
+  en D:, nunca en C:. Datos medidos: `docs/privado/EQUIPO_LOCAL.md` (local, no se sube).
 - Presupuestos: app en reposo < 200 MB RAM y < 1 % CPU; modo normal < ~1,5 GB RAM;
   VRAM total de la IA ≤ ~3,5 GB.
 
