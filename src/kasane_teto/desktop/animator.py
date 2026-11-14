@@ -53,6 +53,15 @@ class SpriteAnimator(QObject):
     def set_talking(self, talking: bool) -> None:
         """Los sprites tienen su propio estado de hablar."""
 
+    def play_gesture(self, name: str) -> None:
+        """Los gestos de cuerpo son cosa de Live2D; los sprites solo cambian de imagen."""
+
+    def poke(self) -> None:
+        """Sin reacción al clic."""
+
+    def note_drag(self, pixels: float) -> None:
+        """Sin inercia al arrastrar."""
+
     def shutdown(self) -> None:
         self.stop()
 

@@ -39,6 +39,12 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 | Frankfurter | Tipos de cambio de bancos centrales | Gratuita y de código abierto, sin clave | 5 |
 | AniList (API GraphQL) | Anime y manga | Gratuita para uso no comercial; prohíbe usarla como almacén o acumular datos (caché de un día) | 5 |
 | Open Library | Autores de libros | Pide identificar la app en el User-Agent y no descargar en masa | 5 |
+| infer-rvc-python 1.3.1 (en `models/rvc`, fuera de la app) | Convertir audio de Piper a la voz de Teto para entrenar | MIT | 3 |
+| PyTorch 2.14 (CUDA 12.6), transformers, faiss-cpu, librosa, praat-parselmouth, pyworld, torchcrepe | Dependencias de RVC y del entrenamiento | BSD-3-Clause, Apache-2.0, MIT, ISC, GPL-3.0 (parselmouth), MIT | 3 |
+| Modelos base HuBERT (r3gm/hubert_base) y RMVPE | Rasgos de voz y tono para RVC | MIT | 3 |
+| Entrenamiento de Piper (`piper-tts[train]`), lightning, numba | Afinar una voz de Piper | GPL-3.0-or-later, Apache-2.0, BSD-2-Clause | 3 |
+| Punto de partida es_MX/ald/medium (rhasspy/piper-checkpoints) | Base para afinar la voz | Unlicense (dataset de ald) | 3 |
+| Textos de los datasets davefx (CC0), sharvard (CC BY 3.0) y ald (Unlicense) | Frases que lee la voz al entrenar | CC0, CC BY 3.0, Unlicense | 3 |
 | Datos de VocaDB (API pública) | Búsqueda de artistas y canciones | Creative Commons Attribution, con enlace a VocaDB en cada respuesta. Sin letras, imágenes ni audio, que no cubre esa licencia | 5 |
 
 ## Recursos propios
@@ -56,6 +62,10 @@ revisar esta lista completa. Versiones activas en `requirements.txt`.
 Kasane Teto pertenece a TWINDRILL. El repositorio no incluye arte, voz ni modelos del personaje.
 Cualquier paquete de personaje con arte de terceros se guarda solo en local y requiere el permiso de
 su autor.
+
+Voces RVC de Teto que aporta Diego (`talk_v1_240e` y otras, descargadas de webs de modelos de voz,
+sin licencia indicada): se guardan solo en `models/rvc/voces`, fuera de git, y sirven para crear una
+voz de Piper de uso personal. Ni las voces RVC ni la voz entrenada se suben ni se distribuyen.
 
 Modelo Live2D de Diego (ilustración de NaCl_chica, rigging de Missingperson04, con licencia de
 TWINDRILL): gratuito para fans, sin uso comercial, sin revender, copiar ni redistribuir. La app lo

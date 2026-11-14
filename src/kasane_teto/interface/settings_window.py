@@ -1,4 +1,4 @@
-"""Ventana de configuración mínima."""
+"""Ventana de configuración, por pestañas. Cada cambio se aplica al momento."""
 
 from __future__ import annotations
 
@@ -17,14 +17,17 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QSpinBox,
+    QTabWidget,
     QVBoxLayout,
+    QWidget,
 )
 
 from kasane_teto.core.events import EventBus
-from kasane_teto.desktop.hotkey import HOTKEY_LABEL
+from kasane_teto.desktop.hotkey import CHAT, HOTKEY_LABEL, SHOW
 from kasane_teto.desktop.pet_window import MAX_SCALE, MIN_SCALE, SCALE_STEP
 from kasane_teto.interface.apps_window import AppsWindow
 from kasane_teto.interface.discord_window import DiscordWindow
+from kasane_teto.interface.theme import THEMES
 from kasane_teto.tools.discord_rpc import DiscordVoice
 
 
@@ -64,6 +67,8 @@ class SettingsWindow(QDialog):
         general_web: bool = False,
         city: str = "",
         live2d_model: str = "",
+        bubble: bool = True,
+        theme: str = "auto",
     ) -> None:
         super().__init__()
         self._discord = discord
@@ -94,6 +99,17 @@ class SettingsWindow(QDialog):
             live2d_model or "Archivo .model3.json. Se lee donde está: no se copia ni se sube."
         )
         self._live2d_button.clicked.connect(self._choose_live2d)
+
+        self._bubble = QCheckBox("Mostrar lo que dice en un bocadillo sobre ella")
+        self._bubble.setToolTip("Para leer la respuesta sin abrir el chat. No se muestra sobre juegos.")
+        self._bubble.setChecked(bubble)
+        self._bubble.toggled.connect(bus.bubble_enabled_requested)
+
+        self._theme = QComboBox()
+        self._theme.addItems(THEMES)
+        self._theme.setCurrentText(theme if theme in THEMES else "auto")
+        self._theme.setToolTip("«auto» sigue el modo claro u oscuro de Windows.")
+        self._theme.currentTextChanged.connect(bus.theme_requested)
 
         self._tts = QCheckBox("Teto habla en voz alta")
         self._tts.setChecked(voice.tts_enabled)
@@ -181,39 +197,71 @@ class SettingsWindow(QDialog):
         data_label = QLabel(str(data_dir))
         data_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
 
-        form = QFormLayout()
-        form.addRow(self._always_on_top)
-        form.addRow("Tamaño", self._scale)
-        form.addRow("Personaje", self._pack)
-        form.addRow("Modelo Live2D", self._live2d_button)
-        form.addRow(self._tts)
-        form.addRow("Voz", self._voice)
-        form.addRow("Volumen", self._volume)
-        form.addRow(self._mic)
-        form.addRow(self._web)
-        form.addRow(self._general_web)
-        form.addRow("Tu ciudad", self._city)
-        form.addRow(self._suggest)
-        form.addRow(self._history)
-        form.addRow(self._tools)
-        form.addRow(self._confirm)
-        form.addRow(self._apps_button)
-        form.addRow(self._comments)
-        form.addRow("Tiempo sin hablar", self._comment_minutes)
-        form.addRow(self._game_auto)
-        form.addRow(self._discord_button)
-        form.addRow("Datos", data_label)
+        hints = QLabel(
+            "Clic: reacciona · Doble clic: chat · Botón central: escuchar · Rueda: tamaño · "
+            f"Arrastrar: moverla\n{CHAT.label}: chat · {HOTKEY_LABEL}: escuchar · "
+            f"{SHOW.label}: mostrar u ocultar"
+        )
+        hints.setProperty("role", "muted")
+        hints.setWordWrap(True)
+
+        tabs = QTabWidget()
+        tabs.addTab(
+            self._page(
+                self._always_on_top,
+                ("Tamaño", self._scale),
+                ("Personaje", self._pack),
+                ("Modelo Live2D", self._live2d_button),
+                self._bubble,
+                ("Aspecto de las ventanas", self._theme),
+                self._game_auto,
+                hints,
+            ),
+            "Mascota",
+        )
+        tabs.addTab(
+            self._page(self._tts, ("Voz", self._voice), ("Volumen", self._volume), self._mic), "Voz"
+        )
+        tabs.addTab(
+            self._page(self._web, self._general_web, ("Tu ciudad", self._city)), "Internet"
+        )
+        tabs.addTab(
+            self._page(
+                self._suggest,
+                self._history,
+                self._comments,
+                ("Tiempo sin hablar", self._comment_minutes),
+                ("Datos", data_label),
+            ),
+            "Memoria",
+        )
+        tabs.addTab(
+            self._page(self._tools, self._confirm, self._apps_button, self._discord_button),
+            "Windows",
+        )
 
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.button(QDialogButtonBox.StandardButton.Close).setText("Cerrar")
         buttons.rejected.connect(self.close)
 
+        self.setMinimumWidth(520)
         layout = QVBoxLayout(self)
-        layout.addLayout(form)
+        layout.addWidget(tabs)
         layout.addWidget(buttons)
 
         bus.always_on_top_changed.connect(self._always_on_top.setChecked)
         bus.scale_changed.connect(self._scale.setValue)
+
+    @staticmethod
+    def _page(*rows: QWidget | tuple[str, QWidget]) -> QWidget:
+        page = QWidget()
+        form = QFormLayout(page)
+        for row in rows:
+            if isinstance(row, tuple):
+                form.addRow(*row)
+            else:
+                form.addRow(row)
+        return page
 
     def _remember_apps(self, apps: dict[str, str]) -> None:
         self._allowed_apps = dict(apps)

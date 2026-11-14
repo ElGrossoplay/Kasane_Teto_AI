@@ -20,14 +20,19 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QPointF, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QImage, QOffscreenSurface, QOpenGLContext, QPixmap, QSurfaceFormat
 
+from kasane_teto.character.motion import MotionDirector, Pose
 from kasane_teto.character.states import PetState
 
 TEXTURE_SIDE = 2048
 MASK_BUFFERS = 3  # el modelo de Teto usa 39 máscaras: con una sola se ven mal
 BASE_HEIGHT = 560  # alto de la mascota al 100 %
 DEFAULT_RATIO = 1 / 2.318  # ancho entre alto del lienzo de Teto, hasta leer el del modelo
-NORMAL_FPS = 30
-SLOW_FPS = 12
+LIVELY_FPS = 30  # gestos, habla, arrastre o ratón en movimiento
+CALM_FPS = 20  # solo el balanceo de reposo: se ve igual con menos fotogramas
+SLOW_FPS = 12  # nadie la usa: dormita
+BREATH_SECONDS = 3.4
+HEAD_HEIGHT = 0.14  # altura de la cabeza en la ventana, para saber hacia dónde mirar
+LOOK_REACH = 0.8  # distancia al ratón, en altos de ventana, a la que gira del todo
 WATERMARK_EXPRESSION = "Remove Water Mark"
 MOUTH_PARAM = "ParamMouthOpenY"
 MOUTH_SYLLABLES_PER_SECOND = 5.0
@@ -40,7 +45,50 @@ STATE_EXPRESSIONS = {
     PetState.BORED: ("Exp eye",),
 }
 
+# Canal de movimiento → alternativas de (parámetro, escala); se usa la primera que tenga el modelo.
+# Un modelo de VTube Studio recibe el movimiento por sus parámetros "IN", como si viniera de una
+# cámara, y su física lo reparte por el cuerpo, el pelo y la ropa. Un modelo corriente usa los de
+# siempre.
+Alternatives = tuple[tuple[tuple[str, float], ...], ...]
+INPUT_PARAMS: dict[str, Alternatives] = {
+    "head_x": ((("ParamAngleXIN", 30.0),), (("ParamAngleX", 30.0),)),
+    "head_y": ((("ParamAngleYIN", 30.0),), (("ParamAngleY", 30.0),)),
+    "head_z": ((("ParamAngleZIN", 30.0),), (("ParamAngleZ", 30.0), ("ParamBodyAngleZ", 10.0))),
+    "lean": ((("ParamFacePositionZIN", -1.0),), (("ParamBodyAngleY", -10.0),)),
+    "shift": ((("ParamFacePositionXIN", 1.0),), (("ParamBodyAngleX", 10.0),)),
+    "eye_x": ((("ParamEyeBallX", 1.0),),),
+    "eye_y": ((("ParamEyeBallY", 1.0),),),
+    "smile": ((("ParamMouthForm", 1.0),),),
+    "brows": (
+        (("ParamBrowLYIN", 1.0), ("ParamBrowRYIN", 1.0)),
+        (("ParamBrowLY", 1.0), ("ParamBrowRY", 1.0)),
+    ),
+}
+# Estos los calcula la física del modelo: el gesto se suma a su resultado, después de ella.
+OVERLAY_PARAMS: dict[str, Alternatives] = {
+    "arm_r": ((("Param20", 1.0),),),
+    "forearm_r": ((("Param22", 1.0),),),
+    "arm_l": ((("Param21", 1.0),),),
+    "forearm_l": ((("Param23", 1.0),),),
+    "foot": ((("ParamLegR", 1.0),),),
+    "rise": ((("Parambodyup", 1.0),),),
+}
+EYE_SMILE_PARAMS = ("ParamEyeLSmile", "ParamEyeRSmile")
+EYE_OPEN_PARAMS = ("ParamEyeLOpen", "ParamEyeROpen")
+BREATH_PARAM = "ParamBreath"
+
 log = logging.getLogger(__name__)
+
+
+def resolve_params(table: dict[str, Alternatives], available: set[str]) -> list[tuple[str, str, float]]:
+    """(canal, parámetro, escala) de la primera alternativa de cada canal que el modelo tiene entera."""
+    resolved = []
+    for channel, alternatives in table.items():
+        for group in alternatives:
+            if all(param in available for param, _scale in group):
+                resolved.extend((channel, param, scale) for param, scale in group)
+                break
+    return resolved
 
 
 class Live2DError(Exception):
@@ -102,6 +150,14 @@ class Live2DAnimator(QObject):
         self._slow = False
         self._running = False
         self._rng = random.Random()
+        self._director = MotionDirector(self._rng)
+        self._inputs: list[tuple[str, str, float]] = []
+        self._overlays: list[tuple[str, str, float]] = []
+        self._eye_smile: tuple[str, ...] = ()
+        self._eye_open: tuple[str, ...] = ()
+        self._has_breath = False
+        self._fps = LIVELY_FPS
+        self._moved = 0.0
         self._last_tick = time.monotonic()
         self._render_size = QSize()
         self._context: QOpenGLContext | None = None
@@ -144,8 +200,20 @@ class Live2DAnimator(QObject):
         if state is self._state:
             return
         self._state = state
+        self._director.set_state(state)
         if self._model is not None:
             self._apply_expressions()
+
+    def play_gesture(self, name: str) -> None:
+        self._director.play(name)
+
+    def poke(self) -> None:
+        """Reacción a un clic sobre ella."""
+        self._director.poke()
+
+    def note_drag(self, pixels: float) -> None:
+        """La ventana se ha movido `pixels` a la derecha mientras la arrastran."""
+        self._moved += pixels
 
     def set_talking(self, talking: bool) -> None:
         self._talking = talking
@@ -162,6 +230,7 @@ class Live2DAnimator(QObject):
         """Quieta (modo juego o suspendida) suelta el modelo para liberar la memoria gráfica."""
         self._still = still
         self._slow = max_fps is not None
+        self._director.set_drowsy(self._slow)
         if still:
             self.release()
         self._restart()
@@ -202,7 +271,8 @@ class Live2DAnimator(QObject):
         if self._model is None and not self._load():
             return
         self._last_tick = time.monotonic()
-        self._timer.start(round(1000 / (SLOW_FPS if self._slow else NORMAL_FPS)))
+        self._fps = SLOW_FPS if self._slow else LIVELY_FPS
+        self._timer.start(round(1000 / self._fps))
 
     def _load(self) -> bool:
         try:
@@ -249,6 +319,12 @@ class Live2DAnimator(QObject):
             model.LoadExtraMotion(path.name.removesuffix(".motion3.json"), str(path))
         width, height = model.GetCanvasSize()
         base = QSize(round(BASE_HEIGHT * width / height), BASE_HEIGHT) if width and height else self._base
+        available = set(model.GetParamIds())
+        self._inputs = resolve_params(INPUT_PARAMS, available)
+        self._overlays = resolve_params(OVERLAY_PARAMS, available)
+        self._eye_smile = tuple(p for p in EYE_SMILE_PARAMS if p in available)
+        self._eye_open = tuple(p for p in EYE_OPEN_PARAMS if p in available)
+        self._has_breath = BREATH_PARAM in available
         self._model = model
         if base != self._base:
             self._base = base
@@ -280,31 +356,67 @@ class Live2DAnimator(QObject):
         if self._model is None or self._context is None or self._fbo is None:
             return
         now = time.monotonic()
-        delta, self._last_tick = now - self._last_tick, now
+        delta, self._last_tick = min(now - self._last_tick, 0.25), now
+        talking = self._talking or self._state is PetState.SPEAKING
+        mouth = mouth_opening(now, self._rng) if talking else 0.0
+        drag_speed = self._moved / max(1, self._render_size.height()) / delta if delta > 0 else 0.0
+        self._moved = 0.0
+        pose = self._director.update(delta, self._look_direction(), mouth, drag_speed)
         try:
             self._context.makeCurrent(self._surface)
-            self._follow_cursor()
-            self._model.Update(delta)
-            talking = self._talking or self._state is PetState.SPEAKING
-            self._model.SetParamById(MOUTH_PARAM, mouth_opening(now, self._rng) if talking else 0.0)
+            self._animate(pose, mouth, now, delta)
             self._fbo.bind()
             self._gl.glViewport(0, 0, self._render_size.width(), self._render_size.height())
             self._live2d.clearBuffer(0.0, 0.0, 0.0, 0.0)
             self._model.Draw()
-            image = self._fbo.toImage().convertToFormat(QImage.Format.Format_ARGB32_Premultiplied)
+            image = self._fbo.toImage()
             self._fbo.release()
         except Exception as exc:
             log.exception("Fallo al dibujar Live2D")
             self.release()
             self.failed.emit(str(exc))
             return
+        if image.format() != QImage.Format.Format_ARGB32_Premultiplied:
+            image = image.convertToFormat(QImage.Format.Format_ARGB32_Premultiplied)
         self._pixmap = QPixmap.fromImage(image)
         self.frame_changed.emit()
+        self._adjust_pace()
 
-    def _follow_cursor(self) -> None:
-        """Mira hacia el ratón leyendo su posición, como cualquier ventana: sin ganchos."""
+    def _animate(self, pose: Pose, mouth: float, now: float, delta: float) -> None:
+        """Pose → parámetros. El orden importa: la física lee lo que se le da antes de ella."""
+        model = self._model
+        model.UpdateMotion(delta)
+        for channel, param, scale in self._inputs:
+            model.SetParamById(param, pose[channel] * scale)
+        for param in self._eye_smile:
+            model.SetParamById(param, max(0.0, pose["smile"]))
+        if self._has_breath:
+            model.SetParamById(BREATH_PARAM, 0.5 + 0.5 * math.sin(2 * math.pi * now / BREATH_SECONDS))
+        model.SetParamById(MOUTH_PARAM, mouth)
+        model.UpdateBlink(delta)
+        if pose["eyes_closed"] > 0.01:
+            for param in self._eye_open:
+                model.SetParamById(param, model.GetParamValueById(param) * (1 - pose["eyes_closed"]))
+        model.UpdateExpression(delta)
+        model.UpdatePhysics(delta)
+        for channel, param, scale in self._overlays:
+            if pose[channel]:
+                model.AddParamById(param, pose[channel] * scale)
+
+    def _look_direction(self) -> tuple[float, float] | None:
+        """Dirección al ratón desde la cabeza. Se lee su posición como cualquier ventana: sin ganchos."""
         if self._cursor is None:
-            return
+            return None
         point = self._cursor()
-        if point is not None:
-            self._model.Drag(point.x(), point.y())
+        if point is None:
+            return None
+        width, height = self._render_size.width(), max(1, self._render_size.height())
+        reach = height * LOOK_REACH
+        return (point.x() - width / 2) / reach, (height * HEAD_HEIGHT - point.y()) / reach
+
+    def _adjust_pace(self) -> None:
+        """Menos fotogramas cuando solo se balancea: es lo que más CPU ahorra."""
+        fps = SLOW_FPS if self._slow else (LIVELY_FPS if self._director.lively else CALM_FPS)
+        if fps != self._fps:
+            self._fps = fps
+            self._timer.setInterval(round(1000 / fps))

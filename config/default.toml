@@ -7,6 +7,11 @@ scale = 100           # porcentaje, de 25 a 300
 always_on_top = true
 idle_minutes = 5      # sin usar a Teto este tiempo, anima con menos fotogramas
 live2d_model = ""     # ruta a un .model3.json; con pack = "live2d" se usa en vez de los sprites
+bubble = true         # bocadillo sobre la mascota con lo que dice, para no abrir el chat
+
+[interface]
+theme = "auto"        # auto (el de Windows), oscuro o claro
+shortcuts = true      # Ctrl+Alt+C abre el chat y Ctrl+Alt+H muestra u oculta a Teto
 
 [voice]
 tts_enabled = true

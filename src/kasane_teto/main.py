@@ -34,13 +34,15 @@ from kasane_teto.core.settings import Settings
 from kasane_teto.core.single_instance import SingleInstance
 from kasane_teto.core.updates import code_changed_since, relaunch
 from kasane_teto.desktop.animator import SpriteAnimator
-from kasane_teto.desktop.hotkey import HOTKEY_LABEL, GlobalHotkey
+from kasane_teto.desktop.bubble import SpeechBubble
+from kasane_teto.desktop.hotkey import CHAT, HOTKEY_LABEL, SHOW, GlobalHotkey
 from kasane_teto.desktop.live2d_animator import Live2DAnimator
 from kasane_teto.desktop.pet_window import PetWindow
 from kasane_teto.desktop.tray import TrayIcon
 from kasane_teto.interface.chat_window import ChatWindow
 from kasane_teto.interface.memory_window import MemoryWindow
 from kasane_teto.interface.settings_window import SettingsWindow, VoiceOptions
+from kasane_teto.interface.theme import apply_theme
 from kasane_teto.memory.knowledge import KnowledgeBase, KnowledgeError
 from kasane_teto.memory.store import MemoryStore, MemoryStoreError
 from kasane_teto.tools.discord_rpc import DiscordVoice
@@ -72,6 +74,7 @@ class TetoApp(QObject):
         self._user_dir = user_dir
         self._bus = EventBus(self)
         self._settings_window: SettingsWindow | None = None
+        apply_theme(app, str(settings.get("interface.theme", "auto")))
 
         pack = self._load_configured_pack()
         self._pack_id = pack.id
@@ -106,7 +109,9 @@ class TetoApp(QObject):
         self._comments = CommentService(
             self._bus, settings, tools, self._conversation.comment, self
         )
-        self._chat_window = ChatWindow(self._bus)
+        self._chat_window = ChatWindow(self._bus, settings)
+        self._bubble = SpeechBubble()
+        self._bubble.set_enabled(bool(settings.get("pet.bubble", True)))
         self._speech = SpeechService(
             self._bus, settings, self._new_tts(), AudioPlayer(), self
         )
@@ -128,14 +133,23 @@ class TetoApp(QObject):
         self._hotkey = GlobalHotkey(lambda: self._bus.listen_toggled.emit())
         if self._listen.enabled:
             self._hotkey.register()
+        # Atajos de manejo: como el de hablar, con RegisterHotKey y sin ganchos de teclado.
+        self._shortcuts = [
+            GlobalHotkey(lambda: self._bus.chat_requested.emit(), CHAT),
+            GlobalHotkey(lambda: self._bus.pet_visibility_toggled.emit(), SHOW),
+        ]
+        self._set_shortcuts(True)
         self._activity = ActivityService(self._bus, settings, self)
         self._activity.changed.connect(self._apply_activity)
+        self._connect_bubble()
         self._bus.mic_enabled_requested.connect(self._on_mic_enabled)
         self._bus.volume_requested.connect(lambda v: settings.set("voice.volume", v))
         self._bus.voice_model_requested.connect(self._change_voice)
 
         self._bus.pet_state_requested.connect(lambda state: self._pet.animator.set_state(state))
         self._bus.speech_active.connect(lambda active: self._pet.animator.set_talking(active))
+        self._bus.gesture_requested.connect(lambda name: self._pet.animator.play_gesture(name))
+        self._bus.theme_requested.connect(self._change_theme)
         self._bus.live2d_model_requested.connect(self._change_live2d_model)
         self._bus.pet_visibility_toggled.connect(self._pet.toggle_visibility)
         self._bus.always_on_top_requested.connect(self._pet.set_always_on_top)
@@ -151,6 +165,47 @@ class TetoApp(QObject):
     def start(self) -> None:
         self._tray.show()
         self._pet.show()
+        self._pet.animator.play_gesture("wave")
+
+    def _connect_bubble(self) -> None:
+        """El bocadillo repite lo que va al chat; con el chat abierto sobra."""
+        bus, bubble = self._bus, self._bubble
+        bus.user_message.connect(lambda _text: bubble.begin())
+        bus.assistant_token.connect(bubble.append)
+        bus.assistant_done.connect(bubble.finish)
+        bus.assistant_error.connect(bubble.say)
+        bus.assistant_status.connect(bubble.set_status)
+        bus.voice_status.connect(bubble.set_status)
+        bus.bubble_enabled_requested.connect(self._set_bubble_enabled)
+        bus.always_on_top_changed.connect(lambda _on: self._place_bubble())
+        self._pet.geometry_changed.connect(self._place_bubble)
+        self._chat_window.visibility_changed.connect(self._place_bubble)
+        self._place_bubble()
+
+    def _place_bubble(self) -> None:
+        self._bubble.set_anchor(self._pet.geometry())
+        self._bubble.set_on_top(self._pet.is_on_top)
+        self._bubble.set_blocked(
+            not self._pet.isVisible()
+            or self._chat_window.isVisible()
+            or self._activity.state is Activity.GAME
+        )
+
+    def _set_bubble_enabled(self, enabled: bool) -> None:
+        self._settings.set("pet.bubble", enabled)
+        self._bubble.set_enabled(enabled)
+
+    def _change_theme(self, theme: str) -> None:
+        self._settings.set("interface.theme", theme)
+        apply_theme(self._app, theme)
+
+    def _set_shortcuts(self, enabled: bool) -> None:
+        """En modo juego se sueltan: el juego recibe todas sus teclas."""
+        for shortcut in self._shortcuts:
+            if enabled and self._settings.get("interface.shortcuts", True):
+                shortcut.register()
+            else:
+                shortcut.unregister()
 
     def show_pet(self) -> None:
         self._pet.show()
@@ -184,6 +239,8 @@ class TetoApp(QObject):
             self._hotkey.unregister()
         elif self._listen.enabled:
             self._hotkey.register()
+        self._set_shortcuts(not game)
+        self._place_bubble()
         if suspended:
             self._resources.request_unload()
             self._listen.release()
@@ -328,6 +385,8 @@ class TetoApp(QObject):
             self._conversation.general_web_enabled,
             str(self._settings.get("web.city", "")),
             str(self._settings.get("pet.live2d_model", "") or ""),
+            bool(self._settings.get("pet.bubble", True)),
+            str(self._settings.get("interface.theme", "auto")),
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window
@@ -341,6 +400,9 @@ class TetoApp(QObject):
         self._pet.save_position()
         self._tray.hide()
         self._hotkey.unregister()
+        self._set_shortcuts(False)
+        self._bubble.close()
+        self._chat_window.close()
         self._activity.shutdown()
         self._comments.shutdown()
         self._listen.shutdown()

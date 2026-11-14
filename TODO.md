@@ -488,6 +488,23 @@ Limitaciones conocidas:
 - Hay que volver a empaquetar tras cambiar el código; la versión de `ejecutar.pyw` sigue sirviendo
 - Sin archivo de licencia ni firma: Windows SmartScreen puede avisar al abrirlo la primera vez
 
+## Movimiento, interfaz y voz propia (pedido por Diego, 2026-11-14) — en curso
+
+- [~] M.1 `character/motion.py`: cuerpo en movimiento con Live2D (balanceo, postura por estado,
+      gestos, mirada al ratón, inercia al arrastrar, dormita si nadie la usa). Comprobado en
+      imágenes del modelo real y con pruebas; **falta verlo en la app real**
+- [~] M.2 Interfaz: tema claro/oscuro, chat rediseñado, bocadillo sobre la mascota, configuración por
+      pestañas, menú con tamaños y gestos. Clic, doble clic y botón central en la mascota; atajos
+      Ctrl+Alt+C (chat) y Ctrl+Alt+H (mostrar u ocultar). **Falta probarlo en la app real**
+- [ ] M.3 Optimización: 30 fps solo con movimiento rápido y 20 en reposo. **Sin medir todavía**
+- [~] V.1 Voz Piper de Teto: ensayo (19 min de audio, 50 épocas) con 2,7 % de error de palabras
+      (la voz Piper original, 1,4 %) y ~0,5 s por frase en CPU. Material completo (2.381 frases) en
+      conversión con RVC; faltan filtrarlo, el entrenamiento largo e instalar la voz
+- [ ] M.4 **Diego:** prueba manual
+
+Pendiente de aclarar con Diego: qué quiso decir con «que se pueda manejar mejor por el computador»
+(se interpretó como manejar la app con ratón y teclado).
+
 ## Ideas para el futuro (fuera del alcance actual)
 
 - Voz de Teto con RVC (aprobado para después de Piper, 2026-10-31): solo modelo entrenado por Diego

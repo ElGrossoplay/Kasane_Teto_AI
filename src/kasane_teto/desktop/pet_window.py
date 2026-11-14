@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, QTimer
+from PySide6.QtCore import QPoint, QPointF, QRect, QSize, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QContextMenuEvent,
     QCursor,
@@ -29,6 +29,8 @@ SCALE_STEP = 10
 SAVE_POSITION_DELAY_MS = 500
 SCREEN_MARGIN = 24
 MAX_CACHED_FRAMES = 8
+DRAG_THRESHOLD = 5  # píxeles que hay que mover el ratón para que sea arrastrar y no un clic
+DRAG_REST_MS = 1000  # sin moverse este tiempo, el arrastre se da por terminado
 
 
 def clamp_scale(scale: int) -> int:
@@ -36,6 +38,11 @@ def clamp_scale(scale: int) -> int:
 
 
 class PetWindow(QWidget):
+    """Clic: reacciona. Doble clic: abre el chat. Botón central: escuchar. Arrastrar: moverla.
+    Rueda: tamaño. Botón derecho: menú."""
+
+    geometry_changed = Signal()
+
     def __init__(
         self, animator: SpriteAnimator | Live2DAnimator, settings: Settings, bus: EventBus
     ) -> None:
@@ -47,6 +54,10 @@ class PetWindow(QWidget):
         self._scaled_target: tuple[QSize, float] | None = None
         self._scaled: dict[int, QPixmap] = {}
         self._in_game = False
+        self._press: QPoint | None = None
+        self._dragging = False
+        self._skip_click = False
+        self._last_x = 0
 
         self.setWindowTitle("Kasane Teto AI")
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Tool)
@@ -58,6 +69,10 @@ class PetWindow(QWidget):
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(SAVE_POSITION_DELAY_MS)
         self._save_timer.timeout.connect(self.save_position)
+        self._drag_timer = QTimer(self)
+        self._drag_timer.setSingleShot(True)
+        self._drag_timer.setInterval(DRAG_REST_MS)
+        self._drag_timer.timeout.connect(self._end_drag)
 
         self._connect(animator)
         self._apply_size()
@@ -156,6 +171,7 @@ class PetWindow(QWidget):
         )
         self._scaled.clear()
         self._animator.set_render_size(self.size() * self.devicePixelRatioF())
+        self.geometry_changed.emit()
 
     def _keep_on_screen(self) -> None:
         screen = QGuiApplication.screenAt(self.geometry().center()) or self.screen()
@@ -206,9 +222,41 @@ class PetWindow(QWidget):
         return scaled
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
+        self._end_drag()
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press = event.globalPosition().toPoint()
+        elif event.button() == Qt.MouseButton.MiddleButton:
+            self._bus.listen_toggled.emit()
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        """Arrastrar empieza al mover el ratón, no al pulsar: así un clic sigue siendo un clic."""
+        if self._press is None or not event.buttons() & Qt.MouseButton.LeftButton:
+            return
+        moved = event.globalPosition().toPoint() - self._press
         handle = self.windowHandle()
-        if event.button() == Qt.MouseButton.LeftButton and handle is not None:
+        if moved.manhattanLength() >= DRAG_THRESHOLD and handle is not None:
+            self._press = None
+            self._dragging = True
+            self._last_x = self.x()
+            self._drag_timer.start()
             handle.startSystemMove()
+
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        clicked = self._press is not None and event.button() == Qt.MouseButton.LeftButton
+        self._press = None
+        self._end_drag()
+        if clicked and not self._skip_click:
+            self._animator.poke()
+        self._skip_click = False
+
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._skip_click = True
+            self._bus.chat_requested.emit()
+
+    def _end_drag(self) -> None:
+        self._dragging = False
+        self._drag_timer.stop()
 
     def wheelEvent(self, event: QWheelEvent) -> None:
         delta = event.angleDelta().y()
@@ -220,9 +268,16 @@ class PetWindow(QWidget):
 
     def moveEvent(self, event: QMoveEvent) -> None:
         self._save_timer.start()
+        if self._dragging:
+            self._animator.note_drag((self.x() - self._last_x) * self.devicePixelRatioF())
+            self._last_x = self.x()
+            self._drag_timer.start()
+        self.geometry_changed.emit()
 
     def showEvent(self, event: QShowEvent) -> None:
         self._animator.start()
+        self.geometry_changed.emit()
 
     def hideEvent(self, event: QHideEvent) -> None:
         self._animator.stop()
+        self.geometry_changed.emit()

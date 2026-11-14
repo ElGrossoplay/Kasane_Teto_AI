@@ -8,6 +8,17 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 
 from kasane_teto.character.states import STATE_LABELS
 from kasane_teto.core.events import EventBus
+from kasane_teto.desktop.hotkey import CHAT, SHOW, TALK
+
+SCALES = (50, 75, 100, 125, 150, 200)
+GESTURE_LABELS = {
+    "wave": "Saludar",
+    "hop": "Dar un saltito",
+    "stretch": "Estirarse",
+    "look_around": "Mirar alrededor",
+    "nod": "Asentir",
+    "shake": "Negar",
+}
 
 
 class TrayIcon(QObject):
@@ -18,21 +29,40 @@ class TrayIcon(QObject):
         self._bus = bus
         self._menu = QMenu()
 
-        self._menu.addAction("Hablar con Teto").triggered.connect(
-            lambda: bus.chat_requested.emit()
+        # El texto tras el tabulador se muestra como atajo; los atajos los registra la app.
+        chat = self._menu.addAction(f"Hablar con Teto\t{CHAT.label}")
+        chat.triggered.connect(lambda: bus.chat_requested.emit())
+        font = chat.font()
+        font.setBold(True)
+        chat.setFont(font)
+        self._menu.addAction(f"Escuchar\t{TALK.label}").triggered.connect(
+            lambda: bus.listen_toggled.emit()
         )
-        self._menu.addAction("Mostrar u ocultar").triggered.connect(
+        self._menu.addAction("Callar").triggered.connect(
+            lambda: bus.generation_stop_requested.emit()
+        )
+        self._menu.addSeparator()
+        self._menu.addAction(f"Mostrar u ocultar\t{SHOW.label}").triggered.connect(
             lambda: bus.pet_visibility_toggled.emit()
         )
         self._always_on_top = QAction("Siempre encima", self._menu, checkable=True)
         self._always_on_top.setChecked(always_on_top)
         self._always_on_top.toggled.connect(bus.always_on_top_requested)
         self._menu.addAction(self._always_on_top)
+        scale_menu = self._menu.addMenu("Tamaño")
+        for scale in SCALES:
+            scale_menu.addAction(f"{scale} %").triggered.connect(
+                lambda _checked=False, s=scale: bus.scale_requested.emit(s)
+            )
 
-        # Solo para probar la animación hasta que la IA cambie los estados (Fase 2).
-        states_menu = self._menu.addMenu("Probar estado")
+        moves_menu = self._menu.addMenu("Gestos y expresiones")
+        for gesture, label in GESTURE_LABELS.items():
+            moves_menu.addAction(label).triggered.connect(
+                lambda _checked=False, g=gesture: bus.gesture_requested.emit(g)
+            )
+        moves_menu.addSeparator()
         for state, label in STATE_LABELS.items():
-            states_menu.addAction(label).triggered.connect(
+            moves_menu.addAction(label).triggered.connect(
                 lambda _checked=False, s=state: bus.pet_state_requested.emit(s)
             )
 
