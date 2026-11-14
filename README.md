@@ -59,7 +59,10 @@ Pruebas: `.\.venv\Scripts\python.exe -m pytest` (con modelos reales, añade `-m 
 `.\.venv\Scripts\python.exe scripts\medir_recursos.py --segundos 60`.
 
 Uso de la mascota: arrastrar con el botón izquierdo, rueda del ratón para cambiar el tamaño y clic
-derecho (o el icono de la bandeja) para el menú.
+derecho (o el icono de la bandeja) para el menú. Un clic la hace reaccionar, el doble clic abre el
+chat y el botón central empieza o termina de escuchar. Atajos desde cualquier ventana: `Ctrl+Alt+C`
+abre el chat, `Ctrl+Alt+T` escucha y `Ctrl+Alt+H` muestra u oculta a Teto (en modo juego se sueltan).
+Lo que dice aparece en un bocadillo sobre ella, que se puede quitar en Configuración.
 
 La búsqueda en Internet viene apagada y se activa en Configuración, con dos interruptores. La de
 música consulta [VocaDB](https://vocadb.net). La general responde "¿quién es Messi?" o "¿qué es la

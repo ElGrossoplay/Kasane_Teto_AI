@@ -238,11 +238,13 @@ class MotionDirector:
 
     @property
     def lively(self) -> bool:
-        """Hay movimiento rápido: conviene dibujar a toda velocidad."""
+        """Hay movimiento rápido: conviene dibujar a toda velocidad.
+
+        Seguir el ratón no cuenta: es un giro suave, y con el ratón en uso estaría siempre activo.
+        """
         return (
             self._gesture is not None
             or self._dragging
-            or self._look > 0.05
             or self._state not in (PetState.IDLE, PetState.BORED, PetState.THINKING)
         )
 
