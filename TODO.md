@@ -505,6 +505,16 @@ Limitaciones conocidas:
 Pendiente de aclarar con Diego: qué quiso decir con «que se pueda manejar mejor por el computador»
 (se interpretó como manejar la app con ratón y teclado).
 
+Pedido por Diego tras ver la app (2026-11-14), sin empezar:
+- [ ] N.1 Modo de bajo rendimiento, para equipos menos potentes y para tenerla visible mientras juega
+      como mascota y asistente. Ojo: hoy el modo juego la deja quieta y nunca encima del juego
+      (regla de anticheat de CLAUDE.md); cambiar eso requiere decidirlo con Diego
+- [ ] N.2 Cambiar el aspecto de Teto: el modelo trae variantes (chibi, SV/UTAU, micrófono, baguette)
+      como expresiones; ofrecerlas en el menú y recordarlas
+- [ ] N.3 Voz de Teto lista esta semana: filtrado parado en ~250 de 2.381 frases (reanudable con
+      `paso3_filtrar.py`), después entrenamiento largo, exportar e instalar en `models/piper/voices`
+- [ ] N.4 Medir CPU y RAM limpias del movimiento nuevo (pendiente: la CPU estaba ocupada)
+
 ## Ideas para el futuro (fuera del alcance actual)
 
 - Voz de Teto con RVC (aprobado para después de Piper, 2026-10-31): solo modelo entrenado por Diego
