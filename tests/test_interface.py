@@ -235,3 +235,47 @@ def test_chat_remembers_its_place_and_reports_visibility(qapp, settings):
     lost = ChatWindow(EventBus(), settings)
     assert lost.x() != 99_999
     lost.close()
+
+
+def test_looks_are_the_model_expressions_that_are_not_faces(tmp_path):
+    from kasane_teto.desktop.live2d_animator import WATERMARK_EXPRESSION, available_looks
+
+    folder = tmp_path / "Expressions"
+    folder.mkdir()
+    for name in ("chibi", "Blush", "Cry", WATERMARK_EXPRESSION, "Con gorro"):
+        (folder / f"{name}.exp3.json").write_text("{}", encoding="utf-8")
+    assert available_looks(tmp_path / "m.model3.json") == ["Con gorro", "chibi"]
+    assert available_looks(tmp_path / "otro" / "m.model3.json") == []
+
+
+def test_tray_offers_looks_and_low_performance(qapp):
+    from PySide6.QtGui import QIcon
+
+    from kasane_teto.desktop.tray import LOOK_LABELS, TrayIcon
+
+    bus = EventBus()
+    toggled, low = [], []
+    bus.look_toggled.connect(lambda name, on: toggled.append((name, on)))
+    bus.low_performance_requested.connect(low.append)
+    tray = TrayIcon(QIcon(), True, bus)
+    assert not tray._looks_menu.menuAction().isVisible()
+    tray.set_looks(["chibi", "Con gorro"], ["chibi"])
+    actions = tray._looks_menu.actions()
+    assert [a.text() for a in actions] == [LOOK_LABELS["chibi"], "Con gorro"]
+    assert [a.isChecked() for a in actions] == [True, False]
+    actions[1].setChecked(True)
+    actions[0].setChecked(False)
+    assert toggled == [("Con gorro", True), ("chibi", False)]
+    tray.set_low_performance(True)
+    assert low == [] and tray._low.isChecked()
+    tray._low.setChecked(False)
+    assert low == [False]
+    tray.set_looks([], [])
+    assert not tray._looks_menu.menuAction().isVisible()
+
+
+def test_low_performance_halves_the_frame_rates():
+    from kasane_teto.desktop.live2d_animator import LOW_PACE, NORMAL_PACE
+
+    assert all(low * 2 <= normal for low, normal in zip(LOW_PACE, NORMAL_PACE, strict=True))
+    assert list(NORMAL_PACE) == sorted(NORMAL_PACE, reverse=True)

@@ -11,6 +11,14 @@ from kasane_teto.core.events import EventBus
 from kasane_teto.desktop.hotkey import CHAT, SHOW, TALK
 
 SCALES = (50, 75, 100, 125, 150, 200)
+# Nombres en español de las variantes del modelo de Teto; las de otro modelo salen con su nombre.
+LOOK_LABELS = {
+    "chibi": "Chibi",
+    "SV Utau ALT": "Traje alternativo (SV/UTAU)",
+    "【SV】Mic": "Con micrófono",
+    "【SV】Baguette": "Con baguette",
+    "【Utau】Mic": "Con auriculares",
+}
 GESTURE_LABELS = {
     "wave": "Saludar",
     "hop": "Dar un saltito",
@@ -55,6 +63,8 @@ class TrayIcon(QObject):
                 lambda _checked=False, s=scale: bus.scale_requested.emit(s)
             )
 
+        self._looks_menu = self._menu.addMenu("Aspecto")
+        self._looks_menu.menuAction().setVisible(False)
         moves_menu = self._menu.addMenu("Gestos y expresiones")
         for gesture, label in GESTURE_LABELS.items():
             moves_menu.addAction(label).triggered.connect(
@@ -67,6 +77,10 @@ class TrayIcon(QObject):
             )
 
         self._menu.addSeparator()
+        self._low = QAction("Bajo rendimiento", self._menu, checkable=True)
+        self._low.setToolTip("Anima con la mitad de fotogramas: gasta la mitad de CPU.")
+        self._low.toggled.connect(bus.low_performance_requested)
+        self._menu.addAction(self._low)
         self._game_mode = QAction("Modo juego", self._menu, checkable=True)
         self._game_mode.setToolTip("Libera la GPU, apaga el oído y deja quieta a Teto.")
         self._game_mode.triggered.connect(bus.game_mode_requested)
@@ -101,6 +115,21 @@ class TrayIcon(QObject):
 
     def notify(self, text: str) -> None:
         self._tray.showMessage("Kasane Teto AI", text, QSystemTrayIcon.MessageIcon.Warning)
+
+    def set_low_performance(self, low: bool) -> None:
+        self._low.blockSignals(True)
+        self._low.setChecked(low)
+        self._low.blockSignals(False)
+
+    def set_looks(self, available: list[str], active: list[str]) -> None:
+        """Variantes de aspecto del modelo actual; sin modelo Live2D, el menú se esconde."""
+        self._looks_menu.clear()
+        self._looks_menu.menuAction().setVisible(bool(available))
+        for name in available:
+            action = self._looks_menu.addAction(LOOK_LABELS.get(name, name))
+            action.setCheckable(True)
+            action.setChecked(name in active)
+            action.toggled.connect(lambda on, n=name: self._bus.look_toggled.emit(n, on))
 
     def set_activity(self, label: str, game: bool, suspended: bool) -> None:
         """Refleja el estado, también cuando el modo juego se activa solo."""

@@ -27,9 +27,12 @@ TEXTURE_SIDE = 2048
 MASK_BUFFERS = 3  # el modelo de Teto usa 39 máscaras: con una sola se ven mal
 BASE_HEIGHT = 560  # alto de la mascota al 100 %
 DEFAULT_RATIO = 1 / 2.318  # ancho entre alto del lienzo de Teto, hasta leer el del modelo
-LIVELY_FPS = 30  # gestos, habla, arrastre o ratón en movimiento
-CALM_FPS = 20  # solo el balanceo de reposo: se ve igual con menos fotogramas
-SLOW_FPS = 12  # nadie la usa: dormita
+# Fotogramas por segundo: (gestos, habla o arrastre; balanceo de reposo; dormitando).
+# Dibujar un fotograma cuesta lo mismo a cualquier tamaño (~7 ms de reloj y ~13 ms de CPU entre
+# todos los hilos, casi todo dentro de Live2D), así que lo único que ahorra es dibujar menos.
+NORMAL_PACE = (30, 20, 12)
+LOW_PACE = (15, 10, 5)  # bajo rendimiento: equipos modestos o mientras se usa algo pesado
+LIVELY_FPS, CALM_FPS, SLOW_FPS = NORMAL_PACE
 BREATH_SECONDS = 3.4
 HEAD_HEIGHT = 0.14  # altura de la cabeza en la ventana, para saber hacia dónde mirar
 LOOK_REACH = 0.8  # distancia al ratón, en altos de ventana, a la que gira del todo
@@ -37,6 +40,10 @@ WATERMARK_EXPRESSION = "Remove Water Mark"
 MOUTH_PARAM = "ParamMouthOpenY"
 MOUTH_SYLLABLES_PER_SECOND = 5.0
 # Expresiones del modelo por estado; los que no aparecen usan la cara normal.
+# Expresiones que son caras, no cambios de aspecto: no se ofrecen en el menú «Aspecto».
+FACE_EXPRESSIONS = frozenset(
+    {"Blush", "Star Eye", "Dizzy", "Dark Face", "Exp eye", "Cry", "Love", "Sweat", "Dark Eye"}
+)
 STATE_EXPRESSIONS = {
     PetState.HAPPY: ("Blush",),
     PetState.SURPRISED: ("Star Eye",),
@@ -78,6 +85,12 @@ EYE_OPEN_PARAMS = ("ParamEyeLOpen", "ParamEyeROpen")
 BREATH_PARAM = "ParamBreath"
 
 log = logging.getLogger(__name__)
+
+
+def available_looks(model_json: Path) -> list[str]:
+    """Variantes de aspecto que trae el modelo (chibi, con micrófono…): sus expresiones que no son caras."""
+    names = [p.name.removesuffix(".exp3.json") for p in (model_json.parent / "Expressions").glob("*.exp3.json")]
+    return sorted(n for n in names if n != WATERMARK_EXPRESSION and n not in FACE_EXPRESSIONS)
 
 
 def resolve_params(table: dict[str, Alternatives], available: set[str]) -> list[tuple[str, str, float]]:
@@ -156,8 +169,10 @@ class Live2DAnimator(QObject):
         self._eye_smile: tuple[str, ...] = ()
         self._eye_open: tuple[str, ...] = ()
         self._has_breath = False
+        self._pace = NORMAL_PACE
         self._fps = LIVELY_FPS
         self._moved = 0.0
+        self._looks: tuple[str, ...] = ()
         self._last_tick = time.monotonic()
         self._render_size = QSize()
         self._context: QOpenGLContext | None = None
@@ -206,6 +221,15 @@ class Live2DAnimator(QObject):
 
     def play_gesture(self, name: str) -> None:
         self._director.play(name)
+
+    def set_looks(self, names: list[str]) -> None:
+        """Variantes de aspecto activas; se combinan con la cara de cada estado."""
+        self._looks = tuple(names)
+        if self._model is not None:
+            self._apply_expressions()
+
+    def set_low_performance(self, low: bool) -> None:
+        self._pace = LOW_PACE if low else NORMAL_PACE
 
     def poke(self) -> None:
         """Reacción a un clic sobre ella."""
@@ -271,7 +295,7 @@ class Live2DAnimator(QObject):
         if self._model is None and not self._load():
             return
         self._last_tick = time.monotonic()
-        self._fps = SLOW_FPS if self._slow else LIVELY_FPS
+        self._fps = self._pace[2] if self._slow else self._pace[0]
         self._timer.start(round(1000 / self._fps))
 
     def _load(self) -> bool:
@@ -349,7 +373,7 @@ class Live2DAnimator(QObject):
         """La marca de agua la quita una expresión del propio modelo, pensada para eso."""
         assert self._model is not None
         self._model.ResetExpressions()
-        for name in (WATERMARK_EXPRESSION, *STATE_EXPRESSIONS.get(self._state, ())):
+        for name in (WATERMARK_EXPRESSION, *self._looks, *STATE_EXPRESSIONS.get(self._state, ())):
             self._model.AddExpression(name)
 
     def _tick(self) -> None:
@@ -385,7 +409,11 @@ class Live2DAnimator(QObject):
     def _animate(self, pose: Pose, mouth: float, now: float, delta: float) -> None:
         """Pose → parámetros. El orden importa: la física lee lo que se le da antes de ella."""
         model = self._model
+        # Se parte siempre de los valores guardados: las expresiones se suman en cada fotograma y,
+        # sin esto, se acumulan y no se van al quitarlas.
+        model.LoadParameters()
         model.UpdateMotion(delta)
+        model.SaveParameters()
         for channel, param, scale in self._inputs:
             model.SetParamById(param, pose[channel] * scale)
         for param in self._eye_smile:
@@ -416,7 +444,8 @@ class Live2DAnimator(QObject):
 
     def _adjust_pace(self) -> None:
         """Menos fotogramas cuando solo se balancea: es lo que más CPU ahorra."""
-        fps = SLOW_FPS if self._slow else (LIVELY_FPS if self._director.lively else CALM_FPS)
+        lively, calm, slow = self._pace
+        fps = slow if self._slow else (lively if self._director.lively else calm)
         if fps != self._fps:
             self._fps = fps
             self._timer.setInterval(round(1000 / fps))

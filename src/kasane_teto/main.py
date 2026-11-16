@@ -36,7 +36,7 @@ from kasane_teto.core.updates import code_changed_since, relaunch
 from kasane_teto.desktop.animator import SpriteAnimator
 from kasane_teto.desktop.bubble import SpeechBubble
 from kasane_teto.desktop.hotkey import CHAT, HOTKEY_LABEL, SHOW, GlobalHotkey
-from kasane_teto.desktop.live2d_animator import Live2DAnimator
+from kasane_teto.desktop.live2d_animator import Live2DAnimator, available_looks
 from kasane_teto.desktop.pet_window import PetWindow
 from kasane_teto.desktop.tray import TrayIcon
 from kasane_teto.interface.chat_window import ChatWindow
@@ -149,6 +149,9 @@ class TetoApp(QObject):
         self._bus.pet_state_requested.connect(lambda state: self._pet.animator.set_state(state))
         self._bus.speech_active.connect(lambda active: self._pet.animator.set_talking(active))
         self._bus.gesture_requested.connect(lambda name: self._pet.animator.play_gesture(name))
+        self._bus.look_toggled.connect(self._toggle_look)
+        self._bus.low_performance_requested.connect(self._set_low_performance)
+        self._tray.set_low_performance(bool(settings.get("pet.low_performance", False)))
         self._bus.theme_requested.connect(self._change_theme)
         self._bus.live2d_model_requested.connect(self._change_live2d_model)
         self._bus.pet_visibility_toggled.connect(self._pet.toggle_visibility)
@@ -294,9 +297,27 @@ class TetoApp(QObject):
             model, self._user_dir / "live2d_cache", self, cursor=self._pet.cursor_in_pixels
         )
         animator.failed.connect(self._on_live2d_failed)
+        looks = available_looks(model)
+        active = [n for n in self._settings.get("pet.live2d_looks", []) or [] if n in looks]
+        animator.set_looks(active)
+        animator.set_low_performance(bool(self._settings.get("pet.low_performance", False)))
+        self._tray.set_looks(looks, active)
         self._pet.set_animator(animator)
         self._pack_id = LIVE2D_PACK
         return True
+
+    def _toggle_look(self, name: str, enabled: bool) -> None:
+        """Cambia el aspecto (chibi, con micrófono…) y lo recuerda."""
+        active = [n for n in self._settings.get("pet.live2d_looks", []) or [] if n != name]
+        if enabled:
+            active.append(name)
+        self._settings.set("pet.live2d_looks", active)
+        self._pet.animator.set_looks(active)
+
+    def _set_low_performance(self, low: bool) -> None:
+        self._settings.set("pet.low_performance", low)
+        self._pet.animator.set_low_performance(low)
+        self._tray.set_low_performance(low)
 
     def _on_live2d_failed(self, reason: str) -> None:
         log.error("Live2D desactivado en esta sesión: %s", reason)
@@ -304,6 +325,7 @@ class TetoApp(QObject):
         if failed is self._animator:
             return
         self._pet.set_animator(self._animator)
+        self._tray.set_looks([], [])
         failed.shutdown()
         failed.deleteLater()
         self._tray.notify("No pude mostrar el modelo Live2D: uso los sprites. Mira el registro.")
@@ -344,6 +366,7 @@ class TetoApp(QObject):
             self._settings.set("pet.pack", pack.id)
             if current is not self._animator:
                 self._pet.set_animator(self._animator)
+                self._tray.set_looks([], [])
             self._pet.refresh_size()
         if current is not self._animator and current is not self._pet.animator:
             current.shutdown()

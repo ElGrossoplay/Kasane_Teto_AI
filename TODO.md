@@ -1,6 +1,6 @@
 # TODO — Kasane Teto AI Lite
 
-Última actualización: 2026-11-08 · **Fases 1 a 7 implementadas · Prueba de 8 h superada · Pendientes: las pruebas manuales de Diego (5.18, P.12, 6.7, G.6, L.6, 7.5)**
+Última actualización: 2026-11-15 · **Fases 1 a 7 implementadas · Prueba de 8 h superada · Pendientes: las pruebas manuales de Diego (5.18, P.12, 6.7, G.6, L.6, 7.5)**
 
 Leyenda: `[ ]` pendiente · `[~]` en curso · `[x]` hecho y probado · `[!]` bloqueado
 
@@ -490,30 +490,38 @@ Limitaciones conocidas:
 
 ## Movimiento, interfaz y voz propia (pedido por Diego, 2026-11-14) — en curso
 
-- [~] M.1 `character/motion.py`: cuerpo en movimiento con Live2D (balanceo, postura por estado,
-      gestos, mirada al ratón, inercia al arrastrar, dormita si nadie la usa). Comprobado en
-      imágenes del modelo real y con pruebas; **falta verlo en la app real**
-- [~] M.2 Interfaz: tema claro/oscuro, chat rediseñado, bocadillo sobre la mascota, configuración por
+- [x] M.1 `character/motion.py`: cuerpo en movimiento con Live2D (balanceo, postura por estado,
+      gestos, mirada al ratón, inercia al arrastrar, dormita si nadie la usa). Probado en la app real
+- [x] M.2 Interfaz: tema claro/oscuro, chat rediseñado, bocadillo sobre la mascota, configuración por
       pestañas, menú con tamaños y gestos. Clic, doble clic y botón central en la mascota; atajos
-      Ctrl+Alt+C (chat) y Ctrl+Alt+H (mostrar u ocultar). **Falta probarlo en la app real**
-- [ ] M.3 Optimización: 30 fps solo con movimiento rápido y 20 en reposo. **Sin medir todavía**
+      Ctrl+Alt+C (chat) y Ctrl+Alt+H (mostrar u ocultar), que se sueltan en modo juego. Probado en la
+      app real, moviendo el ratón por programa
+- [x] M.3 Optimización: 30 fps solo con gestos, habla o arrastre; 20 en reposo; 12 dormitando
+- [x] M.5 Menú «Aspecto»: variantes del modelo (traje SV/UTAU, chibi, baguette, micrófono), que se
+      combinan y se recuerdan. «Con auriculares» solo se nota con el traje alternativo
+- [x] M.6 «Bajo rendimiento» en el menú: mitad de fotogramas (15, 10 y 5)
 - [~] V.1 Voz Piper de Teto: ensayo (19 min de audio, 50 épocas) con 2,7 % de error de palabras
-      (la voz Piper original, 1,4 %) y ~0,5 s por frase en CPU. Material completo (2.381 frases) en
-      conversión con RVC; faltan filtrarlo, el entrenamiento largo e instalar la voz
+      (la voz Piper original, 1,4 %) y ~0,5 s por frase en CPU. Las 2.381 frases ya están
+      convertidas con RVC; en filtrado (modelo `small`, reanudable). Faltan el entrenamiento largo
+      e instalar la voz. Corregido en el entorno de entrenamiento: al reanudar se volvía a cargar
+      la voz de partida (comprobado: retomando desde la época 50 se mantiene 0,375 de `val_mel`)
 - [ ] M.4 **Diego:** prueba manual
+- [ ] N.1 Tenerla visible y animada mientras juega. Hoy el modo juego la deja quieta y nunca encima
+      del juego (regla de anticheat de CLAUDE.md): cambiarlo lo decide Diego
 
-Pendiente de aclarar con Diego: qué quiso decir con «que se pueda manejar mejor por el computador»
-(se interpretó como manejar la app con ratón y teclado).
+Medido (2026-11-15) con la app real y la CPU libre, a 90 % de tamaño: normal, 2,2 % de CPU en
+reposo y 4,0 % con gestos (antes 4,7 % siempre); bajo rendimiento, 1,1 % y 1,3 %, y 0,6 %
+dormitando; 241 MB de RAM. Un fotograma cuesta ~7 ms de reloj y ~13 ms de CPU entre todos los
+hilos, el 86 % dentro del dibujo de Live2D, igual a cualquier tamaño: solo ahorra dibujar menos.
+882 pruebas.
 
-Pedido por Diego tras ver la app (2026-11-14), sin empezar:
-- [ ] N.1 Modo de bajo rendimiento, para equipos menos potentes y para tenerla visible mientras juega
-      como mascota y asistente. Ojo: hoy el modo juego la deja quieta y nunca encima del juego
-      (regla de anticheat de CLAUDE.md); cambiar eso requiere decidirlo con Diego
-- [ ] N.2 Cambiar el aspecto de Teto: el modelo trae variantes (chibi, SV/UTAU, micrófono, baguette)
-      como expresiones; ofrecerlas en el menú y recordarlas
-- [ ] N.3 Voz de Teto lista esta semana: filtrado parado en ~250 de 2.381 frases (reanudable con
-      `paso3_filtrar.py`), después entrenamiento largo, exportar e instalar en `models/piper/voices`
-- [ ] N.4 Medir CPU y RAM limpias del movimiento nuevo (pendiente: la CPU estaba ocupada)
+Limitaciones conocidas:
+- Los gestos de brazos son cortos: el modelo solo deja abrirlos, no levantarlos
+- Los parámetros de movimiento están pensados para este modelo; otro Live2D usa los estándar de
+  cabeza y cuerpo, sin brazos ni pie
+- El arrastre real con el ratón no se ha probado a mano (sí con movimientos por programa)
+- Pendiente de aclarar: «que se pueda manejar mejor por el computador» se interpretó como manejar
+  la app con ratón y teclado
 
 ## Ideas para el futuro (fuera del alcance actual)
 

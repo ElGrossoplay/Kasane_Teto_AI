@@ -18,6 +18,8 @@ class EventBus(QObject):
     live2d_model_requested = Signal(str)
     context_menu_requested = Signal(QPoint)
     gesture_requested = Signal(str)
+    look_toggled = Signal(str, bool)
+    low_performance_requested = Signal(bool)
     bubble_enabled_requested = Signal(bool)
     theme_requested = Signal(str)
     settings_requested = Signal()

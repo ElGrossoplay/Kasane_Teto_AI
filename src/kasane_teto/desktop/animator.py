@@ -59,6 +59,12 @@ class SpriteAnimator(QObject):
     def poke(self) -> None:
         """Sin reacción al clic."""
 
+    def set_looks(self, names: list[str]) -> None:
+        """Las variantes de aspecto son del modelo Live2D."""
+
+    def set_low_performance(self, low: bool) -> None:
+        """Los sprites ya gastan muy poco."""
+
     def note_drag(self, pixels: float) -> None:
         """Sin inercia al arrastrar."""
 
