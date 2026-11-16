@@ -69,6 +69,7 @@ class SettingsWindow(QDialog):
         live2d_model: str = "",
         bubble: bool = True,
         theme: str = "auto",
+        show_in_game: bool = True,
     ) -> None:
         super().__init__()
         self._discord = discord
@@ -190,6 +191,14 @@ class SettingsWindow(QDialog):
         self._game_auto.setChecked(game_mode_auto)
         self._game_auto.toggled.connect(bus.game_mode_auto_requested)
 
+        self._game_show = QCheckBox("Seguir visible y animada mientras juegas")
+        self._game_show.setToolTip(
+            "Se queda encima del juego, con pocos fotogramas. Solo se ve si el juego va en ventana o "
+            "sin bordes. Desmárcalo si un juego o su anticheat da problemas."
+        )
+        self._game_show.setChecked(show_in_game)
+        self._game_show.toggled.connect(bus.game_show_pet_requested)
+
         self._discord_button = QPushButton("Discord y contactos…")
         self._discord_button.setEnabled(discord is not None)
         self._discord_button.clicked.connect(self._open_discord)
@@ -215,6 +224,7 @@ class SettingsWindow(QDialog):
                 self._bubble,
                 ("Aspecto de las ventanas", self._theme),
                 self._game_auto,
+                self._game_show,
                 hints,
             ),
             "Mascota",

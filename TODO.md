@@ -506,8 +506,11 @@ Limitaciones conocidas:
       e instalar la voz. Corregido en el entorno de entrenamiento: al reanudar se volvía a cargar
       la voz de partida (comprobado: retomando desde la época 50 se mantiene 0,375 de `val_mel`)
 - [ ] M.4 **Diego:** prueba manual
-- [ ] N.1 Tenerla visible y animada mientras juega. Hoy el modo juego la deja quieta y nunca encima
-      del juego (regla de anticheat de CLAUDE.md): cambiarlo lo decide Diego
+- [x] N.1 Visible y animada mientras juega (decisión de Diego, 2026-11-15, que quita la regla de no
+      ponerse encima): en modo juego sigue encima, a 10–15 fps y con bocadillo. La IA sigue soltando
+      la GPU y no hay oído ni atajos. Se apaga en Configuración («Seguir visible y animada mientras
+      juegas») o con `game_mode.show_pet`. Probado en la app real con el modo juego puesto a mano;
+      **sin probar con un juego abierto ni con Vanguard**. A pantalla completa exclusiva no se verá
 
 Medido (2026-11-15) con la app real y la CPU libre, a 90 % de tamaño: normal, 2,2 % de CPU en
 reposo y 4,0 % con gestos (antes 4,7 % siempre); bajo rendimiento, 1,1 % y 1,3 %, y 0,6 %

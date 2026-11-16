@@ -150,6 +150,7 @@ class TetoApp(QObject):
         self._bus.speech_active.connect(lambda active: self._pet.animator.set_talking(active))
         self._bus.gesture_requested.connect(lambda name: self._pet.animator.play_gesture(name))
         self._bus.look_toggled.connect(self._toggle_look)
+        self._bus.game_show_pet_requested.connect(self._set_show_in_game)
         self._bus.low_performance_requested.connect(self._set_low_performance)
         self._tray.set_low_performance(bool(settings.get("pet.low_performance", False)))
         self._bus.theme_requested.connect(self._change_theme)
@@ -191,8 +192,16 @@ class TetoApp(QObject):
         self._bubble.set_blocked(
             not self._pet.isVisible()
             or self._chat_window.isVisible()
-            or self._activity.state is Activity.GAME
+            or (self._activity.state is Activity.GAME and not self._show_in_game)
         )
+
+    @property
+    def _show_in_game(self) -> bool:
+        return bool(self._settings.get("game_mode.show_pet", True))
+
+    def _set_show_in_game(self, enabled: bool) -> None:
+        self._settings.set("game_mode.show_pet", enabled)
+        self._apply_activity(self._activity.state)
 
     def _set_bubble_enabled(self, enabled: bool) -> None:
         self._settings.set("pet.bubble", enabled)
@@ -229,13 +238,23 @@ class TetoApp(QObject):
             self._bus.voice_status.emit(f"El atajo {HOTKEY_LABEL} no está disponible.")
 
     def _apply_activity(self, state: Activity) -> None:
-        """Modo juego: GPU libre, sin oído ni atajo, quieta y nunca encima del juego."""
+        """Modo juego: la IA suelta la GPU y no hay oído ni atajos.
+
+        Por decisión de Diego (2026-11-15) Teto sigue visible y animada sobre el juego, con pocos
+        fotogramas. Es una ventana normal encima de las demás: no se inyecta nada en el juego ni se
+        lee nada de él. Con `game_mode.show_pet = false` vuelve a quedarse quieta y debajo.
+        """
         game = state is Activity.GAME
         suspended = state is Activity.SUSPENDED
+        hidden_in_game = game and not self._show_in_game
         self._resources.set_game_mode(game)
-        self._pet.set_game_mode(game)
+        self._pet.set_game_mode(hidden_in_game)
+        self._pet.animator.set_low_performance(
+            game or bool(self._settings.get("pet.low_performance", False))
+        )
         self._pet.animator.set_pace(
-            still=game or suspended, max_fps=IDLE_MAX_FPS if state is Activity.IDLE else None
+            still=hidden_in_game or suspended,
+            max_fps=IDLE_MAX_FPS if state is Activity.IDLE else None,
         )
         self._listen.set_blocked(GAME_LISTEN_REASON if game else "")
         if game:
@@ -316,7 +335,7 @@ class TetoApp(QObject):
 
     def _set_low_performance(self, low: bool) -> None:
         self._settings.set("pet.low_performance", low)
-        self._pet.animator.set_low_performance(low)
+        self._pet.animator.set_low_performance(low or self._activity.state is Activity.GAME)
         self._tray.set_low_performance(low)
 
     def _on_live2d_failed(self, reason: str) -> None:
@@ -410,6 +429,7 @@ class TetoApp(QObject):
             str(self._settings.get("pet.live2d_model", "") or ""),
             bool(self._settings.get("pet.bubble", True)),
             str(self._settings.get("interface.theme", "auto")),
+            self._show_in_game,
         )
         window.destroyed.connect(self._on_settings_closed)
         self._settings_window = window

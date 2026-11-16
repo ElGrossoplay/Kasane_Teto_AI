@@ -28,6 +28,7 @@ class EventBus(QObject):
     ai_unload_requested = Signal()
     game_mode_requested = Signal(bool)
     game_mode_auto_requested = Signal(bool)
+    game_show_pet_requested = Signal(bool)
     suspend_requested = Signal(bool)
     user_message = Signal(str)
     generation_stop_requested = Signal()

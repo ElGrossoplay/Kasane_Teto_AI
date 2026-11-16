@@ -59,6 +59,7 @@ auto = true           # pasa al modo juego al ver un juego en primer plano (solo
 check_seconds = 5     # cada cuánto mira la ventana activa
 exit_seconds = 30     # tiempo sin ver el juego delante antes de salir del modo juego
 titles = []           # títulos de juegos que no se detecten solos, p. ej. ["Hollow Knight"]
+show_pet = true       # Teto sigue visible y animada (a pocos fotogramas) sobre el juego; decisión de Diego
 ai_threads = 3        # si le hablas jugando, la IA va en CPU con pocos hilos para no frenar el juego
 
 [memory]

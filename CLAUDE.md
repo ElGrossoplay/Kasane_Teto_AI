@@ -29,7 +29,7 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 | STT | faster-whisper `large-v3-turbo` int8 en CPU (98 % con auriculares, ~8 s por frase; `small` 89 %, 2,4 s), en `models/whisper/venv` + `workers/whisper_worker.py`. Push-to-talk con `Ctrl+Alt+T` (alterna) o botón. Micrófono apagado por defecto |
 | Memoria | SQLite + FTS5, sin embeddings por ahora. Datos en `%LOCALAPPDATA%\KasaneTetoAI\` |
 | Conocimiento | Fichas TOML verificadas en `assets/knowledge/`; solo las relevantes llegan al modelo. Sin datos sin contrastar |
-| Mascota | Sprites PNG por estado con "paquetes de personaje", o Live2D con live2d-py (decisión de Diego, 2026-11-08): el modelo se lee donde lo tenga Diego, nunca se copia ni se sube; texturas reducidas a 2048 px en la caché local. Se libera en modo juego |
+| Mascota | Sprites PNG por estado con "paquetes de personaje", o Live2D con live2d-py (decisión de Diego, 2026-11-08): el modelo se lee donde lo tenga Diego, nunca se copia ni se sube; texturas reducidas a 2048 px en la caché local. En modo juego sigue visible y animada a pocos fotogramas (decisión de Diego, 2026-11-15; `game_mode.show_pet`) |
 | Herramientas | Lista blanca + validación. Abre las apps del menú Inicio y del catálogo, salvo consolas, herramientas del sistema, desinstaladores y Cheat Engine. Abrir, cerrar y consultar actúan directamente (decisión de Diego); confirmar es opcional. Órdenes con reglas fijas: el modelo nunca decide acciones. Control de Windows **desactivado por defecto** |
 | Web | Opcional y desactivada por defecto, con dos interruptores. Música: API pública de VocaDB. General (`tools/info_sources.py`): Wikipedia, Wikcionario, Open-Meteo, Frankfurter, AniList y Open Library, solo APIs oficiales sin clave, con caché, límite diario y citando la fuente. Lo que VocaDB no conoce va a Wikipedia. Fandom solo con su permiso escrito. Sin buscadores no oficiales (`ddgs`) |
 | Pantalla y comentarios | Títulos de ventana para el contexto. Captura solo si Diego lo pide, en memoria, nunca con un juego abierto. Comentarios opcionales: en juegos, frases preparadas sin IA |
@@ -72,7 +72,8 @@ Desarrollador: Diego. Idioma de trabajo y de la app: **español**.
 - Nada se guarda en memoria sin confirmación del usuario. Nada sale a Internet sin consentimiento,
   y nunca recuerdos personales en consultas web.
 - La IA no modifica su propio código.
-- Juegos y anticheat: nunca forzar la superposición sobre un juego. Sin inyección, ganchos de teclado
+- Juegos y anticheat: la mascota puede quedarse encima del juego como ventana normal (decisión de
+  Diego, 2026-11-15; se desactiva con `game_mode.show_pet`). Sin inyección, ganchos de teclado
   o ratón, overlays de GPU, capturas de pantalla del juego, lectura de su memoria ni apertura de su
   proceso. Tampoco se listan procesos (`process_iter`): recorrerlos abre también los del juego; lo
   vigila `tests/test_tools.py`. Manejar ventanas solo por título, nunca a pantalla completa, sin barra
